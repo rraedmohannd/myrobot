@@ -1,0 +1,24 @@
+{
+  "source": {
+    "url": "meu-web://department-graphic-design",
+    "title": "Department of Graphic Design — MEU website (English)",
+    "lang": "en",
+    "notes": "Text copied by the student from the official MEU website (Graphic Design department page) on 2026-11-06. The mission paragraph was pasted twice; stored once. The page's history wording ('a journey that lasted four years', 'Faculty of Architecture and Design') reflects when the page was written; the faculty is now the Faculty of Engineering & Design. Exact page URL still to be recorded."
+  },
+  "program": {
+    "slug": "graphic-design",
+    "summary_en": "Prepares talented graphic designers in printed visuals and modern animation for journalism and advertising, with current technologies and programming methods related to the specialization."
+  },
+  "chunks": [
+    {
+      "category": "program_overview",
+      "lang": "en",
+      "text": "Graphic Design (التصميم الجرافيكي) at Middle East University — about the department (department page).\nThe Department of Graphic Design was introduced as one of the Faculty of Arts and Sciences departments in the academic year 2008/2009, and became part of the Faculty of Architecture and Design in the academic year 2010/2011 (the faculty is now called the Faculty of Engineering & Design). The department aims to become one of the best departments in the Kingdom, with emphasis on preparing talented graphic designers in the fields of printed visuals and modern animation methods in journalism and advertisement, who know the most recent technologies and programming methods related to the specialization."
+    },
+    {
+      "category": "program_overview",
+      "lang": "en",
+      "text": "Graphic Design — department mission (department page).\nThe mission of the department is to prepare and educate students in various graphic design fields and visual aids such as magazines, newspapers, books and covers, in addition to animation and advertisement campaigns, to achieve planned goals that serve the community."
+    }
+  ]
+}

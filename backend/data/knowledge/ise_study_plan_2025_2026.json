@@ -1,0 +1,1434 @@
+{
+  "source": {
+    "url": "meu-document://study-plans/intelligent-systems-engineering/bsc-2025-2026",
+    "title": "Study Plan — B.Sc. Intelligent Systems Engineering 2025/2026 (official MEU PDF)",
+    "lang": "en",
+    "academic_year": "2025/2026",
+    "file": "documents/ise-bsc-study-plan-2025-2026.pdf",
+    "notes": "Official study plan PDF provided by the student on 2026-11-06. Faculty Council decision 03/06-2025/2026 (adopted 06/11/2025); Deans' Council decision 07/15-2025/2026 (adopted 30/12/2025). Form F030 Rev. e."
+  },
+  "faculty": {
+    "slug": "engineering-and-design",
+    "name_en": "Faculty of Engineering & Design",
+    "name_ar": "كلية الهندسة والتصميم"
+  },
+  "program": {
+    "slug": "intelligent-systems-engineering",
+    "name_en": "Intelligent Systems Engineering",
+    "name_ar": "هندسة الأنظمة الذكية",
+    "degree": "BSc",
+    "credit_hours": 162,
+    "academic_year": "2025/2026"
+  },
+  "chunks": [
+    {
+      "category": "study_plan",
+      "lang": "en",
+      "text": "Intelligent Systems Engineering (هندسة الأنظمة الذكية) — B.Sc. study plan 2025/2026, Faculty of Engineering & Design, Middle East University.\nThe degree requires 162 credit hours in total:\n- University requirements: 18 credit hours (compulsory)\n- University electives: 6 credit hours\n- Faculty requirements: 24 credit hours (group A: 6, group C: 18 — mathematics, physics, chemistry)\n- Area of study (major) requirements: 83 credit hours\n- Ancillary (supporting) courses: 22 credit hours\n- Area of study (major) electives: 9 credit hours\nRemedial courses (Arabic, English, computer skills) are taken only when required and are not counted in the 162 hours.\nThe plan includes a two-part graduation project (Graduation Project I after 120 completed credit hours, then Graduation Project II) and external Field Training (after 110 completed credit hours)."
+    },
+    {
+      "category": "study_plan",
+      "lang": "en",
+      "text": "Intelligent Systems Engineering study plan 2025/2026 — approvals and signatories.\nFaculty Council decision 03/06-2025/2026, adopted 06/11/2025. Deans' Council decision 07/15-2025/2026, adopted 30/12/2025.\nHead of Department: Dr. Mohammad Klaib. Dean of the Faculty: Prof. Ayman Abdel Salam Awad. Director of Admissions and Registration: Mrs. Nadia Al-Bakri."
+    },
+    {
+      "category": "study_plan",
+      "lang": "en",
+      "text": "Intelligent Systems Engineering — robotics, AI and hardware courses in the 2025/2026 study plan:\nRobot Programming (برمجة الروبوت, 1924704), Human Robot Interaction (elective, 1925609), Embedded Systems (1923803), Sensors and Actuators with lab (1924806/1924807), Internet of Things (1924805), Control Systems with lab (1915301/1915302), Micro-Processors (1923802), Introduction to Artificial Intelligence (1922601), Machine Learning (1923603), Deep Learning (1924606), Fuzzy and Neural Networks (1923604), Image Processing & Computer Vision (1924605), Data Science (1922602), Digital Signal Processing (1923402) and Object Oriented Python Programming (1922701)."
+    }
+  ],
+  "courses": [
+    {
+      "group": "university_requirements",
+      "group_title": "University Requirements",
+      "group_credit_hours": 18,
+      "group_rule": "compulsory",
+      "code": "A0161101",
+      "title_en": "Arabic Communication Skills",
+      "title_ar": "مهارات الاتصال باللغة العربية",
+      "credit_hours": 3,
+      "theory_hours": 3,
+      "practical_hours": 0,
+      "prerequisites": [
+        "A0161100"
+      ],
+      "learning": "online",
+      "jnqf_level": 5
+    },
+    {
+      "group": "university_requirements",
+      "group_title": "University Requirements",
+      "group_credit_hours": 18,
+      "group_rule": "compulsory",
+      "code": "A0161201",
+      "title_en": "English Communication Skills",
+      "title_ar": "مهارات الاتصال باللغة الإنجليزية",
+      "credit_hours": 3,
+      "theory_hours": 3,
+      "practical_hours": 0,
+      "prerequisites": [
+        "A0161200"
+      ],
+      "learning": "online",
+      "jnqf_level": 5
+    },
+    {
+      "group": "university_requirements",
+      "group_title": "University Requirements",
+      "group_credit_hours": 18,
+      "group_rule": "compulsory",
+      "code": "A0161301",
+      "title_en": "National Education",
+      "title_ar": "التربية الوطنية",
+      "credit_hours": 3,
+      "theory_hours": 3,
+      "practical_hours": 0,
+      "prerequisites": [],
+      "learning": "blended",
+      "jnqf_level": 5
+    },
+    {
+      "group": "university_requirements",
+      "group_title": "University Requirements",
+      "group_credit_hours": 18,
+      "group_rule": "compulsory",
+      "code": "A0161302",
+      "title_en": "Military Science",
+      "title_ar": "العلوم العسكرية",
+      "credit_hours": 3,
+      "theory_hours": 3,
+      "practical_hours": 0,
+      "prerequisites": [],
+      "learning": "online",
+      "jnqf_level": 5
+    },
+    {
+      "group": "university_requirements",
+      "group_title": "University Requirements",
+      "group_credit_hours": 18,
+      "group_rule": "compulsory",
+      "code": "A0161400",
+      "title_en": "Community Service",
+      "title_ar": "خدمة المجتمع",
+      "credit_hours": 0,
+      "theory_hours": 0,
+      "practical_hours": 0,
+      "prerequisites": [],
+      "learning": "face-to-face",
+      "jnqf_level": 5
+    },
+    {
+      "group": "university_requirements",
+      "group_title": "University Requirements",
+      "group_credit_hours": 18,
+      "group_rule": "compulsory",
+      "code": "A0161401",
+      "title_en": "Life Skills",
+      "title_ar": "مهارات حياتية",
+      "credit_hours": 3,
+      "theory_hours": 3,
+      "practical_hours": 0,
+      "prerequisites": [],
+      "learning": "blended",
+      "jnqf_level": 5
+    },
+    {
+      "group": "university_requirements",
+      "group_title": "University Requirements",
+      "group_credit_hours": 18,
+      "group_rule": "compulsory",
+      "code": "A0181501",
+      "title_en": "Artificial Intelligence and Cybersecurity",
+      "title_ar": "الذكاء الاصطناعي والأمن السيبراني",
+      "credit_hours": 3,
+      "theory_hours": 3,
+      "practical_hours": 0,
+      "prerequisites": [],
+      "learning": "blended",
+      "jnqf_level": 5
+    },
+    {
+      "group": "university_electives",
+      "group_title": "University Electives",
+      "group_credit_hours": 6,
+      "group_rule": "choose 6 credit hours",
+      "code": "A0161303",
+      "title_en": "Media Literacy",
+      "title_ar": "الدراية الإعلامية",
+      "credit_hours": 1,
+      "theory_hours": 1,
+      "practical_hours": 0,
+      "prerequisites": [],
+      "learning": "online",
+      "jnqf_level": 5
+    },
+    {
+      "group": "university_electives",
+      "group_title": "University Electives",
+      "group_credit_hours": 6,
+      "group_rule": "choose 6 credit hours",
+      "code": "A0161305",
+      "title_en": "Social Responsibility",
+      "title_ar": "المسؤولية المجتمعية",
+      "credit_hours": 3,
+      "theory_hours": 3,
+      "practical_hours": 0,
+      "prerequisites": [],
+      "learning": "online",
+      "jnqf_level": 5
+    },
+    {
+      "group": "university_electives",
+      "group_title": "University Electives",
+      "group_credit_hours": 6,
+      "group_rule": "choose 6 credit hours",
+      "code": "A0161402",
+      "title_en": "Leadership, Entrepreneurship, and Innovation",
+      "title_ar": "القيادة والريادة والابتكار",
+      "credit_hours": 1,
+      "theory_hours": 1,
+      "practical_hours": 0,
+      "prerequisites": [],
+      "learning": "online",
+      "jnqf_level": 5
+    },
+    {
+      "group": "university_electives",
+      "group_title": "University Electives",
+      "group_credit_hours": 6,
+      "group_rule": "choose 6 credit hours",
+      "code": "A0161403",
+      "title_en": "Practical Applications in Sustainability",
+      "title_ar": "تطبيقات عملية في الاستدامة",
+      "credit_hours": 1,
+      "theory_hours": 1,
+      "practical_hours": 0,
+      "prerequisites": [],
+      "learning": "online",
+      "jnqf_level": 5
+    },
+    {
+      "group": "university_electives",
+      "group_title": "University Electives",
+      "group_credit_hours": 6,
+      "group_rule": "choose 6 credit hours",
+      "code": "A0161404",
+      "title_en": "The Art of Etiquette",
+      "title_ar": "فن الإتيكيت",
+      "credit_hours": 1,
+      "theory_hours": 1,
+      "practical_hours": 0,
+      "prerequisites": [],
+      "learning": "online",
+      "jnqf_level": 5
+    },
+    {
+      "group": "university_electives",
+      "group_title": "University Electives",
+      "group_credit_hours": 6,
+      "group_rule": "choose 6 credit hours",
+      "code": "A0161501",
+      "title_en": "Islamic Education",
+      "title_ar": "الثقافة الإسلامية",
+      "credit_hours": 3,
+      "theory_hours": 3,
+      "practical_hours": 0,
+      "prerequisites": [],
+      "learning": "online",
+      "jnqf_level": 5
+    },
+    {
+      "group": "university_electives",
+      "group_title": "University Electives",
+      "group_credit_hours": 6,
+      "group_rule": "choose 6 credit hours",
+      "code": "A0161502",
+      "title_en": "Jerusalem (The Question of Palestine)",
+      "title_ar": "القدس (القضية الفلسطينية)",
+      "credit_hours": 3,
+      "theory_hours": 3,
+      "practical_hours": 0,
+      "prerequisites": [],
+      "learning": "online",
+      "jnqf_level": 5
+    },
+    {
+      "group": "university_electives",
+      "group_title": "University Electives",
+      "group_credit_hours": 6,
+      "group_rule": "choose 6 credit hours",
+      "code": "A0161503",
+      "title_en": "Critical Thinking",
+      "title_ar": "الفكر الناقد",
+      "credit_hours": 2,
+      "theory_hours": 2,
+      "practical_hours": 0,
+      "prerequisites": [],
+      "learning": "online",
+      "jnqf_level": 5
+    },
+    {
+      "group": "university_electives",
+      "group_title": "University Electives",
+      "group_credit_hours": 6,
+      "group_rule": "choose 6 credit hours",
+      "code": "A0161504",
+      "title_en": "Law and Everyday Life",
+      "title_ar": "القانون في حياتنا",
+      "credit_hours": 2,
+      "theory_hours": 2,
+      "practical_hours": 0,
+      "prerequisites": [],
+      "learning": "online",
+      "jnqf_level": 5
+    },
+    {
+      "group": "university_electives",
+      "group_title": "University Electives",
+      "group_credit_hours": 6,
+      "group_rule": "choose 6 credit hours",
+      "code": "A0161309",
+      "title_en": "Traffic Safety",
+      "title_ar": "السلامة المرورية",
+      "credit_hours": 1,
+      "theory_hours": 1,
+      "practical_hours": 0,
+      "prerequisites": [],
+      "learning": "online",
+      "jnqf_level": 5
+    },
+    {
+      "group": "university_electives",
+      "group_title": "University Electives",
+      "group_credit_hours": 6,
+      "group_rule": "choose 6 credit hours",
+      "code": "A0181502",
+      "title_en": "Programming for Non-Programmers",
+      "title_ar": "البرمجة لغير المبرمجين",
+      "credit_hours": 2,
+      "theory_hours": 2,
+      "practical_hours": 0,
+      "prerequisites": [],
+      "learning": "online",
+      "jnqf_level": 5
+    },
+    {
+      "group": "university_electives",
+      "group_title": "University Electives",
+      "group_credit_hours": 6,
+      "group_rule": "choose 6 credit hours",
+      "code": "A0181601",
+      "title_en": "First Aid",
+      "title_ar": "إسعافات أولية",
+      "credit_hours": 1,
+      "theory_hours": 1,
+      "practical_hours": 0,
+      "prerequisites": [],
+      "learning": "online",
+      "jnqf_level": 5
+    },
+    {
+      "group": "university_electives",
+      "group_title": "University Electives",
+      "group_credit_hours": 6,
+      "group_rule": "choose 6 credit hours",
+      "code": "A0181602",
+      "title_en": "Public Health and Nutrition",
+      "title_ar": "الصحة العامة والتغذية",
+      "credit_hours": 2,
+      "theory_hours": 2,
+      "practical_hours": 0,
+      "prerequisites": [],
+      "learning": "online",
+      "jnqf_level": 5
+    },
+    {
+      "group": "university_electives",
+      "group_title": "University Electives",
+      "group_credit_hours": 6,
+      "group_rule": "choose 6 credit hours",
+      "code": "A0181508",
+      "title_en": "Data Analysis",
+      "title_ar": "تحليل البيانات",
+      "credit_hours": 2,
+      "theory_hours": 2,
+      "practical_hours": 0,
+      "prerequisites": [],
+      "learning": "online",
+      "jnqf_level": 5
+    },
+    {
+      "group": "faculty_requirements_a",
+      "group_title": "Faculty Requirements A",
+      "group_credit_hours": 6,
+      "group_rule": "compulsory",
+      "code": "1913201",
+      "title_en": "Communication Skills and Professional Ethics",
+      "title_ar": "مهارات الاتصال وأخلاقيات المهنة",
+      "credit_hours": 1,
+      "theory_hours": 1,
+      "practical_hours": 0,
+      "prerequisites": [
+        "A0161201"
+      ],
+      "learning": "blended",
+      "jnqf_level": 6
+    },
+    {
+      "group": "faculty_requirements_a",
+      "group_title": "Faculty Requirements A",
+      "group_credit_hours": 6,
+      "group_rule": "compulsory",
+      "code": "A0162204",
+      "title_en": "Communication Skills for Engineering and Design in English",
+      "title_ar": "مهارات الاتصال باللغة الإنجليزية للهندسة والتصميم",
+      "credit_hours": 2,
+      "theory_hours": 2,
+      "practical_hours": 0,
+      "prerequisites": [
+        "A0161201"
+      ],
+      "learning": "blended",
+      "jnqf_level": 6
+    },
+    {
+      "group": "faculty_requirements_a",
+      "group_title": "Faculty Requirements A",
+      "group_credit_hours": 6,
+      "group_rule": "compulsory",
+      "code": "A0163401",
+      "title_en": "Introduction to Project Management",
+      "title_ar": "مقدمة في إدارة المشاريع",
+      "credit_hours": 3,
+      "theory_hours": 3,
+      "practical_hours": 0,
+      "prerequisites": [
+        "60 credit hours completed"
+      ],
+      "learning": "blended",
+      "jnqf_level": 6
+    },
+    {
+      "group": "faculty_requirements_c",
+      "group_title": "Faculty Requirements C",
+      "group_credit_hours": 18,
+      "group_rule": "compulsory",
+      "code": "A0181101",
+      "title_en": "Calculus I",
+      "title_ar": "تفاضل وتكامل (1)",
+      "credit_hours": 3,
+      "theory_hours": 3,
+      "practical_hours": 0,
+      "prerequisites": [],
+      "learning": "face-to-face",
+      "jnqf_level": 5
+    },
+    {
+      "group": "faculty_requirements_c",
+      "group_title": "Faculty Requirements C",
+      "group_credit_hours": 18,
+      "group_rule": "compulsory",
+      "code": "A0181102",
+      "title_en": "Calculus II",
+      "title_ar": "تفاضل وتكامل (2)",
+      "credit_hours": 3,
+      "theory_hours": 3,
+      "practical_hours": 0,
+      "prerequisites": [
+        "A0181101"
+      ],
+      "learning": "face-to-face",
+      "jnqf_level": 6
+    },
+    {
+      "group": "faculty_requirements_c",
+      "group_title": "Faculty Requirements C",
+      "group_credit_hours": 18,
+      "group_rule": "compulsory",
+      "code": "A0181201",
+      "title_en": "Physics I",
+      "title_ar": "فيزياء عامة (1)",
+      "credit_hours": 3,
+      "theory_hours": 3,
+      "practical_hours": 0,
+      "prerequisites": [],
+      "learning": "face-to-face",
+      "jnqf_level": 5
+    },
+    {
+      "group": "faculty_requirements_c",
+      "group_title": "Faculty Requirements C",
+      "group_credit_hours": 18,
+      "group_rule": "compulsory",
+      "code": "A0181202",
+      "title_en": "Physics I (Lab)",
+      "title_ar": "فيزياء عامة (1) عملي",
+      "credit_hours": 1,
+      "theory_hours": 0,
+      "practical_hours": 2,
+      "prerequisites": [
+        "A0181201 (concurrent)"
+      ],
+      "learning": "face-to-face",
+      "jnqf_level": 5
+    },
+    {
+      "group": "faculty_requirements_c",
+      "group_title": "Faculty Requirements C",
+      "group_credit_hours": 18,
+      "group_rule": "compulsory",
+      "code": "A0181203",
+      "title_en": "Physics II",
+      "title_ar": "فيزياء عامة (2)",
+      "credit_hours": 3,
+      "theory_hours": 3,
+      "practical_hours": 0,
+      "prerequisites": [
+        "A0181201"
+      ],
+      "learning": "face-to-face",
+      "jnqf_level": 6
+    },
+    {
+      "group": "faculty_requirements_c",
+      "group_title": "Faculty Requirements C",
+      "group_credit_hours": 18,
+      "group_rule": "compulsory",
+      "code": "A0181204",
+      "title_en": "Physics II (Lab)",
+      "title_ar": "فيزياء عامة (2) عملي",
+      "credit_hours": 1,
+      "theory_hours": 0,
+      "practical_hours": 2,
+      "prerequisites": [
+        "A0181203 (concurrent)"
+      ],
+      "learning": "face-to-face",
+      "jnqf_level": 6
+    },
+    {
+      "group": "faculty_requirements_c",
+      "group_title": "Faculty Requirements C",
+      "group_credit_hours": 18,
+      "group_rule": "compulsory",
+      "code": "A0181301",
+      "title_en": "General Chemistry",
+      "title_ar": "كيمياء عامة",
+      "credit_hours": 3,
+      "theory_hours": 3,
+      "practical_hours": 0,
+      "prerequisites": [],
+      "learning": "face-to-face",
+      "jnqf_level": 5
+    },
+    {
+      "group": "faculty_requirements_c",
+      "group_title": "Faculty Requirements C",
+      "group_credit_hours": 18,
+      "group_rule": "compulsory",
+      "code": "A0181302",
+      "title_en": "General Chemistry (Lab)",
+      "title_ar": "كيمياء عامة عملي",
+      "credit_hours": 1,
+      "theory_hours": 0,
+      "practical_hours": 2,
+      "prerequisites": [
+        "A0181301 (concurrent)"
+      ],
+      "learning": "face-to-face",
+      "jnqf_level": 5
+    },
+    {
+      "group": "area_of_study_requirements",
+      "group_title": "Area of Study (Major) Requirements",
+      "group_credit_hours": 83,
+      "group_rule": "compulsory",
+      "code": "1921301",
+      "title_en": "Digital Logic Design",
+      "title_ar": "تصميم المنطق الرقمي",
+      "credit_hours": 3,
+      "theory_hours": 2,
+      "practical_hours": 2,
+      "prerequisites": [],
+      "learning": "face-to-face",
+      "jnqf_level": 6
+    },
+    {
+      "group": "area_of_study_requirements",
+      "group_title": "Area of Study (Major) Requirements",
+      "group_credit_hours": 83,
+      "group_rule": "compulsory",
+      "code": "1922201",
+      "title_en": "Engineering Programming",
+      "title_ar": "برمجة هندسية",
+      "credit_hours": 3,
+      "theory_hours": 3,
+      "practical_hours": 0,
+      "prerequisites": [
+        "A0181101"
+      ],
+      "learning": "blended",
+      "jnqf_level": 6
+    },
+    {
+      "group": "area_of_study_requirements",
+      "group_title": "Area of Study (Major) Requirements",
+      "group_credit_hours": 83,
+      "group_rule": "compulsory",
+      "code": "1922302",
+      "title_en": "Electric Circuits",
+      "title_ar": "الدوائر الكهربائية",
+      "credit_hours": 3,
+      "theory_hours": 3,
+      "practical_hours": 0,
+      "prerequisites": [
+        "A0181203"
+      ],
+      "learning": "face-to-face",
+      "jnqf_level": 6
+    },
+    {
+      "group": "area_of_study_requirements",
+      "group_title": "Area of Study (Major) Requirements",
+      "group_credit_hours": 83,
+      "group_rule": "compulsory",
+      "code": "1922303",
+      "title_en": "Electronics for Intelligent Systems",
+      "title_ar": "إلكترونيات الأنظمة الذكية",
+      "credit_hours": 3,
+      "theory_hours": 3,
+      "practical_hours": 0,
+      "prerequisites": [
+        "1922302"
+      ],
+      "learning": "face-to-face",
+      "jnqf_level": 6
+    },
+    {
+      "group": "area_of_study_requirements",
+      "group_title": "Area of Study (Major) Requirements",
+      "group_credit_hours": 83,
+      "group_rule": "compulsory",
+      "code": "1922304",
+      "title_en": "Electronics for Intelligent Systems Lab",
+      "title_ar": "مختبر إلكترونيات الأنظمة الذكية",
+      "credit_hours": 1,
+      "theory_hours": 0,
+      "practical_hours": 2,
+      "prerequisites": [
+        "1922303 (concurrent)"
+      ],
+      "learning": "face-to-face",
+      "jnqf_level": 6
+    },
+    {
+      "group": "area_of_study_requirements",
+      "group_title": "Area of Study (Major) Requirements",
+      "group_credit_hours": 83,
+      "group_rule": "compulsory",
+      "code": "1922601",
+      "title_en": "Introduction to Artificial Intelligence",
+      "title_ar": "مبادئ الذكاء الاصطناعي",
+      "credit_hours": 3,
+      "theory_hours": 3,
+      "practical_hours": 0,
+      "prerequisites": [],
+      "learning": "blended",
+      "jnqf_level": 6
+    },
+    {
+      "group": "area_of_study_requirements",
+      "group_title": "Area of Study (Major) Requirements",
+      "group_credit_hours": 83,
+      "group_rule": "compulsory",
+      "code": "1922602",
+      "title_en": "Data Science",
+      "title_ar": "علم البيانات",
+      "credit_hours": 3,
+      "theory_hours": 3,
+      "practical_hours": 0,
+      "prerequisites": [
+        "1922701",
+        "1922601"
+      ],
+      "learning": "face-to-face",
+      "jnqf_level": 7
+    },
+    {
+      "group": "area_of_study_requirements",
+      "group_title": "Area of Study (Major) Requirements",
+      "group_credit_hours": 83,
+      "group_rule": "compulsory",
+      "code": "1922701",
+      "title_en": "Object Oriented Python Programming",
+      "title_ar": "البرمجة الكينونية بلغة بايثون",
+      "credit_hours": 3,
+      "theory_hours": 3,
+      "practical_hours": 0,
+      "prerequisites": [
+        "1922201"
+      ],
+      "learning": "face-to-face",
+      "jnqf_level": 7
+    },
+    {
+      "group": "area_of_study_requirements",
+      "group_title": "Area of Study (Major) Requirements",
+      "group_credit_hours": 83,
+      "group_rule": "compulsory",
+      "code": "1922702",
+      "title_en": "Algorithm Design and Analysis",
+      "title_ar": "تصميم وتحليل الخوارزميات",
+      "credit_hours": 3,
+      "theory_hours": 3,
+      "practical_hours": 0,
+      "prerequisites": [
+        "1922701"
+      ],
+      "learning": "blended",
+      "jnqf_level": 7
+    },
+    {
+      "group": "area_of_study_requirements",
+      "group_title": "Area of Study (Major) Requirements",
+      "group_credit_hours": 83,
+      "group_rule": "compulsory",
+      "code": "1923401",
+      "title_en": "Signals and Systems",
+      "title_ar": "الإشارات والنظم",
+      "credit_hours": 3,
+      "theory_hours": 3,
+      "practical_hours": 0,
+      "prerequisites": [
+        "A0183105"
+      ],
+      "learning": "face-to-face",
+      "jnqf_level": 7
+    },
+    {
+      "group": "area_of_study_requirements",
+      "group_title": "Area of Study (Major) Requirements",
+      "group_credit_hours": 83,
+      "group_rule": "compulsory",
+      "code": "1923402",
+      "title_en": "Digital Signal Processing",
+      "title_ar": "معالجة الإشارات الرقمية",
+      "credit_hours": 3,
+      "theory_hours": 3,
+      "practical_hours": 0,
+      "prerequisites": [
+        "1923401"
+      ],
+      "learning": "face-to-face",
+      "jnqf_level": 7
+    },
+    {
+      "group": "area_of_study_requirements",
+      "group_title": "Area of Study (Major) Requirements",
+      "group_credit_hours": 83,
+      "group_rule": "compulsory",
+      "code": "1923504",
+      "title_en": "Electric Circuits and Machines",
+      "title_ar": "الدارات والآلات الكهربائية",
+      "credit_hours": 3,
+      "theory_hours": 3,
+      "practical_hours": 0,
+      "prerequisites": [
+        "1922302"
+      ],
+      "learning": "face-to-face",
+      "jnqf_level": 7
+    },
+    {
+      "group": "area_of_study_requirements",
+      "group_title": "Area of Study (Major) Requirements",
+      "group_credit_hours": 83,
+      "group_rule": "compulsory",
+      "code": "1923505",
+      "title_en": "Electric Circuits and Machines Lab",
+      "title_ar": "مختبر الدارات والآلات الكهربائية",
+      "credit_hours": 1,
+      "theory_hours": 0,
+      "practical_hours": 2,
+      "prerequisites": [
+        "1922304",
+        "1923504 (concurrent)"
+      ],
+      "learning": "face-to-face",
+      "jnqf_level": 7
+    },
+    {
+      "group": "area_of_study_requirements",
+      "group_title": "Area of Study (Major) Requirements",
+      "group_credit_hours": 83,
+      "group_rule": "compulsory",
+      "code": "1923603",
+      "title_en": "Machine Learning",
+      "title_ar": "تعلم الآلة",
+      "credit_hours": 3,
+      "theory_hours": 3,
+      "practical_hours": 0,
+      "prerequisites": [
+        "1922602"
+      ],
+      "learning": "face-to-face",
+      "jnqf_level": 7
+    },
+    {
+      "group": "area_of_study_requirements",
+      "group_title": "Area of Study (Major) Requirements",
+      "group_credit_hours": 83,
+      "group_rule": "compulsory",
+      "code": "1923604",
+      "title_en": "Fuzzy and Neural Networks",
+      "title_ar": "الشبكات العصبونية والضبابية",
+      "credit_hours": 3,
+      "theory_hours": 3,
+      "practical_hours": 0,
+      "prerequisites": [
+        "1922602"
+      ],
+      "learning": "blended",
+      "jnqf_level": 7
+    },
+    {
+      "group": "area_of_study_requirements",
+      "group_title": "Area of Study (Major) Requirements",
+      "group_credit_hours": 83,
+      "group_rule": "compulsory",
+      "code": "1923703",
+      "title_en": "Database Management System",
+      "title_ar": "إدارة قواعد البيانات",
+      "credit_hours": 3,
+      "theory_hours": 3,
+      "practical_hours": 0,
+      "prerequisites": [
+        "1922201"
+      ],
+      "learning": "blended",
+      "jnqf_level": 7
+    },
+    {
+      "group": "area_of_study_requirements",
+      "group_title": "Area of Study (Major) Requirements",
+      "group_credit_hours": 83,
+      "group_rule": "compulsory",
+      "code": "1923706",
+      "title_en": "Visual Programming",
+      "title_ar": "البرمجة المرئية",
+      "credit_hours": 3,
+      "theory_hours": 3,
+      "practical_hours": 0,
+      "prerequisites": [
+        "1922701"
+      ],
+      "learning": "blended",
+      "jnqf_level": 6
+    },
+    {
+      "group": "area_of_study_requirements",
+      "group_title": "Area of Study (Major) Requirements",
+      "group_credit_hours": 83,
+      "group_rule": "compulsory",
+      "code": "1923802",
+      "title_en": "Micro-Processors",
+      "title_ar": "المعالجات الدقيقة",
+      "credit_hours": 3,
+      "theory_hours": 3,
+      "practical_hours": 0,
+      "prerequisites": [
+        "1921301"
+      ],
+      "learning": "face-to-face",
+      "jnqf_level": 7
+    },
+    {
+      "group": "area_of_study_requirements",
+      "group_title": "Area of Study (Major) Requirements",
+      "group_credit_hours": 83,
+      "group_rule": "compulsory",
+      "code": "1923803",
+      "title_en": "Embedded Systems",
+      "title_ar": "الأنظمة المضمنة",
+      "credit_hours": 3,
+      "theory_hours": 2,
+      "practical_hours": 2,
+      "prerequisites": [
+        "1922303",
+        "1922201"
+      ],
+      "learning": "face-to-face",
+      "jnqf_level": 7
+    },
+    {
+      "group": "area_of_study_requirements",
+      "group_title": "Area of Study (Major) Requirements",
+      "group_credit_hours": 83,
+      "group_rule": "compulsory",
+      "code": "1924403",
+      "title_en": "Computer Networks",
+      "title_ar": "شبكات الحاسوب",
+      "credit_hours": 3,
+      "theory_hours": 3,
+      "practical_hours": 0,
+      "prerequisites": [
+        "1922702"
+      ],
+      "learning": "blended",
+      "jnqf_level": 7
+    },
+    {
+      "group": "area_of_study_requirements",
+      "group_title": "Area of Study (Major) Requirements",
+      "group_credit_hours": 83,
+      "group_rule": "compulsory",
+      "code": "1924605",
+      "title_en": "Image Processing & Computer Vision",
+      "title_ar": "معالجة الصور والرؤية بالحاسوب",
+      "credit_hours": 3,
+      "theory_hours": 3,
+      "practical_hours": 0,
+      "prerequisites": [
+        "1923402"
+      ],
+      "learning": "online",
+      "jnqf_level": 7
+    },
+    {
+      "group": "area_of_study_requirements",
+      "group_title": "Area of Study (Major) Requirements",
+      "group_credit_hours": 83,
+      "group_rule": "compulsory",
+      "code": "1924606",
+      "title_en": "Deep Learning",
+      "title_ar": "التعلم العميق",
+      "credit_hours": 3,
+      "theory_hours": 3,
+      "practical_hours": 0,
+      "prerequisites": [
+        "1923604",
+        "1923603"
+      ],
+      "learning": "face-to-face",
+      "jnqf_level": 7
+    },
+    {
+      "group": "area_of_study_requirements",
+      "group_title": "Area of Study (Major) Requirements",
+      "group_credit_hours": 83,
+      "group_rule": "compulsory",
+      "code": "1924704",
+      "title_en": "Robot Programming",
+      "title_ar": "برمجة الروبوت",
+      "credit_hours": 3,
+      "theory_hours": 2,
+      "practical_hours": 2,
+      "prerequisites": [
+        "1923803"
+      ],
+      "learning": "face-to-face",
+      "jnqf_level": 7
+    },
+    {
+      "group": "area_of_study_requirements",
+      "group_title": "Area of Study (Major) Requirements",
+      "group_credit_hours": 83,
+      "group_rule": "compulsory",
+      "code": "1924705",
+      "title_en": "Operating Systems",
+      "title_ar": "نظم التشغيل",
+      "credit_hours": 3,
+      "theory_hours": 3,
+      "practical_hours": 0,
+      "prerequisites": [
+        "1922702"
+      ],
+      "learning": "online",
+      "jnqf_level": 7
+    },
+    {
+      "group": "area_of_study_requirements",
+      "group_title": "Area of Study (Major) Requirements",
+      "group_credit_hours": 83,
+      "group_rule": "compulsory",
+      "code": "1924805",
+      "title_en": "Internet of Things",
+      "title_ar": "إنترنت الأشياء",
+      "credit_hours": 3,
+      "theory_hours": 3,
+      "practical_hours": 0,
+      "prerequisites": [
+        "1923803",
+        "1924403"
+      ],
+      "learning": "blended",
+      "jnqf_level": 7
+    },
+    {
+      "group": "area_of_study_requirements",
+      "group_title": "Area of Study (Major) Requirements",
+      "group_credit_hours": 83,
+      "group_rule": "compulsory",
+      "code": "1924806",
+      "title_en": "Sensors and Actuators",
+      "title_ar": "أجهزة الاستشعار والمحركات",
+      "credit_hours": 2,
+      "theory_hours": 2,
+      "practical_hours": 0,
+      "prerequisites": [
+        "1923803"
+      ],
+      "learning": "face-to-face",
+      "jnqf_level": 7
+    },
+    {
+      "group": "area_of_study_requirements",
+      "group_title": "Area of Study (Major) Requirements",
+      "group_credit_hours": 83,
+      "group_rule": "compulsory",
+      "code": "1924807",
+      "title_en": "Sensors and Actuators Lab",
+      "title_ar": "مختبر أجهزة الاستشعار والمحركات",
+      "credit_hours": 1,
+      "theory_hours": 0,
+      "practical_hours": 2,
+      "prerequisites": [
+        "1924806 (concurrent)"
+      ],
+      "learning": "face-to-face",
+      "jnqf_level": 7
+    },
+    {
+      "group": "area_of_study_requirements",
+      "group_title": "Area of Study (Major) Requirements",
+      "group_credit_hours": 83,
+      "group_rule": "compulsory",
+      "code": "1925808",
+      "title_en": "Parallel Computing",
+      "title_ar": "الحوسبة المتوازية",
+      "credit_hours": 3,
+      "theory_hours": 3,
+      "practical_hours": 0,
+      "prerequisites": [
+        "1923802"
+      ],
+      "learning": "blended",
+      "jnqf_level": 7
+    },
+    {
+      "group": "area_of_study_requirements",
+      "group_title": "Area of Study (Major) Requirements",
+      "group_credit_hours": 83,
+      "group_rule": "compulsory",
+      "code": "1925901",
+      "title_en": "Graduation Project I",
+      "title_ar": "مشروع التخرج (1)",
+      "credit_hours": 1,
+      "theory_hours": 0,
+      "practical_hours": 2,
+      "prerequisites": [
+        "120 credit hours completed"
+      ],
+      "learning": "face-to-face",
+      "jnqf_level": 7
+    },
+    {
+      "group": "area_of_study_requirements",
+      "group_title": "Area of Study (Major) Requirements",
+      "group_credit_hours": 83,
+      "group_rule": "compulsory",
+      "code": "1925902",
+      "title_en": "Graduation Project II",
+      "title_ar": "مشروع التخرج (2)",
+      "credit_hours": 2,
+      "theory_hours": 0,
+      "practical_hours": 4,
+      "prerequisites": [
+        "1925901"
+      ],
+      "learning": "face-to-face",
+      "jnqf_level": 7
+    },
+    {
+      "group": "area_of_study_requirements",
+      "group_title": "Area of Study (Major) Requirements",
+      "group_credit_hours": 83,
+      "group_rule": "compulsory",
+      "code": "1925903",
+      "title_en": "Field Training",
+      "title_ar": "التدريب الميداني",
+      "credit_hours": 3,
+      "theory_hours": 0,
+      "practical_hours": 6,
+      "prerequisites": [
+        "110 credit hours completed"
+      ],
+      "learning": "external",
+      "jnqf_level": 7
+    },
+    {
+      "group": "ancillary_courses",
+      "group_title": "Ancillary (Supporting) Courses",
+      "group_credit_hours": 22,
+      "group_rule": "compulsory",
+      "code": "1911201",
+      "title_en": "Engineering Workshops I",
+      "title_ar": "مشاغل هندسية (1)",
+      "credit_hours": 1,
+      "theory_hours": 0,
+      "practical_hours": 2,
+      "prerequisites": [],
+      "learning": "face-to-face",
+      "jnqf_level": 6
+    },
+    {
+      "group": "ancillary_courses",
+      "group_title": "Ancillary (Supporting) Courses",
+      "group_credit_hours": 22,
+      "group_rule": "compulsory",
+      "code": "1911202",
+      "title_en": "Engineering Workshops II",
+      "title_ar": "مشاغل هندسية (2)",
+      "credit_hours": 1,
+      "theory_hours": 0,
+      "practical_hours": 2,
+      "prerequisites": [
+        "1911201"
+      ],
+      "learning": "face-to-face",
+      "jnqf_level": 6
+    },
+    {
+      "group": "ancillary_courses",
+      "group_title": "Ancillary (Supporting) Courses",
+      "group_credit_hours": 22,
+      "group_rule": "compulsory",
+      "code": "1915201",
+      "title_en": "Engineering Economics",
+      "title_ar": "اقتصاد هندسي",
+      "credit_hours": 2,
+      "theory_hours": 2,
+      "practical_hours": 0,
+      "prerequisites": [
+        "120 credit hours completed"
+      ],
+      "learning": "face-to-face",
+      "jnqf_level": 7
+    },
+    {
+      "group": "ancillary_courses",
+      "group_title": "Ancillary (Supporting) Courses",
+      "group_credit_hours": 22,
+      "group_rule": "compulsory",
+      "code": "1915301",
+      "title_en": "Control Systems",
+      "title_ar": "التحكم الآلي",
+      "credit_hours": 3,
+      "theory_hours": 3,
+      "practical_hours": 0,
+      "prerequisites": [
+        "1923401"
+      ],
+      "learning": "face-to-face",
+      "jnqf_level": 7
+    },
+    {
+      "group": "ancillary_courses",
+      "group_title": "Ancillary (Supporting) Courses",
+      "group_credit_hours": 22,
+      "group_rule": "compulsory",
+      "code": "1915302",
+      "title_en": "Control Systems Lab",
+      "title_ar": "مختبر التحكم الآلي",
+      "credit_hours": 1,
+      "theory_hours": 0,
+      "practical_hours": 2,
+      "prerequisites": [
+        "1915301 (concurrent)"
+      ],
+      "learning": "face-to-face",
+      "jnqf_level": 7
+    },
+    {
+      "group": "ancillary_courses",
+      "group_title": "Ancillary (Supporting) Courses",
+      "group_credit_hours": 22,
+      "group_rule": "compulsory",
+      "code": "1931201",
+      "title_en": "Engineering Drawing",
+      "title_ar": "الرسم الهندسي",
+      "credit_hours": 2,
+      "theory_hours": 1,
+      "practical_hours": 2,
+      "prerequisites": [],
+      "learning": "face-to-face",
+      "jnqf_level": 6
+    },
+    {
+      "group": "ancillary_courses",
+      "group_title": "Ancillary (Supporting) Courses",
+      "group_credit_hours": 22,
+      "group_rule": "compulsory",
+      "code": "A0182101",
+      "title_en": "Calculus III",
+      "title_ar": "تفاضل وتكامل (3)",
+      "credit_hours": 3,
+      "theory_hours": 3,
+      "practical_hours": 0,
+      "prerequisites": [
+        "A0181102"
+      ],
+      "learning": "face-to-face",
+      "jnqf_level": 6
+    },
+    {
+      "group": "ancillary_courses",
+      "group_title": "Ancillary (Supporting) Courses",
+      "group_credit_hours": 22,
+      "group_rule": "compulsory",
+      "code": "A0182102",
+      "title_en": "Probability and Statistics",
+      "title_ar": "الاحتمالات والإحصاء",
+      "credit_hours": 3,
+      "theory_hours": 3,
+      "practical_hours": 0,
+      "prerequisites": [
+        "A0181101"
+      ],
+      "learning": "face-to-face",
+      "jnqf_level": 6
+    },
+    {
+      "group": "ancillary_courses",
+      "group_title": "Ancillary (Supporting) Courses",
+      "group_credit_hours": 22,
+      "group_rule": "compulsory",
+      "code": "A0183104",
+      "title_en": "Numerical Analysis",
+      "title_ar": "التحليل العددي",
+      "credit_hours": 3,
+      "theory_hours": 3,
+      "practical_hours": 0,
+      "prerequisites": [
+        "1922201"
+      ],
+      "learning": "face-to-face",
+      "jnqf_level": 6
+    },
+    {
+      "group": "ancillary_courses",
+      "group_title": "Ancillary (Supporting) Courses",
+      "group_credit_hours": 22,
+      "group_rule": "compulsory",
+      "code": "A0183105",
+      "title_en": "Engineering Mathematics",
+      "title_ar": "رياضيات هندسية",
+      "credit_hours": 3,
+      "theory_hours": 3,
+      "practical_hours": 0,
+      "prerequisites": [
+        "A0182101"
+      ],
+      "learning": "face-to-face",
+      "jnqf_level": 6
+    },
+    {
+      "group": "area_of_study_electives",
+      "group_title": "Area of Study (Major) Electives",
+      "group_credit_hours": 9,
+      "group_rule": "choose 9 credit hours",
+      "code": "1925404",
+      "title_en": "Cybersecurity System",
+      "title_ar": "نظام الأمن السيبراني",
+      "credit_hours": 3,
+      "theory_hours": 3,
+      "practical_hours": 0,
+      "prerequisites": [
+        "1924403"
+      ],
+      "learning": "blended",
+      "jnqf_level": 7
+    },
+    {
+      "group": "area_of_study_electives",
+      "group_title": "Area of Study (Major) Electives",
+      "group_credit_hours": 9,
+      "group_rule": "choose 9 credit hours",
+      "code": "1925607",
+      "title_en": "Pattern Recognition",
+      "title_ar": "تمييز الأنماط",
+      "credit_hours": 3,
+      "theory_hours": 3,
+      "practical_hours": 0,
+      "prerequisites": [
+        "1923603"
+      ],
+      "learning": "blended",
+      "jnqf_level": 7
+    },
+    {
+      "group": "area_of_study_electives",
+      "group_title": "Area of Study (Major) Electives",
+      "group_credit_hours": 9,
+      "group_rule": "choose 9 credit hours",
+      "code": "1925608",
+      "title_en": "Special Topics I in Intelligent Systems",
+      "title_ar": "مواضيع خاصة 1 في الأنظمة الذكية",
+      "credit_hours": 3,
+      "theory_hours": 3,
+      "practical_hours": 0,
+      "prerequisites": [
+        "100 credit hours completed"
+      ],
+      "learning": "blended",
+      "jnqf_level": 7
+    },
+    {
+      "group": "area_of_study_electives",
+      "group_title": "Area of Study (Major) Electives",
+      "group_credit_hours": 9,
+      "group_rule": "choose 9 credit hours",
+      "code": "1925609",
+      "title_en": "Human Robot Interaction",
+      "title_ar": "تفاعل الإنسان والروبوت",
+      "credit_hours": 3,
+      "theory_hours": 3,
+      "practical_hours": 0,
+      "prerequisites": [
+        "1924704"
+      ],
+      "learning": "blended",
+      "jnqf_level": 7
+    },
+    {
+      "group": "area_of_study_electives",
+      "group_title": "Area of Study (Major) Electives",
+      "group_credit_hours": 9,
+      "group_rule": "choose 9 credit hours",
+      "code": "1925610",
+      "title_en": "Fuzzy Systems",
+      "title_ar": "المنطق الضبابي",
+      "credit_hours": 3,
+      "theory_hours": 3,
+      "practical_hours": 0,
+      "prerequisites": [
+        "1923603"
+      ],
+      "learning": "blended",
+      "jnqf_level": 7
+    },
+    {
+      "group": "area_of_study_electives",
+      "group_title": "Area of Study (Major) Electives",
+      "group_credit_hours": 9,
+      "group_rule": "choose 9 credit hours",
+      "code": "1925706",
+      "title_en": "Web Software Development",
+      "title_ar": "تطوير أنظمة الويب",
+      "credit_hours": 3,
+      "theory_hours": 3,
+      "practical_hours": 0,
+      "prerequisites": [
+        "1923703"
+      ],
+      "learning": "blended",
+      "jnqf_level": 7
+    },
+    {
+      "group": "area_of_study_electives",
+      "group_title": "Area of Study (Major) Electives",
+      "group_credit_hours": 9,
+      "group_rule": "choose 9 credit hours",
+      "code": "1925707",
+      "title_en": "Mobile Software Development",
+      "title_ar": "تطوير أنظمة الأجهزة الذكية",
+      "credit_hours": 3,
+      "theory_hours": 3,
+      "practical_hours": 0,
+      "prerequisites": [
+        "1923703"
+      ],
+      "learning": "blended",
+      "jnqf_level": 7
+    },
+    {
+      "group": "area_of_study_electives",
+      "group_title": "Area of Study (Major) Electives",
+      "group_credit_hours": 9,
+      "group_rule": "choose 9 credit hours",
+      "code": "1925809",
+      "title_en": "Special Topics II in Intelligent Systems",
+      "title_ar": "مواضيع خاصة 2 في الأنظمة الذكية",
+      "credit_hours": 3,
+      "theory_hours": 3,
+      "practical_hours": 0,
+      "prerequisites": [
+        "100 credit hours completed"
+      ],
+      "learning": "blended",
+      "jnqf_level": 7
+    },
+    {
+      "group": "area_of_study_electives",
+      "group_title": "Area of Study (Major) Electives",
+      "group_credit_hours": 9,
+      "group_rule": "choose 9 credit hours",
+      "code": "1925810",
+      "title_en": "Special Topics III in Intelligent Systems",
+      "title_ar": "مواضيع خاصة 3 في الأنظمة الذكية",
+      "credit_hours": 3,
+      "theory_hours": 3,
+      "practical_hours": 0,
+      "prerequisites": [
+        "100 credit hours completed"
+      ],
+      "learning": "blended",
+      "jnqf_level": 7
+    },
+    {
+      "group": "remedial_courses",
+      "group_title": "Remedial Courses (only if required by placement)",
+      "group_credit_hours": 0,
+      "group_rule": "not counted in the 162 hours",
+      "code": "A0161100",
+      "title_en": "Remedial Arabic Language Skills",
+      "title_ar": "مهارات الاتصال باللغة العربية الاستدراكية",
+      "credit_hours": 3,
+      "theory_hours": 3,
+      "practical_hours": 0,
+      "prerequisites": [],
+      "learning": "online",
+      "jnqf_level": 5
+    },
+    {
+      "group": "remedial_courses",
+      "group_title": "Remedial Courses (only if required by placement)",
+      "group_credit_hours": 0,
+      "group_rule": "not counted in the 162 hours",
+      "code": "A0161200",
+      "title_en": "Remedial English Language Skills",
+      "title_ar": "مهارات الاتصال باللغة الإنجليزية الاستدراكية",
+      "credit_hours": 3,
+      "theory_hours": 3,
+      "practical_hours": 0,
+      "prerequisites": [],
+      "learning": "online",
+      "jnqf_level": 5
+    },
+    {
+      "group": "remedial_courses",
+      "group_title": "Remedial Courses (only if required by placement)",
+      "group_credit_hours": 0,
+      "group_rule": "not counted in the 162 hours",
+      "code": "A0181500",
+      "title_en": "Remedial Computer Skills",
+      "title_ar": "مهارات الحاسوب الاستدراكي",
+      "credit_hours": 3,
+      "theory_hours": 3,
+      "practical_hours": 0,
+      "prerequisites": [],
+      "learning": "online",
+      "jnqf_level": 5
+    }
+  ]
+}

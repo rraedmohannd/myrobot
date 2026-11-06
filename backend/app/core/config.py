@@ -29,6 +29,9 @@ class Settings(BaseSettings):
     openai_api_key: SecretStr | None = None
     anthropic_api_key: SecretStr | None = None
 
+    # Token for the admin API/page (sent as X-Admin-Token). Empty = admin API disabled.
+    admin_token: SecretStr | None = None
+
     @property
     def cors_origin_list(self) -> list[str]:
         return [o.strip() for o in self.cors_origins.split(",") if o.strip()]

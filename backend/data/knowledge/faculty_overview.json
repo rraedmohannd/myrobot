@@ -1,0 +1,21 @@
+{
+  "source": {
+    "url": "meu-web://faculty-of-engineering-and-design-departments",
+    "title": "Faculty of Engineering & Design — departments and programs (MEU website + official study plans 2025/2026)",
+    "lang": "en",
+    "academic_year": "2025/2026",
+    "notes": "Department list from the MEU website page 'Faculty of Engineering and Design Departments' (screenshot provided by the student on 2026-11-06). Degree types and credit hours come from the five official 2025/2026 study plans in data/knowledge/documents/."
+  },
+  "faculty": {
+    "slug": "engineering-and-design",
+    "name_en": "Faculty of Engineering & Design",
+    "name_ar": "كلية الهندسة والتصميم"
+  },
+  "chunks": [
+    {
+      "category": "faculty_overview",
+      "lang": "en",
+      "text": "Faculty of Engineering & Design (كلية الهندسة والتصميم) at Middle East University — departments and bachelor programs (2025/2026):\n1. Intelligent Systems Engineering (هندسة الأنظمة الذكية) — B.Sc., 162 credit hours.\n2. Renewable Energy Engineering (هندسة الطاقة المتجددة) — B.Sc., 162 credit hours.\n3. Architecture / Architectural Engineering (هندسة العمارة) — B.Sc., 165 credit hours (a five-year program according to the department).\n4. Interior Design (التصميم الداخلي) — Bachelor (BA), 141 credit hours.\n5. Graphic Design (التصميم الجرافيكي) — Bachelor (BA), 135 credit hours.\nDean of the Faculty (as signed on the 2025/2026 study plans): Prof. Ayman Abdel Salam Awad."
+    }
+  ]
+}

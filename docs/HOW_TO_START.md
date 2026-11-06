@@ -41,5 +41,24 @@ Stop: `docker compose down`
 B1 is done when: compose starts, migrations apply, tests pass.
 No OpenAI key is needed until B4.
 
+## Collect and review engineering content (B2)
+```powershell
+docker compose exec backend python -m app.ingestion.cli crawl     # fetch MEU engineering pages
+docker compose exec backend python -m app.ingestion.cli stats     # counts by review status
+docker compose exec backend python -m app.ingestion.cli recrawl   # later: detect changed pages
+```
+Import curated knowledge (official documents turned into data/knowledge/*.json):
+```powershell
+docker compose exec backend python -m app.ingestion.cli import-knowledge
+```
+Review page: http://localhost:8000/admin (token = ADMIN_TOKEN in .env).
+Only approved content will ever be used by the robot.
+
+## Save a version (after each phase passes its tests)
+```powershell
+git add .
+git commit -m "B2-crawler-review-queue"
+```
+
 ## When something fails
 Copy the error text, paste it into Claude Code, and ask it to fix it. Then send the result here for review before moving to the next phase.

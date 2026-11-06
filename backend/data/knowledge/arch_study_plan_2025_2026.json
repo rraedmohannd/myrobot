@@ -1,0 +1,1369 @@
+{
+  "source": {
+    "url": "meu-document://study-plans/architectural-engineering/bsc-2025-2026",
+    "title": "Study Plan — B.Sc. Architectural Engineering 2025/2026 (official MEU PDF)",
+    "lang": "en",
+    "academic_year": "2025/2026",
+    "file": "documents/arch-bsc-study-plan-2025-2026.pdf",
+    "notes": "Official study plan PDF provided by the student on 2026-11-06 (file name said 2020-2021; content is the 2025/2026 plan). Faculty Council decision 05/06-2025/2026 (adopted 06/11/2025); Deans' Council decision 10/15-2025/2026 (adopted 30/12/2025). Form F030 Rev. e."
+  },
+  "faculty": {
+    "slug": "engineering-and-design",
+    "name_en": "Faculty of Engineering & Design",
+    "name_ar": "كلية الهندسة والتصميم"
+  },
+  "program": {
+    "slug": "architectural-engineering",
+    "name_en": "Architectural Engineering",
+    "name_ar": "هندسة العمارة",
+    "degree": "BSc",
+    "credit_hours": 165,
+    "academic_year": "2025/2026"
+  },
+  "chunks": [
+    {
+      "category": "study_plan",
+      "lang": "en",
+      "text": "Architectural Engineering (هندسة العمارة) — B.Sc. study plan 2025/2026, Faculty of Engineering & Design, Middle East University.\nThe degree requires 165 credit hours in total:\n- University requirements: 18 credit hours (compulsory)\n- University electives: 6 credit hours\n- Faculty requirements: 24 credit hours (group A: 6, group C: 18 — freehand drawing, computer design applications, aesthetics, history of art and architecture, basic design, psychology and sociology of design)\n- Area of study (major) requirements: 99 credit hours, including six Architectural Design studios (4 credit hours each)\n- Ancillary courses: 6 credit hours (Mathematics I, Physics I)\n- Area of study (major) electives: 12 credit hours\nRemedial courses are taken only when required and are not counted in the 165 hours.\nThe plan includes Field Practice (320 training hours, after 110 completed credit hours) and a two-part graduation project (Graduation Project 1 after 120 completed credit hours and Architectural Design 6)."
+    },
+    {
+      "category": "study_plan",
+      "lang": "en",
+      "text": "Architectural Engineering study plan 2025/2026 — approvals and signatories.\nFaculty Council decision 05/06-2025/2026, adopted 06/11/2025. Deans' Council decision 10/15-2025/2026, adopted 30/12/2025.\nHead of Department: Dr. Mohammad Hamdan. Dean of the Faculty: Prof. Ayman Abdel Salam Awad. Director of Admissions and Registration: Mrs. Nadia Al-Bakri."
+    },
+    {
+      "category": "study_plan",
+      "lang": "en",
+      "text": "Architectural Engineering — digital and sustainable design courses in the 2025/2026 study plan:\nComputer Application in Architecture 1 and 2 (1932301/1933301), Green Architecture and Sustainable Design (العمارة الخضراء والتصميم المستدام, 1933701), Environmental Control (1933702), Lighting and Acoustics in Architecture (1934501), Landscape Architecture (1933901), Urban Design and Planning (1934901). Electives include Architectural Visualization, Introduction to Parametric Design in Architecture, Certificate in Digital Architectural Design 1, Architectural Modeling and Simulation, Leadership in Energy and Environmental Design, Design for Greater Efficiency and Theories of Conservation of Architectural Heritage."
+    }
+  ],
+  "courses": [
+    {
+      "group": "university_requirements",
+      "group_title": "University Requirements",
+      "group_credit_hours": 18,
+      "group_rule": "compulsory",
+      "code": "A0161101",
+      "title_en": "Arabic Communication Skills",
+      "title_ar": "مهارات الاتصال باللغة العربية",
+      "credit_hours": 3,
+      "theory_hours": 3,
+      "practical_hours": 0,
+      "prerequisites": [
+        "A0161100"
+      ],
+      "learning": "online",
+      "jnqf_level": 5
+    },
+    {
+      "group": "university_requirements",
+      "group_title": "University Requirements",
+      "group_credit_hours": 18,
+      "group_rule": "compulsory",
+      "code": "A0161201",
+      "title_en": "English Communication Skills",
+      "title_ar": "مهارات الاتصال باللغة الإنجليزية",
+      "credit_hours": 3,
+      "theory_hours": 3,
+      "practical_hours": 0,
+      "prerequisites": [
+        "A0161200"
+      ],
+      "learning": "online",
+      "jnqf_level": 5
+    },
+    {
+      "group": "university_requirements",
+      "group_title": "University Requirements",
+      "group_credit_hours": 18,
+      "group_rule": "compulsory",
+      "code": "A0161301",
+      "title_en": "National Education",
+      "title_ar": "التربية الوطنية",
+      "credit_hours": 3,
+      "theory_hours": 3,
+      "practical_hours": 0,
+      "prerequisites": [],
+      "learning": "blended",
+      "jnqf_level": 5
+    },
+    {
+      "group": "university_requirements",
+      "group_title": "University Requirements",
+      "group_credit_hours": 18,
+      "group_rule": "compulsory",
+      "code": "A0161302",
+      "title_en": "Military Science",
+      "title_ar": "العلوم العسكرية",
+      "credit_hours": 3,
+      "theory_hours": 3,
+      "practical_hours": 0,
+      "prerequisites": [],
+      "learning": "online",
+      "jnqf_level": 5
+    },
+    {
+      "group": "university_requirements",
+      "group_title": "University Requirements",
+      "group_credit_hours": 18,
+      "group_rule": "compulsory",
+      "code": "A0161400",
+      "title_en": "Community Service",
+      "title_ar": "خدمة المجتمع",
+      "credit_hours": 0,
+      "theory_hours": 0,
+      "practical_hours": 0,
+      "prerequisites": [],
+      "learning": "face-to-face",
+      "jnqf_level": 5
+    },
+    {
+      "group": "university_requirements",
+      "group_title": "University Requirements",
+      "group_credit_hours": 18,
+      "group_rule": "compulsory",
+      "code": "A0161401",
+      "title_en": "Life Skills",
+      "title_ar": "مهارات حياتية",
+      "credit_hours": 3,
+      "theory_hours": 3,
+      "practical_hours": 0,
+      "prerequisites": [],
+      "learning": "blended",
+      "jnqf_level": 5
+    },
+    {
+      "group": "university_requirements",
+      "group_title": "University Requirements",
+      "group_credit_hours": 18,
+      "group_rule": "compulsory",
+      "code": "A0181501",
+      "title_en": "Artificial Intelligence and Cybersecurity",
+      "title_ar": "الذكاء الاصطناعي والأمن السيبراني",
+      "credit_hours": 3,
+      "theory_hours": 3,
+      "practical_hours": 0,
+      "prerequisites": [],
+      "learning": "blended",
+      "jnqf_level": 5
+    },
+    {
+      "group": "university_electives",
+      "group_title": "University Electives",
+      "group_credit_hours": 6,
+      "group_rule": "choose 6 credit hours",
+      "code": "A0161303",
+      "title_en": "Media Literacy",
+      "title_ar": "الدراية الإعلامية",
+      "credit_hours": 1,
+      "theory_hours": 1,
+      "practical_hours": 0,
+      "prerequisites": [],
+      "learning": "online",
+      "jnqf_level": 5
+    },
+    {
+      "group": "university_electives",
+      "group_title": "University Electives",
+      "group_credit_hours": 6,
+      "group_rule": "choose 6 credit hours",
+      "code": "A0161305",
+      "title_en": "Social Responsibility",
+      "title_ar": "المسؤولية المجتمعية",
+      "credit_hours": 3,
+      "theory_hours": 3,
+      "practical_hours": 0,
+      "prerequisites": [],
+      "learning": "online",
+      "jnqf_level": 5
+    },
+    {
+      "group": "university_electives",
+      "group_title": "University Electives",
+      "group_credit_hours": 6,
+      "group_rule": "choose 6 credit hours",
+      "code": "A0161402",
+      "title_en": "Leadership, Entrepreneurship, and Innovation",
+      "title_ar": "القيادة والريادة والابتكار",
+      "credit_hours": 1,
+      "theory_hours": 1,
+      "practical_hours": 0,
+      "prerequisites": [],
+      "learning": "online",
+      "jnqf_level": 5
+    },
+    {
+      "group": "university_electives",
+      "group_title": "University Electives",
+      "group_credit_hours": 6,
+      "group_rule": "choose 6 credit hours",
+      "code": "A0161403",
+      "title_en": "Practical Applications in Sustainability",
+      "title_ar": "تطبيقات عملية في الاستدامة",
+      "credit_hours": 1,
+      "theory_hours": 1,
+      "practical_hours": 0,
+      "prerequisites": [],
+      "learning": "online",
+      "jnqf_level": 5
+    },
+    {
+      "group": "university_electives",
+      "group_title": "University Electives",
+      "group_credit_hours": 6,
+      "group_rule": "choose 6 credit hours",
+      "code": "A0161404",
+      "title_en": "The Art of Etiquette",
+      "title_ar": "فن الإتيكيت",
+      "credit_hours": 1,
+      "theory_hours": 1,
+      "practical_hours": 0,
+      "prerequisites": [],
+      "learning": "online",
+      "jnqf_level": 5
+    },
+    {
+      "group": "university_electives",
+      "group_title": "University Electives",
+      "group_credit_hours": 6,
+      "group_rule": "choose 6 credit hours",
+      "code": "A0161501",
+      "title_en": "Islamic Education",
+      "title_ar": "الثقافة الإسلامية",
+      "credit_hours": 3,
+      "theory_hours": 3,
+      "practical_hours": 0,
+      "prerequisites": [],
+      "learning": "online",
+      "jnqf_level": 5
+    },
+    {
+      "group": "university_electives",
+      "group_title": "University Electives",
+      "group_credit_hours": 6,
+      "group_rule": "choose 6 credit hours",
+      "code": "A0161502",
+      "title_en": "Jerusalem (The Question of Palestine)",
+      "title_ar": "القدس (القضية الفلسطينية)",
+      "credit_hours": 3,
+      "theory_hours": 3,
+      "practical_hours": 0,
+      "prerequisites": [],
+      "learning": "online",
+      "jnqf_level": 5
+    },
+    {
+      "group": "university_electives",
+      "group_title": "University Electives",
+      "group_credit_hours": 6,
+      "group_rule": "choose 6 credit hours",
+      "code": "A0161503",
+      "title_en": "Critical Thinking",
+      "title_ar": "الفكر الناقد",
+      "credit_hours": 2,
+      "theory_hours": 2,
+      "practical_hours": 0,
+      "prerequisites": [],
+      "learning": "online",
+      "jnqf_level": 5
+    },
+    {
+      "group": "university_electives",
+      "group_title": "University Electives",
+      "group_credit_hours": 6,
+      "group_rule": "choose 6 credit hours",
+      "code": "A0161504",
+      "title_en": "Law and Everyday Life",
+      "title_ar": "القانون في حياتنا",
+      "credit_hours": 2,
+      "theory_hours": 2,
+      "practical_hours": 0,
+      "prerequisites": [],
+      "learning": "online",
+      "jnqf_level": 5
+    },
+    {
+      "group": "university_electives",
+      "group_title": "University Electives",
+      "group_credit_hours": 6,
+      "group_rule": "choose 6 credit hours",
+      "code": "A0161309",
+      "title_en": "Traffic Safety",
+      "title_ar": "السلامة المرورية",
+      "credit_hours": 1,
+      "theory_hours": 1,
+      "practical_hours": 0,
+      "prerequisites": [],
+      "learning": "online",
+      "jnqf_level": 5
+    },
+    {
+      "group": "university_electives",
+      "group_title": "University Electives",
+      "group_credit_hours": 6,
+      "group_rule": "choose 6 credit hours",
+      "code": "A0181502",
+      "title_en": "Programming for Non-Programmers",
+      "title_ar": "البرمجة لغير المبرمجين",
+      "credit_hours": 2,
+      "theory_hours": 2,
+      "practical_hours": 0,
+      "prerequisites": [],
+      "learning": "online",
+      "jnqf_level": 5
+    },
+    {
+      "group": "university_electives",
+      "group_title": "University Electives",
+      "group_credit_hours": 6,
+      "group_rule": "choose 6 credit hours",
+      "code": "A0181601",
+      "title_en": "First Aid",
+      "title_ar": "إسعافات أولية",
+      "credit_hours": 1,
+      "theory_hours": 1,
+      "practical_hours": 0,
+      "prerequisites": [],
+      "learning": "online",
+      "jnqf_level": 5
+    },
+    {
+      "group": "university_electives",
+      "group_title": "University Electives",
+      "group_credit_hours": 6,
+      "group_rule": "choose 6 credit hours",
+      "code": "A0181602",
+      "title_en": "Public Health and Nutrition",
+      "title_ar": "الصحة العامة والتغذية",
+      "credit_hours": 2,
+      "theory_hours": 2,
+      "practical_hours": 0,
+      "prerequisites": [],
+      "learning": "online",
+      "jnqf_level": 5
+    },
+    {
+      "group": "university_electives",
+      "group_title": "University Electives",
+      "group_credit_hours": 6,
+      "group_rule": "choose 6 credit hours",
+      "code": "A0181508",
+      "title_en": "Data Analysis",
+      "title_ar": "تحليل البيانات",
+      "credit_hours": 2,
+      "theory_hours": 2,
+      "practical_hours": 0,
+      "prerequisites": [],
+      "learning": "online",
+      "jnqf_level": 5
+    },
+    {
+      "group": "faculty_requirements_a",
+      "group_title": "Faculty Requirements A",
+      "group_credit_hours": 6,
+      "group_rule": "compulsory",
+      "code": "1913201",
+      "title_en": "Communication Skills and Professional Ethics",
+      "title_ar": "مهارات الاتصال وأخلاقيات المهنة",
+      "credit_hours": 1,
+      "theory_hours": 1,
+      "practical_hours": 0,
+      "prerequisites": [
+        "A0161201"
+      ],
+      "learning": "blended",
+      "jnqf_level": 6
+    },
+    {
+      "group": "faculty_requirements_a",
+      "group_title": "Faculty Requirements A",
+      "group_credit_hours": 6,
+      "group_rule": "compulsory",
+      "code": "A0162204",
+      "title_en": "Communication Skills for Engineering and Design in English",
+      "title_ar": "مهارات الاتصال باللغة الإنجليزية للهندسة والتصميم",
+      "credit_hours": 2,
+      "theory_hours": 2,
+      "practical_hours": 0,
+      "prerequisites": [
+        "A0161201"
+      ],
+      "learning": "blended",
+      "jnqf_level": 6
+    },
+    {
+      "group": "faculty_requirements_a",
+      "group_title": "Faculty Requirements A",
+      "group_credit_hours": 6,
+      "group_rule": "compulsory",
+      "code": "A0163401",
+      "title_en": "Introduction to Project Management",
+      "title_ar": "مقدمة في إدارة المشاريع",
+      "credit_hours": 3,
+      "theory_hours": 3,
+      "practical_hours": 0,
+      "prerequisites": [
+        "60 credit hours completed"
+      ],
+      "learning": "blended",
+      "jnqf_level": 6
+    },
+    {
+      "group": "faculty_requirements_c",
+      "group_title": "Faculty Requirements C (design foundations)",
+      "group_credit_hours": 18,
+      "group_rule": "compulsory",
+      "code": "1941201",
+      "title_en": "Freehand Drawing 1",
+      "title_ar": "رسم حر 1",
+      "credit_hours": 3,
+      "theory_hours": 1,
+      "practical_hours": 4,
+      "prerequisites": [],
+      "learning": "face-to-face",
+      "jnqf_level": 6
+    },
+    {
+      "group": "faculty_requirements_c",
+      "group_title": "Faculty Requirements C (design foundations)",
+      "group_credit_hours": 18,
+      "group_rule": "compulsory",
+      "code": "1941202",
+      "title_en": "Computer Design Applications",
+      "title_ar": "تطبيقات التصميم بالحاسوب",
+      "credit_hours": 3,
+      "theory_hours": 1,
+      "practical_hours": 4,
+      "prerequisites": [],
+      "learning": "face-to-face",
+      "jnqf_level": 6
+    },
+    {
+      "group": "faculty_requirements_c",
+      "group_title": "Faculty Requirements C (design foundations)",
+      "group_credit_hours": 18,
+      "group_rule": "compulsory",
+      "code": "A0161405",
+      "title_en": "Aesthetics",
+      "title_ar": "علم الجمال",
+      "credit_hours": 3,
+      "theory_hours": 3,
+      "practical_hours": 0,
+      "prerequisites": [],
+      "learning": "online",
+      "jnqf_level": 6
+    },
+    {
+      "group": "faculty_requirements_c",
+      "group_title": "Faculty Requirements C (design foundations)",
+      "group_credit_hours": 18,
+      "group_rule": "compulsory",
+      "code": "A0161406",
+      "title_en": "History of Art and Architecture (1)",
+      "title_ar": "تاريخ الفن والعمارة (1)",
+      "credit_hours": 3,
+      "theory_hours": 3,
+      "practical_hours": 0,
+      "prerequisites": [],
+      "learning": "blended",
+      "jnqf_level": 6
+    },
+    {
+      "group": "faculty_requirements_c",
+      "group_title": "Faculty Requirements C (design foundations)",
+      "group_credit_hours": 18,
+      "group_rule": "compulsory",
+      "code": "1951208",
+      "title_en": "Basic Design 1",
+      "title_ar": "مبادئ التصميم 1",
+      "credit_hours": 3,
+      "theory_hours": 1,
+      "practical_hours": 4,
+      "prerequisites": [],
+      "learning": "face-to-face",
+      "jnqf_level": 6
+    },
+    {
+      "group": "faculty_requirements_c",
+      "group_title": "Faculty Requirements C (design foundations)",
+      "group_credit_hours": 18,
+      "group_rule": "compulsory",
+      "code": "A0162402",
+      "title_en": "Psychology and Sociology of Design",
+      "title_ar": "سيكولوجيا وسيسيولوجيا التصميم",
+      "credit_hours": 3,
+      "theory_hours": 3,
+      "practical_hours": 0,
+      "prerequisites": [],
+      "learning": "blended",
+      "jnqf_level": 7
+    },
+    {
+      "group": "area_of_study_requirements",
+      "group_title": "Area of Study (Major) Requirements",
+      "group_credit_hours": 99,
+      "group_rule": "compulsory",
+      "code": "1931102",
+      "title_en": "Basic Design (2)",
+      "title_ar": "مبادئ التصميم (2)",
+      "credit_hours": 3,
+      "theory_hours": 1,
+      "practical_hours": 4,
+      "prerequisites": [
+        "1951208"
+      ],
+      "learning": "face-to-face",
+      "jnqf_level": 6
+    },
+    {
+      "group": "area_of_study_requirements",
+      "group_title": "Area of Study (Major) Requirements",
+      "group_credit_hours": 99,
+      "group_rule": "compulsory",
+      "code": "1931201",
+      "title_en": "Engineering Drawings",
+      "title_ar": "الرسم الهندسي",
+      "credit_hours": 2,
+      "theory_hours": 1,
+      "practical_hours": 2,
+      "prerequisites": [],
+      "learning": "face-to-face",
+      "jnqf_level": 6
+    },
+    {
+      "group": "area_of_study_requirements",
+      "group_title": "Area of Study (Major) Requirements",
+      "group_credit_hours": 99,
+      "group_rule": "compulsory",
+      "code": "1931202",
+      "title_en": "Architectural Drawing",
+      "title_ar": "الرسم المعماري",
+      "credit_hours": 3,
+      "theory_hours": 1,
+      "practical_hours": 4,
+      "prerequisites": [
+        "1931201"
+      ],
+      "learning": "face-to-face",
+      "jnqf_level": 6
+    },
+    {
+      "group": "area_of_study_requirements",
+      "group_title": "Area of Study (Major) Requirements",
+      "group_credit_hours": 99,
+      "group_rule": "compulsory",
+      "code": "1931402",
+      "title_en": "History of Art and Architecture (2)",
+      "title_ar": "تاريخ الفن والعمارة (2)",
+      "credit_hours": 2,
+      "theory_hours": 2,
+      "practical_hours": 0,
+      "prerequisites": [
+        "A0161406"
+      ],
+      "learning": "blended",
+      "jnqf_level": 7
+    },
+    {
+      "group": "area_of_study_requirements",
+      "group_title": "Area of Study (Major) Requirements",
+      "group_credit_hours": 99,
+      "group_rule": "compulsory",
+      "code": "1931501",
+      "title_en": "Construction Buildings (1)",
+      "title_ar": "إنشاء مباني (1)",
+      "credit_hours": 3,
+      "theory_hours": 2,
+      "practical_hours": 2,
+      "prerequisites": [],
+      "learning": "blended",
+      "jnqf_level": 6
+    },
+    {
+      "group": "area_of_study_requirements",
+      "group_title": "Area of Study (Major) Requirements",
+      "group_credit_hours": 99,
+      "group_rule": "compulsory",
+      "code": "1932101",
+      "title_en": "Architectural Design (1)",
+      "title_ar": "التصميم المعماري (1)",
+      "credit_hours": 4,
+      "theory_hours": 1,
+      "practical_hours": 6,
+      "prerequisites": [
+        "1931102"
+      ],
+      "learning": "face-to-face",
+      "jnqf_level": 6
+    },
+    {
+      "group": "area_of_study_requirements",
+      "group_title": "Area of Study (Major) Requirements",
+      "group_credit_hours": 99,
+      "group_rule": "compulsory",
+      "code": "1932102",
+      "title_en": "Architectural Design (2)",
+      "title_ar": "التصميم المعماري (2)",
+      "credit_hours": 4,
+      "theory_hours": 1,
+      "practical_hours": 6,
+      "prerequisites": [
+        "1932101"
+      ],
+      "learning": "face-to-face",
+      "jnqf_level": 7
+    },
+    {
+      "group": "area_of_study_requirements",
+      "group_title": "Area of Study (Major) Requirements",
+      "group_credit_hours": 99,
+      "group_rule": "compulsory",
+      "code": "1932103",
+      "title_en": "Working Drawings",
+      "title_ar": "رسومات تنفيذية",
+      "credit_hours": 3,
+      "theory_hours": 0,
+      "practical_hours": 6,
+      "prerequisites": [
+        "1932501"
+      ],
+      "learning": "face-to-face",
+      "jnqf_level": 7
+    },
+    {
+      "group": "area_of_study_requirements",
+      "group_title": "Area of Study (Major) Requirements",
+      "group_credit_hours": 99,
+      "group_rule": "compulsory",
+      "code": "1932201",
+      "title_en": "Architectural Communication and Presentation",
+      "title_ar": "التعبير والإظهار المعماري",
+      "credit_hours": 3,
+      "theory_hours": 1,
+      "practical_hours": 4,
+      "prerequisites": [
+        "1931202"
+      ],
+      "learning": "face-to-face",
+      "jnqf_level": 7
+    },
+    {
+      "group": "area_of_study_requirements",
+      "group_title": "Area of Study (Major) Requirements",
+      "group_credit_hours": 99,
+      "group_rule": "compulsory",
+      "code": "1932301",
+      "title_en": "Computer Application in Architecture (1)",
+      "title_ar": "تطبيقات الحاسوب في العمارة (1)",
+      "credit_hours": 3,
+      "theory_hours": 1,
+      "practical_hours": 4,
+      "prerequisites": [
+        "1931202"
+      ],
+      "learning": "face-to-face",
+      "jnqf_level": 6
+    },
+    {
+      "group": "area_of_study_requirements",
+      "group_title": "Area of Study (Major) Requirements",
+      "group_credit_hours": 99,
+      "group_rule": "compulsory",
+      "code": "1932401",
+      "title_en": "History of Islamic Architecture",
+      "title_ar": "تاريخ العمارة الإسلامية",
+      "credit_hours": 2,
+      "theory_hours": 2,
+      "practical_hours": 0,
+      "prerequisites": [
+        "1931402"
+      ],
+      "learning": "blended",
+      "jnqf_level": 7
+    },
+    {
+      "group": "area_of_study_requirements",
+      "group_title": "Area of Study (Major) Requirements",
+      "group_credit_hours": 99,
+      "group_rule": "compulsory",
+      "code": "1932402",
+      "title_en": "Modern and Contemporary Architecture",
+      "title_ar": "العمارة الحديثة والمعاصرة",
+      "credit_hours": 3,
+      "theory_hours": 3,
+      "practical_hours": 0,
+      "prerequisites": [
+        "1931402"
+      ],
+      "learning": "blended",
+      "jnqf_level": 7
+    },
+    {
+      "group": "area_of_study_requirements",
+      "group_title": "Area of Study (Major) Requirements",
+      "group_credit_hours": 99,
+      "group_rule": "compulsory",
+      "code": "1932501",
+      "title_en": "Construction Building (2)",
+      "title_ar": "إنشاء مباني (2)",
+      "credit_hours": 2,
+      "theory_hours": 1,
+      "practical_hours": 2,
+      "prerequisites": [
+        "1931501"
+      ],
+      "learning": "blended",
+      "jnqf_level": 7
+    },
+    {
+      "group": "area_of_study_requirements",
+      "group_title": "Area of Study (Major) Requirements",
+      "group_credit_hours": 99,
+      "group_rule": "compulsory",
+      "code": "1932502",
+      "title_en": "Engineering Mechanics",
+      "title_ar": "ميكانيكا هندسية",
+      "credit_hours": 2,
+      "theory_hours": 2,
+      "practical_hours": 0,
+      "prerequisites": [],
+      "learning": "face-to-face",
+      "jnqf_level": 7
+    },
+    {
+      "group": "area_of_study_requirements",
+      "group_title": "Area of Study (Major) Requirements",
+      "group_credit_hours": 99,
+      "group_rule": "compulsory",
+      "code": "1933101",
+      "title_en": "Architectural Design (3)",
+      "title_ar": "التصميم المعماري (3)",
+      "credit_hours": 4,
+      "theory_hours": 1,
+      "practical_hours": 6,
+      "prerequisites": [
+        "1932102"
+      ],
+      "learning": "face-to-face",
+      "jnqf_level": 7
+    },
+    {
+      "group": "area_of_study_requirements",
+      "group_title": "Area of Study (Major) Requirements",
+      "group_credit_hours": 99,
+      "group_rule": "compulsory",
+      "code": "1933102",
+      "title_en": "Architectural Design (4)",
+      "title_ar": "التصميم المعماري (4)",
+      "credit_hours": 4,
+      "theory_hours": 1,
+      "practical_hours": 6,
+      "prerequisites": [
+        "1933101"
+      ],
+      "learning": "face-to-face",
+      "jnqf_level": 7
+    },
+    {
+      "group": "area_of_study_requirements",
+      "group_title": "Area of Study (Major) Requirements",
+      "group_credit_hours": 99,
+      "group_rule": "compulsory",
+      "code": "1933301",
+      "title_en": "Computer Application in Architecture (2)",
+      "title_ar": "تطبيقات الحاسوب في العمارة (2)",
+      "credit_hours": 3,
+      "theory_hours": 0,
+      "practical_hours": 6,
+      "prerequisites": [
+        "1932301"
+      ],
+      "learning": "online",
+      "jnqf_level": 7
+    },
+    {
+      "group": "area_of_study_requirements",
+      "group_title": "Area of Study (Major) Requirements",
+      "group_credit_hours": 99,
+      "group_rule": "compulsory",
+      "code": "1933501",
+      "title_en": "Surveying for Architecture",
+      "title_ar": "المساحة للعمارة",
+      "credit_hours": 2,
+      "theory_hours": 2,
+      "practical_hours": 0,
+      "prerequisites": [
+        "A0181101"
+      ],
+      "learning": "face-to-face",
+      "jnqf_level": 6
+    },
+    {
+      "group": "area_of_study_requirements",
+      "group_title": "Area of Study (Major) Requirements",
+      "group_credit_hours": 99,
+      "group_rule": "compulsory",
+      "code": "1933502",
+      "title_en": "Surveying Lab for Architecture",
+      "title_ar": "مختبر المساحة للعمارة",
+      "credit_hours": 1,
+      "theory_hours": 0,
+      "practical_hours": 2,
+      "prerequisites": [
+        "1933501 (concurrent)"
+      ],
+      "learning": "face-to-face",
+      "jnqf_level": 6
+    },
+    {
+      "group": "area_of_study_requirements",
+      "group_title": "Area of Study (Major) Requirements",
+      "group_credit_hours": 99,
+      "group_rule": "compulsory",
+      "code": "1933503",
+      "title_en": "Structural Analysis",
+      "title_ar": "التحليل الإنشائي",
+      "credit_hours": 2,
+      "theory_hours": 1,
+      "practical_hours": 2,
+      "prerequisites": [
+        "1932502"
+      ],
+      "learning": "face-to-face",
+      "jnqf_level": 7
+    },
+    {
+      "group": "area_of_study_requirements",
+      "group_title": "Area of Study (Major) Requirements",
+      "group_credit_hours": 99,
+      "group_rule": "compulsory",
+      "code": "1933504",
+      "title_en": "Mechanical and Electrical Systems",
+      "title_ar": "أنظمة ميكانيكية وكهربائية",
+      "credit_hours": 2,
+      "theory_hours": 2,
+      "practical_hours": 0,
+      "prerequisites": [
+        "1932102"
+      ],
+      "learning": "face-to-face",
+      "jnqf_level": 7
+    },
+    {
+      "group": "area_of_study_requirements",
+      "group_title": "Area of Study (Major) Requirements",
+      "group_credit_hours": 99,
+      "group_rule": "compulsory",
+      "code": "1933602",
+      "title_en": "Advanced Architectural Language",
+      "title_ar": "لغة العمارة المتقدمة",
+      "credit_hours": 3,
+      "theory_hours": 3,
+      "practical_hours": 0,
+      "prerequisites": [
+        "1932102"
+      ],
+      "learning": "blended",
+      "jnqf_level": 7
+    },
+    {
+      "group": "area_of_study_requirements",
+      "group_title": "Area of Study (Major) Requirements",
+      "group_credit_hours": 99,
+      "group_rule": "compulsory",
+      "code": "1933701",
+      "title_en": "Green Architecture and Sustainable Design",
+      "title_ar": "العمارة الخضراء والتصميم المستدام",
+      "credit_hours": 3,
+      "theory_hours": 2,
+      "practical_hours": 2,
+      "prerequisites": [
+        "1932102"
+      ],
+      "learning": "face-to-face",
+      "jnqf_level": 7
+    },
+    {
+      "group": "area_of_study_requirements",
+      "group_title": "Area of Study (Major) Requirements",
+      "group_credit_hours": 99,
+      "group_rule": "compulsory",
+      "code": "1933702",
+      "title_en": "Environmental Control",
+      "title_ar": "التحكم البيئي",
+      "credit_hours": 3,
+      "theory_hours": 2,
+      "practical_hours": 2,
+      "prerequisites": [
+        "1933701"
+      ],
+      "learning": "face-to-face",
+      "jnqf_level": 7
+    },
+    {
+      "group": "area_of_study_requirements",
+      "group_title": "Area of Study (Major) Requirements",
+      "group_credit_hours": 99,
+      "group_rule": "compulsory",
+      "code": "1933901",
+      "title_en": "Landscape Architecture",
+      "title_ar": "تنسيق المواقع المعمارية",
+      "credit_hours": 3,
+      "theory_hours": 1,
+      "practical_hours": 4,
+      "prerequisites": [
+        "1932102"
+      ],
+      "learning": "blended",
+      "jnqf_level": 7
+    },
+    {
+      "group": "area_of_study_requirements",
+      "group_title": "Area of Study (Major) Requirements",
+      "group_credit_hours": 99,
+      "group_rule": "compulsory",
+      "code": "1934101",
+      "title_en": "Architectural Design (5)",
+      "title_ar": "التصميم المعماري (5)",
+      "credit_hours": 4,
+      "theory_hours": 1,
+      "practical_hours": 6,
+      "prerequisites": [
+        "1933102"
+      ],
+      "learning": "face-to-face",
+      "jnqf_level": 7
+    },
+    {
+      "group": "area_of_study_requirements",
+      "group_title": "Area of Study (Major) Requirements",
+      "group_credit_hours": 99,
+      "group_rule": "compulsory",
+      "code": "1934102",
+      "title_en": "Architectural Design (6)",
+      "title_ar": "التصميم المعماري (6)",
+      "credit_hours": 4,
+      "theory_hours": 1,
+      "practical_hours": 6,
+      "prerequisites": [
+        "1934101",
+        "1934901"
+      ],
+      "learning": "face-to-face",
+      "jnqf_level": 7
+    },
+    {
+      "group": "area_of_study_requirements",
+      "group_title": "Area of Study (Major) Requirements",
+      "group_credit_hours": 99,
+      "group_rule": "compulsory",
+      "code": "1934501",
+      "title_en": "Lighting and Acoustics in Architecture",
+      "title_ar": "الإضاءة والصوتيات في العمارة",
+      "credit_hours": 3,
+      "theory_hours": 2,
+      "practical_hours": 2,
+      "prerequisites": [
+        "1932102"
+      ],
+      "learning": "face-to-face",
+      "jnqf_level": 7
+    },
+    {
+      "group": "area_of_study_requirements",
+      "group_title": "Area of Study (Major) Requirements",
+      "group_credit_hours": 99,
+      "group_rule": "compulsory",
+      "code": "1934801",
+      "title_en": "Contracts, Specifications, and Quantity Surveying",
+      "title_ar": "عقود ومواصفات وحساب الكميات",
+      "credit_hours": 3,
+      "theory_hours": 3,
+      "practical_hours": 0,
+      "prerequisites": [
+        "1932103"
+      ],
+      "learning": "face-to-face",
+      "jnqf_level": 7
+    },
+    {
+      "group": "area_of_study_requirements",
+      "group_title": "Area of Study (Major) Requirements",
+      "group_credit_hours": 99,
+      "group_rule": "compulsory",
+      "code": "1934802",
+      "title_en": "Field Practice",
+      "title_ar": "التدريب الميداني",
+      "credit_hours": 3,
+      "theory_hours": 0,
+      "practical_hours": 0,
+      "prerequisites": [
+        "110 credit hours completed"
+      ],
+      "learning": "external",
+      "jnqf_level": 7,
+      "note": "320 training hours"
+    },
+    {
+      "group": "area_of_study_requirements",
+      "group_title": "Area of Study (Major) Requirements",
+      "group_credit_hours": 99,
+      "group_rule": "compulsory",
+      "code": "1934901",
+      "title_en": "Urban Design and Planning",
+      "title_ar": "التخطيط والتصميم الحضري",
+      "credit_hours": 3,
+      "theory_hours": 2,
+      "practical_hours": 2,
+      "prerequisites": [
+        "1933101"
+      ],
+      "learning": "face-to-face",
+      "jnqf_level": 7
+    },
+    {
+      "group": "area_of_study_requirements",
+      "group_title": "Area of Study (Major) Requirements",
+      "group_credit_hours": 99,
+      "group_rule": "compulsory",
+      "code": "1935101",
+      "title_en": "Graduation Project (1)",
+      "title_ar": "مشروع التخرج (1)",
+      "credit_hours": 3,
+      "theory_hours": 2,
+      "practical_hours": 2,
+      "prerequisites": [
+        "120 credit hours completed",
+        "1934102"
+      ],
+      "learning": "face-to-face",
+      "jnqf_level": 7
+    },
+    {
+      "group": "area_of_study_requirements",
+      "group_title": "Area of Study (Major) Requirements",
+      "group_credit_hours": 99,
+      "group_rule": "compulsory",
+      "code": "1935102",
+      "title_en": "Graduation Project (2)",
+      "title_ar": "مشروع التخرج (2)",
+      "credit_hours": 4,
+      "theory_hours": 0,
+      "practical_hours": 8,
+      "prerequisites": [
+        "1935101"
+      ],
+      "learning": "face-to-face",
+      "jnqf_level": 7
+    },
+    {
+      "group": "area_of_study_requirements",
+      "group_title": "Area of Study (Major) Requirements",
+      "group_credit_hours": 99,
+      "group_rule": "compulsory",
+      "code": "1935802",
+      "title_en": "Professional Practice and Building Codes",
+      "title_ar": "الممارسة المهنية والتشريعات",
+      "credit_hours": 3,
+      "theory_hours": 3,
+      "practical_hours": 0,
+      "prerequisites": [
+        "1934101"
+      ],
+      "learning": "blended",
+      "jnqf_level": 7
+    },
+    {
+      "group": "ancillary_courses",
+      "group_title": "Ancillary (Supporting) Courses",
+      "group_credit_hours": 6,
+      "group_rule": "compulsory",
+      "code": "A0181101",
+      "title_en": "Mathematics I (Calculus I)",
+      "title_ar": "تفاضل وتكامل 1",
+      "credit_hours": 3,
+      "theory_hours": 3,
+      "practical_hours": 0,
+      "prerequisites": [],
+      "learning": "face-to-face",
+      "jnqf_level": 6
+    },
+    {
+      "group": "ancillary_courses",
+      "group_title": "Ancillary (Supporting) Courses",
+      "group_credit_hours": 6,
+      "group_rule": "compulsory",
+      "code": "A0181201",
+      "title_en": "Physics I",
+      "title_ar": "فيزياء عامة 1",
+      "credit_hours": 3,
+      "theory_hours": 3,
+      "practical_hours": 0,
+      "prerequisites": [],
+      "learning": "face-to-face",
+      "jnqf_level": 6
+    },
+    {
+      "group": "area_of_study_electives",
+      "group_title": "Area of Study (Major) Electives",
+      "group_credit_hours": 12,
+      "group_rule": "choose 12 credit hours",
+      "code": "1931103",
+      "title_en": "Workshop and Model Making",
+      "title_ar": "المشاغل والمجسمات",
+      "credit_hours": 1,
+      "theory_hours": 0,
+      "practical_hours": 2,
+      "prerequisites": [
+        "1931102"
+      ],
+      "learning": "face-to-face",
+      "jnqf_level": 6
+    },
+    {
+      "group": "area_of_study_electives",
+      "group_title": "Area of Study (Major) Electives",
+      "group_credit_hours": 12,
+      "group_rule": "choose 12 credit hours",
+      "code": "1932105",
+      "title_en": "Special Topics in Architecture 1",
+      "title_ar": "مواضيع خاصة في العمارة 1",
+      "credit_hours": 1,
+      "theory_hours": 0,
+      "practical_hours": 2,
+      "prerequisites": [],
+      "learning": "online",
+      "jnqf_level": 6
+    },
+    {
+      "group": "area_of_study_electives",
+      "group_title": "Area of Study (Major) Electives",
+      "group_credit_hours": 12,
+      "group_rule": "choose 12 credit hours",
+      "code": "1932106",
+      "title_en": "Special Topics in Architecture 2",
+      "title_ar": "مواضيع خاصة في العمارة 2",
+      "credit_hours": 2,
+      "theory_hours": 1,
+      "practical_hours": 2,
+      "prerequisites": [],
+      "learning": "online",
+      "jnqf_level": 6
+    },
+    {
+      "group": "area_of_study_electives",
+      "group_title": "Area of Study (Major) Electives",
+      "group_credit_hours": 12,
+      "group_rule": "choose 12 credit hours",
+      "code": "1932107",
+      "title_en": "Special Topics in Architecture 3",
+      "title_ar": "مواضيع خاصة في العمارة 3",
+      "credit_hours": 3,
+      "theory_hours": 2,
+      "practical_hours": 2,
+      "prerequisites": [],
+      "learning": "online",
+      "jnqf_level": 7
+    },
+    {
+      "group": "area_of_study_electives",
+      "group_title": "Area of Study (Major) Electives",
+      "group_credit_hours": 12,
+      "group_rule": "choose 12 credit hours",
+      "code": "1933302",
+      "title_en": "Architectural Visualization",
+      "title_ar": "الإظهار المعماري الرقمي",
+      "credit_hours": 3,
+      "theory_hours": 1,
+      "practical_hours": 4,
+      "prerequisites": [
+        "1941202"
+      ],
+      "learning": "blended",
+      "jnqf_level": 7
+    },
+    {
+      "group": "area_of_study_electives",
+      "group_title": "Area of Study (Major) Electives",
+      "group_credit_hours": 12,
+      "group_rule": "choose 12 credit hours",
+      "code": "1933601",
+      "title_en": "Human Behavior in Built Environment",
+      "title_ar": "السلوك الإنساني في البيئة المبنية",
+      "credit_hours": 3,
+      "theory_hours": 3,
+      "practical_hours": 0,
+      "prerequisites": [
+        "1932102"
+      ],
+      "learning": "blended",
+      "jnqf_level": 7
+    },
+    {
+      "group": "area_of_study_electives",
+      "group_title": "Area of Study (Major) Electives",
+      "group_credit_hours": 12,
+      "group_rule": "choose 12 credit hours",
+      "code": "1934103",
+      "title_en": "Introduction to Parametric Design in Architecture",
+      "title_ar": "مدخل إلى التصميم البارامتري",
+      "credit_hours": 3,
+      "theory_hours": 1,
+      "practical_hours": 4,
+      "prerequisites": [
+        "1933301"
+      ],
+      "learning": "blended",
+      "jnqf_level": 7
+    },
+    {
+      "group": "area_of_study_electives",
+      "group_title": "Area of Study (Major) Electives",
+      "group_credit_hours": 12,
+      "group_rule": "choose 12 credit hours",
+      "code": "1934301",
+      "title_en": "Certificate in Digital Architectural Design 1",
+      "title_ar": "شهادة في التصميم المعماري الرقمي 1",
+      "credit_hours": 3,
+      "theory_hours": 1,
+      "practical_hours": 4,
+      "prerequisites": [
+        "1933301"
+      ],
+      "learning": "blended",
+      "jnqf_level": 7
+    },
+    {
+      "group": "area_of_study_electives",
+      "group_title": "Area of Study (Major) Electives",
+      "group_credit_hours": 12,
+      "group_rule": "choose 12 credit hours",
+      "code": "1934302",
+      "title_en": "Architectural Modeling and Simulation",
+      "title_ar": "النمذجة والمحاكاة في العمارة",
+      "credit_hours": 3,
+      "theory_hours": 1,
+      "practical_hours": 4,
+      "prerequisites": [
+        "1933301"
+      ],
+      "learning": "blended",
+      "jnqf_level": 7
+    },
+    {
+      "group": "area_of_study_electives",
+      "group_title": "Area of Study (Major) Electives",
+      "group_credit_hours": 12,
+      "group_rule": "choose 12 credit hours",
+      "code": "1934601",
+      "title_en": "Theories of Conservation of Architectural Heritage",
+      "title_ar": "الحفاظ على التراث المعماري ونظرياته",
+      "credit_hours": 3,
+      "theory_hours": 2,
+      "practical_hours": 2,
+      "prerequisites": [
+        "1933101"
+      ],
+      "learning": "blended",
+      "jnqf_level": 7
+    },
+    {
+      "group": "area_of_study_electives",
+      "group_title": "Area of Study (Major) Electives",
+      "group_credit_hours": 12,
+      "group_rule": "choose 12 credit hours",
+      "code": "1934701",
+      "title_en": "Leadership in Energy and Environmental Design",
+      "title_ar": "الريادة في تصميمات الطاقة والبيئة",
+      "credit_hours": 2,
+      "theory_hours": 1,
+      "practical_hours": 2,
+      "prerequisites": [
+        "1933701"
+      ],
+      "learning": "blended",
+      "jnqf_level": 7
+    },
+    {
+      "group": "area_of_study_electives",
+      "group_title": "Area of Study (Major) Electives",
+      "group_credit_hours": 12,
+      "group_rule": "choose 12 credit hours",
+      "code": "1934702",
+      "title_en": "Design for Greater Efficiency",
+      "title_ar": "التصميم لبيئة أكثر كفاءة",
+      "credit_hours": 3,
+      "theory_hours": 2,
+      "practical_hours": 2,
+      "prerequisites": [
+        "1933701",
+        "1933702"
+      ],
+      "learning": "blended",
+      "jnqf_level": 7
+    },
+    {
+      "group": "area_of_study_electives",
+      "group_title": "Area of Study (Major) Electives",
+      "group_credit_hours": 12,
+      "group_rule": "choose 12 credit hours",
+      "code": "1935801",
+      "title_en": "Professional Certificate in Project Management",
+      "title_ar": "شهادة مهنية في إدارة المشاريع",
+      "credit_hours": 2,
+      "theory_hours": 1,
+      "practical_hours": 2,
+      "prerequisites": [
+        "1934803"
+      ],
+      "learning": "blended",
+      "jnqf_level": 7,
+      "note": "prerequisite code 1934803 is printed in the plan but does not appear elsewhere in it"
+    },
+    {
+      "group": "remedial_courses",
+      "group_title": "Remedial Courses (only if required by placement)",
+      "group_credit_hours": 0,
+      "group_rule": "not counted in the 165 hours",
+      "code": "A0161100",
+      "title_en": "Remedial Arabic Language Skills",
+      "title_ar": "مهارات الاتصال باللغة العربية الاستدراكية",
+      "credit_hours": 3,
+      "theory_hours": 3,
+      "practical_hours": 0,
+      "prerequisites": [],
+      "learning": "online",
+      "jnqf_level": 5
+    },
+    {
+      "group": "remedial_courses",
+      "group_title": "Remedial Courses (only if required by placement)",
+      "group_credit_hours": 0,
+      "group_rule": "not counted in the 165 hours",
+      "code": "A0161200",
+      "title_en": "Remedial English Language Skills",
+      "title_ar": "مهارات الاتصال باللغة الإنجليزية الاستدراكية",
+      "credit_hours": 3,
+      "theory_hours": 3,
+      "practical_hours": 0,
+      "prerequisites": [],
+      "learning": "online",
+      "jnqf_level": 5
+    },
+    {
+      "group": "remedial_courses",
+      "group_title": "Remedial Courses (only if required by placement)",
+      "group_credit_hours": 0,
+      "group_rule": "not counted in the 165 hours",
+      "code": "A0181500",
+      "title_en": "Remedial Computer Skills",
+      "title_ar": "مهارات الحاسوب الاستدراكي",
+      "credit_hours": 3,
+      "theory_hours": 3,
+      "practical_hours": 0,
+      "prerequisites": [],
+      "learning": "online",
+      "jnqf_level": 5
+    }
+  ]
+}

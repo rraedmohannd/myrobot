@@ -1,0 +1,1522 @@
+{
+  "source": {
+    "url": "meu-document://study-plans/renewable-energy-engineering/bsc-2025-2026",
+    "title": "Study Plan — B.Sc. Renewable Energy Engineering 2025/2026 (official MEU PDF)",
+    "lang": "en",
+    "academic_year": "2025/2026",
+    "file": "documents/ree-bsc-study-plan-2025-2026.pdf",
+    "notes": "Official study plan PDF provided by the student on 2026-11-06 (file name said 2020-2021, but the document is the 2025/2026 plan). Faculty Council decision 04/06-2025/2026 (adopted 06/11/2025); Deans' Council decision 08/15-2025/2026 (adopted 30/12/2025). Form F030 Rev. e."
+  },
+  "faculty": {
+    "slug": "engineering-and-design",
+    "name_en": "Faculty of Engineering & Design",
+    "name_ar": "كلية الهندسة والتصميم"
+  },
+  "program": {
+    "slug": "renewable-energy-engineering",
+    "name_en": "Renewable Energy Engineering",
+    "name_ar": "هندسة الطاقة المتجددة",
+    "degree": "BSc",
+    "credit_hours": 162,
+    "academic_year": "2025/2026"
+  },
+  "chunks": [
+    {
+      "category": "study_plan",
+      "lang": "en",
+      "text": "Renewable Energy Engineering (هندسة الطاقة المتجددة) — B.Sc. study plan 2025/2026, Faculty of Engineering & Design, Middle East University.\nThe degree requires 162 credit hours in total:\n- University requirements: 18 credit hours (compulsory)\n- University electives: 6 credit hours\n- Faculty requirements: 24 credit hours (group A: 6, group B: 18 — mathematics, physics, chemistry)\n- Area of study (major) requirements: 91 credit hours\n- Ancillary (supporting) courses: 14 credit hours\n- Area of study (major) electives: 9 credit hours\nRemedial courses (Arabic, English, computer skills) are taken only when required and are not counted in the 162 hours.\nThe plan includes external Field Training (after 115 completed credit hours) followed by a two-part graduation project (Graduation Project I requires Field Training, then Graduation Project II)."
+    },
+    {
+      "category": "study_plan",
+      "lang": "en",
+      "text": "Renewable Energy Engineering study plan 2025/2026 — approvals and signatories.\nFaculty Council decision 04/06-2025/2026, adopted 06/11/2025. Deans' Council decision 08/15-2025/2026, adopted 30/12/2025.\nHead of Department: Dr. Samer Mohammad As'ad. Dean of the Faculty: Prof. Ayman Abdel Salam Awad. Director of Admissions and Registration: Mrs. Nadia Al-Bakri."
+    },
+    {
+      "category": "study_plan",
+      "lang": "en",
+      "text": "Renewable Energy Engineering — energy technology courses in the 2025/2026 study plan:\nIntroduction to Renewable Energy (1912601), Introduction to Solar Energy (1912602), Solar Thermal Energy (1913601), Photovoltaic Energy (الطاقة الكهروضوئية, 1914601) with Solar Energy Lab (1914602), Wind Energy (طاقة الرياح, 1914603) with Wind Energy Lab (1914604), Energy Conversion and Storage (1914703), Power Systems (1913702), Power Electronics with lab (1914701/1914702), Energy Efficiency and Economics (1915801), Energy Management and Regulations (1915802), Environmental Impact of Energy (1915803), Design and Simulation I and II (1914303/1914304). Electives include Hydroelectric Energy, Green Buildings, Water Desalination by Solar Energy, Advanced Photovoltaic Systems, Smart Grid Systems and Artificial Intelligence in Renewable Energy."
+    }
+  ],
+  "courses": [
+    {
+      "group": "university_requirements",
+      "group_title": "University Requirements",
+      "group_credit_hours": 18,
+      "group_rule": "compulsory",
+      "code": "A0161101",
+      "title_en": "Arabic Communication Skills",
+      "title_ar": "مهارات الاتصال باللغة العربية",
+      "credit_hours": 3,
+      "theory_hours": 3,
+      "practical_hours": 0,
+      "prerequisites": [
+        "A0161100"
+      ],
+      "learning": "online",
+      "jnqf_level": 5
+    },
+    {
+      "group": "university_requirements",
+      "group_title": "University Requirements",
+      "group_credit_hours": 18,
+      "group_rule": "compulsory",
+      "code": "A0161201",
+      "title_en": "English Communication Skills",
+      "title_ar": "مهارات الاتصال باللغة الإنجليزية",
+      "credit_hours": 3,
+      "theory_hours": 3,
+      "practical_hours": 0,
+      "prerequisites": [
+        "A0161200"
+      ],
+      "learning": "online",
+      "jnqf_level": 5
+    },
+    {
+      "group": "university_requirements",
+      "group_title": "University Requirements",
+      "group_credit_hours": 18,
+      "group_rule": "compulsory",
+      "code": "A0161301",
+      "title_en": "National Education",
+      "title_ar": "التربية الوطنية",
+      "credit_hours": 3,
+      "theory_hours": 3,
+      "practical_hours": 0,
+      "prerequisites": [],
+      "learning": "blended",
+      "jnqf_level": 5
+    },
+    {
+      "group": "university_requirements",
+      "group_title": "University Requirements",
+      "group_credit_hours": 18,
+      "group_rule": "compulsory",
+      "code": "A0161302",
+      "title_en": "Military Science",
+      "title_ar": "العلوم العسكرية",
+      "credit_hours": 3,
+      "theory_hours": 3,
+      "practical_hours": 0,
+      "prerequisites": [],
+      "learning": "online",
+      "jnqf_level": 5
+    },
+    {
+      "group": "university_requirements",
+      "group_title": "University Requirements",
+      "group_credit_hours": 18,
+      "group_rule": "compulsory",
+      "code": "A0161400",
+      "title_en": "Community Service",
+      "title_ar": "خدمة المجتمع",
+      "credit_hours": 0,
+      "theory_hours": 0,
+      "practical_hours": 0,
+      "prerequisites": [],
+      "learning": "face-to-face",
+      "jnqf_level": 5
+    },
+    {
+      "group": "university_requirements",
+      "group_title": "University Requirements",
+      "group_credit_hours": 18,
+      "group_rule": "compulsory",
+      "code": "A0161401",
+      "title_en": "Life Skills",
+      "title_ar": "مهارات حياتية",
+      "credit_hours": 3,
+      "theory_hours": 3,
+      "practical_hours": 0,
+      "prerequisites": [],
+      "learning": "blended",
+      "jnqf_level": 5
+    },
+    {
+      "group": "university_requirements",
+      "group_title": "University Requirements",
+      "group_credit_hours": 18,
+      "group_rule": "compulsory",
+      "code": "A0181501",
+      "title_en": "Artificial Intelligence and Cybersecurity",
+      "title_ar": "الذكاء الاصطناعي والأمن السيبراني",
+      "credit_hours": 3,
+      "theory_hours": 3,
+      "practical_hours": 0,
+      "prerequisites": [],
+      "learning": "blended",
+      "jnqf_level": 5
+    },
+    {
+      "group": "university_electives",
+      "group_title": "University Electives",
+      "group_credit_hours": 6,
+      "group_rule": "choose 6 credit hours",
+      "code": "A0161303",
+      "title_en": "Media Literacy",
+      "title_ar": "الدراية الإعلامية",
+      "credit_hours": 1,
+      "theory_hours": 1,
+      "practical_hours": 0,
+      "prerequisites": [],
+      "learning": "online",
+      "jnqf_level": 5
+    },
+    {
+      "group": "university_electives",
+      "group_title": "University Electives",
+      "group_credit_hours": 6,
+      "group_rule": "choose 6 credit hours",
+      "code": "A0161305",
+      "title_en": "Social Responsibility",
+      "title_ar": "المسؤولية المجتمعية",
+      "credit_hours": 3,
+      "theory_hours": 3,
+      "practical_hours": 0,
+      "prerequisites": [],
+      "learning": "online",
+      "jnqf_level": 5
+    },
+    {
+      "group": "university_electives",
+      "group_title": "University Electives",
+      "group_credit_hours": 6,
+      "group_rule": "choose 6 credit hours",
+      "code": "A0161402",
+      "title_en": "Leadership, Entrepreneurship, and Innovation",
+      "title_ar": "القيادة والريادة والابتكار",
+      "credit_hours": 1,
+      "theory_hours": 1,
+      "practical_hours": 0,
+      "prerequisites": [],
+      "learning": "online",
+      "jnqf_level": 5
+    },
+    {
+      "group": "university_electives",
+      "group_title": "University Electives",
+      "group_credit_hours": 6,
+      "group_rule": "choose 6 credit hours",
+      "code": "A0161403",
+      "title_en": "Practical Applications in Sustainability",
+      "title_ar": "تطبيقات عملية في الاستدامة",
+      "credit_hours": 1,
+      "theory_hours": 1,
+      "practical_hours": 0,
+      "prerequisites": [],
+      "learning": "online",
+      "jnqf_level": 5
+    },
+    {
+      "group": "university_electives",
+      "group_title": "University Electives",
+      "group_credit_hours": 6,
+      "group_rule": "choose 6 credit hours",
+      "code": "A0161404",
+      "title_en": "The Art of Etiquette",
+      "title_ar": "فن الإتيكيت",
+      "credit_hours": 1,
+      "theory_hours": 1,
+      "practical_hours": 0,
+      "prerequisites": [],
+      "learning": "online",
+      "jnqf_level": 5
+    },
+    {
+      "group": "university_electives",
+      "group_title": "University Electives",
+      "group_credit_hours": 6,
+      "group_rule": "choose 6 credit hours",
+      "code": "A0161501",
+      "title_en": "Islamic Education",
+      "title_ar": "الثقافة الإسلامية",
+      "credit_hours": 3,
+      "theory_hours": 3,
+      "practical_hours": 0,
+      "prerequisites": [],
+      "learning": "online",
+      "jnqf_level": 5
+    },
+    {
+      "group": "university_electives",
+      "group_title": "University Electives",
+      "group_credit_hours": 6,
+      "group_rule": "choose 6 credit hours",
+      "code": "A0161502",
+      "title_en": "Jerusalem (The Question of Palestine)",
+      "title_ar": "القدس (القضية الفلسطينية)",
+      "credit_hours": 3,
+      "theory_hours": 3,
+      "practical_hours": 0,
+      "prerequisites": [],
+      "learning": "online",
+      "jnqf_level": 5
+    },
+    {
+      "group": "university_electives",
+      "group_title": "University Electives",
+      "group_credit_hours": 6,
+      "group_rule": "choose 6 credit hours",
+      "code": "A0161503",
+      "title_en": "Critical Thinking",
+      "title_ar": "الفكر الناقد",
+      "credit_hours": 2,
+      "theory_hours": 2,
+      "practical_hours": 0,
+      "prerequisites": [],
+      "learning": "online",
+      "jnqf_level": 5
+    },
+    {
+      "group": "university_electives",
+      "group_title": "University Electives",
+      "group_credit_hours": 6,
+      "group_rule": "choose 6 credit hours",
+      "code": "A0161504",
+      "title_en": "Law and Everyday Life",
+      "title_ar": "القانون في حياتنا",
+      "credit_hours": 2,
+      "theory_hours": 2,
+      "practical_hours": 0,
+      "prerequisites": [],
+      "learning": "online",
+      "jnqf_level": 5
+    },
+    {
+      "group": "university_electives",
+      "group_title": "University Electives",
+      "group_credit_hours": 6,
+      "group_rule": "choose 6 credit hours",
+      "code": "A0161309",
+      "title_en": "Traffic Safety",
+      "title_ar": "السلامة المرورية",
+      "credit_hours": 1,
+      "theory_hours": 1,
+      "practical_hours": 0,
+      "prerequisites": [],
+      "learning": "online",
+      "jnqf_level": 5
+    },
+    {
+      "group": "university_electives",
+      "group_title": "University Electives",
+      "group_credit_hours": 6,
+      "group_rule": "choose 6 credit hours",
+      "code": "A0181502",
+      "title_en": "Programming for Non-Programmers",
+      "title_ar": "البرمجة لغير المبرمجين",
+      "credit_hours": 2,
+      "theory_hours": 2,
+      "practical_hours": 0,
+      "prerequisites": [],
+      "learning": "online",
+      "jnqf_level": 5
+    },
+    {
+      "group": "university_electives",
+      "group_title": "University Electives",
+      "group_credit_hours": 6,
+      "group_rule": "choose 6 credit hours",
+      "code": "A0181601",
+      "title_en": "First Aid",
+      "title_ar": "إسعافات أولية",
+      "credit_hours": 1,
+      "theory_hours": 1,
+      "practical_hours": 0,
+      "prerequisites": [],
+      "learning": "online",
+      "jnqf_level": 5
+    },
+    {
+      "group": "university_electives",
+      "group_title": "University Electives",
+      "group_credit_hours": 6,
+      "group_rule": "choose 6 credit hours",
+      "code": "A0181602",
+      "title_en": "Public Health and Nutrition",
+      "title_ar": "الصحة العامة والتغذية",
+      "credit_hours": 2,
+      "theory_hours": 2,
+      "practical_hours": 0,
+      "prerequisites": [],
+      "learning": "online",
+      "jnqf_level": 5
+    },
+    {
+      "group": "university_electives",
+      "group_title": "University Electives",
+      "group_credit_hours": 6,
+      "group_rule": "choose 6 credit hours",
+      "code": "A0181508",
+      "title_en": "Data Analysis",
+      "title_ar": "تحليل البيانات",
+      "credit_hours": 2,
+      "theory_hours": 2,
+      "practical_hours": 0,
+      "prerequisites": [],
+      "learning": "online",
+      "jnqf_level": 5
+    },
+    {
+      "group": "faculty_requirements_a",
+      "group_title": "Faculty Requirements Group A",
+      "group_credit_hours": 6,
+      "group_rule": "compulsory",
+      "code": "1913201",
+      "title_en": "Communication Skills and Professional Ethics",
+      "title_ar": "مهارات الاتصال وأخلاقيات المهنة",
+      "credit_hours": 1,
+      "theory_hours": 1,
+      "practical_hours": 0,
+      "prerequisites": [
+        "A0161201"
+      ],
+      "learning": "blended",
+      "jnqf_level": 6
+    },
+    {
+      "group": "faculty_requirements_a",
+      "group_title": "Faculty Requirements Group A",
+      "group_credit_hours": 6,
+      "group_rule": "compulsory",
+      "code": "A0162204",
+      "title_en": "Communication Skills for Engineering and Design in English",
+      "title_ar": "مهارات الاتصال باللغة الإنجليزية للهندسة والتصميم",
+      "credit_hours": 2,
+      "theory_hours": 2,
+      "practical_hours": 0,
+      "prerequisites": [
+        "A0161201"
+      ],
+      "learning": "blended",
+      "jnqf_level": 6
+    },
+    {
+      "group": "faculty_requirements_a",
+      "group_title": "Faculty Requirements Group A",
+      "group_credit_hours": 6,
+      "group_rule": "compulsory",
+      "code": "A0163401",
+      "title_en": "Introduction to Project Management",
+      "title_ar": "مقدمة في إدارة المشاريع",
+      "credit_hours": 3,
+      "theory_hours": 3,
+      "practical_hours": 0,
+      "prerequisites": [
+        "60 credit hours completed"
+      ],
+      "learning": "blended",
+      "jnqf_level": 6
+    },
+    {
+      "group": "faculty_requirements_b",
+      "group_title": "Faculty Requirements Group B",
+      "group_credit_hours": 18,
+      "group_rule": "compulsory",
+      "code": "A0181101",
+      "title_en": "Calculus I",
+      "title_ar": "تفاضل وتكامل (1)",
+      "credit_hours": 3,
+      "theory_hours": 3,
+      "practical_hours": 0,
+      "prerequisites": [],
+      "learning": "face-to-face",
+      "jnqf_level": 5
+    },
+    {
+      "group": "faculty_requirements_b",
+      "group_title": "Faculty Requirements Group B",
+      "group_credit_hours": 18,
+      "group_rule": "compulsory",
+      "code": "A0181102",
+      "title_en": "Calculus II",
+      "title_ar": "تفاضل وتكامل (2)",
+      "credit_hours": 3,
+      "theory_hours": 3,
+      "practical_hours": 0,
+      "prerequisites": [
+        "A0181101"
+      ],
+      "learning": "face-to-face",
+      "jnqf_level": 6
+    },
+    {
+      "group": "faculty_requirements_b",
+      "group_title": "Faculty Requirements Group B",
+      "group_credit_hours": 18,
+      "group_rule": "compulsory",
+      "code": "A0181201",
+      "title_en": "Physics I",
+      "title_ar": "فيزياء عامة (1)",
+      "credit_hours": 3,
+      "theory_hours": 3,
+      "practical_hours": 0,
+      "prerequisites": [],
+      "learning": "face-to-face",
+      "jnqf_level": 5
+    },
+    {
+      "group": "faculty_requirements_b",
+      "group_title": "Faculty Requirements Group B",
+      "group_credit_hours": 18,
+      "group_rule": "compulsory",
+      "code": "A0181202",
+      "title_en": "Physics I (Lab)",
+      "title_ar": "فيزياء عامة (1) عملي",
+      "credit_hours": 1,
+      "theory_hours": 0,
+      "practical_hours": 2,
+      "prerequisites": [
+        "A0181201 (concurrent)"
+      ],
+      "learning": "face-to-face",
+      "jnqf_level": 5
+    },
+    {
+      "group": "faculty_requirements_b",
+      "group_title": "Faculty Requirements Group B",
+      "group_credit_hours": 18,
+      "group_rule": "compulsory",
+      "code": "A0181203",
+      "title_en": "Physics II",
+      "title_ar": "فيزياء عامة (2)",
+      "credit_hours": 3,
+      "theory_hours": 3,
+      "practical_hours": 0,
+      "prerequisites": [
+        "A0181201"
+      ],
+      "learning": "face-to-face",
+      "jnqf_level": 6
+    },
+    {
+      "group": "faculty_requirements_b",
+      "group_title": "Faculty Requirements Group B",
+      "group_credit_hours": 18,
+      "group_rule": "compulsory",
+      "code": "A0181204",
+      "title_en": "Physics II (Lab)",
+      "title_ar": "فيزياء عامة (2) عملي",
+      "credit_hours": 1,
+      "theory_hours": 0,
+      "practical_hours": 2,
+      "prerequisites": [
+        "A0181203 (concurrent)"
+      ],
+      "learning": "face-to-face",
+      "jnqf_level": 6
+    },
+    {
+      "group": "faculty_requirements_b",
+      "group_title": "Faculty Requirements Group B",
+      "group_credit_hours": 18,
+      "group_rule": "compulsory",
+      "code": "A0181301",
+      "title_en": "General Chemistry",
+      "title_ar": "كيمياء عامة",
+      "credit_hours": 3,
+      "theory_hours": 3,
+      "practical_hours": 0,
+      "prerequisites": [],
+      "learning": "face-to-face",
+      "jnqf_level": 5
+    },
+    {
+      "group": "faculty_requirements_b",
+      "group_title": "Faculty Requirements Group B",
+      "group_credit_hours": 18,
+      "group_rule": "compulsory",
+      "code": "A0181302",
+      "title_en": "General Chemistry (Lab)",
+      "title_ar": "كيمياء عامة عملي",
+      "credit_hours": 1,
+      "theory_hours": 0,
+      "practical_hours": 2,
+      "prerequisites": [
+        "A0181301 (concurrent)"
+      ],
+      "learning": "face-to-face",
+      "jnqf_level": 5
+    },
+    {
+      "group": "area_of_study_requirements",
+      "group_title": "Area of Study (Major) Requirements",
+      "group_credit_hours": 91,
+      "group_rule": "compulsory",
+      "code": "1911201",
+      "title_en": "Engineering Workshops I",
+      "title_ar": "مشاغل هندسية (1)",
+      "credit_hours": 1,
+      "theory_hours": 0,
+      "practical_hours": 2,
+      "prerequisites": [],
+      "learning": "face-to-face",
+      "jnqf_level": 6
+    },
+    {
+      "group": "area_of_study_requirements",
+      "group_title": "Area of Study (Major) Requirements",
+      "group_credit_hours": 91,
+      "group_rule": "compulsory",
+      "code": "1911202",
+      "title_en": "Engineering Workshops II",
+      "title_ar": "مشاغل هندسية (2)",
+      "credit_hours": 1,
+      "theory_hours": 0,
+      "practical_hours": 2,
+      "prerequisites": [
+        "1911201"
+      ],
+      "learning": "face-to-face",
+      "jnqf_level": 6
+    },
+    {
+      "group": "area_of_study_requirements",
+      "group_title": "Area of Study (Major) Requirements",
+      "group_credit_hours": 91,
+      "group_rule": "compulsory",
+      "code": "1912301",
+      "title_en": "Materials Science and Engineering",
+      "title_ar": "علم المواد الهندسية",
+      "credit_hours": 2,
+      "theory_hours": 2,
+      "practical_hours": 0,
+      "prerequisites": [
+        "A0181301"
+      ],
+      "learning": "face-to-face",
+      "jnqf_level": 6
+    },
+    {
+      "group": "area_of_study_requirements",
+      "group_title": "Area of Study (Major) Requirements",
+      "group_credit_hours": 91,
+      "group_rule": "compulsory",
+      "code": "1912302",
+      "title_en": "Statics",
+      "title_ar": "استاتيكا",
+      "credit_hours": 3,
+      "theory_hours": 3,
+      "practical_hours": 0,
+      "prerequisites": [
+        "A0181201"
+      ],
+      "learning": "blended",
+      "jnqf_level": 6
+    },
+    {
+      "group": "area_of_study_requirements",
+      "group_title": "Area of Study (Major) Requirements",
+      "group_credit_hours": 91,
+      "group_rule": "compulsory",
+      "code": "1912303",
+      "title_en": "Strength of Materials",
+      "title_ar": "مقاومة مواد",
+      "credit_hours": 3,
+      "theory_hours": 3,
+      "practical_hours": 0,
+      "prerequisites": [
+        "1912302"
+      ],
+      "learning": "blended",
+      "jnqf_level": 6
+    },
+    {
+      "group": "area_of_study_requirements",
+      "group_title": "Area of Study (Major) Requirements",
+      "group_credit_hours": 91,
+      "group_rule": "compulsory",
+      "code": "1912401",
+      "title_en": "Fluid Mechanics",
+      "title_ar": "ميكانيكا موائع",
+      "credit_hours": 3,
+      "theory_hours": 3,
+      "practical_hours": 0,
+      "prerequisites": [
+        "1912302"
+      ],
+      "learning": "face-to-face",
+      "jnqf_level": 6
+    },
+    {
+      "group": "area_of_study_requirements",
+      "group_title": "Area of Study (Major) Requirements",
+      "group_credit_hours": 91,
+      "group_rule": "compulsory",
+      "code": "1912501",
+      "title_en": "Electric Circuits I",
+      "title_ar": "دوائر كهربائية (1)",
+      "credit_hours": 3,
+      "theory_hours": 3,
+      "practical_hours": 0,
+      "prerequisites": [
+        "A0181204"
+      ],
+      "learning": "face-to-face",
+      "jnqf_level": 6
+    },
+    {
+      "group": "area_of_study_requirements",
+      "group_title": "Area of Study (Major) Requirements",
+      "group_credit_hours": 91,
+      "group_rule": "compulsory",
+      "code": "1912502",
+      "title_en": "Electric Circuits II",
+      "title_ar": "دوائر كهربائية (2)",
+      "credit_hours": 3,
+      "theory_hours": 3,
+      "practical_hours": 0,
+      "prerequisites": [
+        "1912501"
+      ],
+      "learning": "face-to-face",
+      "jnqf_level": 6
+    },
+    {
+      "group": "area_of_study_requirements",
+      "group_title": "Area of Study (Major) Requirements",
+      "group_credit_hours": 91,
+      "group_rule": "compulsory",
+      "code": "1912503",
+      "title_en": "Electric and Electronic Circuits Lab",
+      "title_ar": "مختبر دوائر كهربائية وإلكترونية",
+      "credit_hours": 1,
+      "theory_hours": 0,
+      "practical_hours": 2,
+      "prerequisites": [
+        "1912502 (concurrent)"
+      ],
+      "learning": "face-to-face",
+      "jnqf_level": 6
+    },
+    {
+      "group": "area_of_study_requirements",
+      "group_title": "Area of Study (Major) Requirements",
+      "group_credit_hours": 91,
+      "group_rule": "compulsory",
+      "code": "1912601",
+      "title_en": "Introduction to Renewable Energy",
+      "title_ar": "مقدمة في الطاقة المتجددة",
+      "credit_hours": 3,
+      "theory_hours": 3,
+      "practical_hours": 0,
+      "prerequisites": [
+        "1912501 (concurrent)"
+      ],
+      "learning": "blended",
+      "jnqf_level": 6
+    },
+    {
+      "group": "area_of_study_requirements",
+      "group_title": "Area of Study (Major) Requirements",
+      "group_credit_hours": 91,
+      "group_rule": "compulsory",
+      "code": "1912602",
+      "title_en": "Introduction to Solar Energy",
+      "title_ar": "مقدمة في الطاقة الشمسية",
+      "credit_hours": 2,
+      "theory_hours": 2,
+      "practical_hours": 0,
+      "prerequisites": [
+        "1912601"
+      ],
+      "learning": "face-to-face",
+      "jnqf_level": 6
+    },
+    {
+      "group": "area_of_study_requirements",
+      "group_title": "Area of Study (Major) Requirements",
+      "group_credit_hours": 91,
+      "group_rule": "compulsory",
+      "code": "1913301",
+      "title_en": "Dynamics",
+      "title_ar": "ديناميكا",
+      "credit_hours": 3,
+      "theory_hours": 3,
+      "practical_hours": 0,
+      "prerequisites": [
+        "1912302"
+      ],
+      "learning": "face-to-face",
+      "jnqf_level": 6
+    },
+    {
+      "group": "area_of_study_requirements",
+      "group_title": "Area of Study (Major) Requirements",
+      "group_credit_hours": 91,
+      "group_rule": "compulsory",
+      "code": "1913401",
+      "title_en": "Thermodynamics",
+      "title_ar": "ديناميكا حرارية",
+      "credit_hours": 3,
+      "theory_hours": 3,
+      "practical_hours": 0,
+      "prerequisites": [
+        "1912401"
+      ],
+      "learning": "face-to-face",
+      "jnqf_level": 7
+    },
+    {
+      "group": "area_of_study_requirements",
+      "group_title": "Area of Study (Major) Requirements",
+      "group_credit_hours": 91,
+      "group_rule": "compulsory",
+      "code": "1913402",
+      "title_en": "Heat Transfer",
+      "title_ar": "انتقال الحرارة",
+      "credit_hours": 3,
+      "theory_hours": 3,
+      "practical_hours": 0,
+      "prerequisites": [
+        "1913401"
+      ],
+      "learning": "blended",
+      "jnqf_level": 7
+    },
+    {
+      "group": "area_of_study_requirements",
+      "group_title": "Area of Study (Major) Requirements",
+      "group_credit_hours": 91,
+      "group_rule": "compulsory",
+      "code": "1913403",
+      "title_en": "Heat Transfer Lab",
+      "title_ar": "مختبر انتقال الحرارة",
+      "credit_hours": 1,
+      "theory_hours": 0,
+      "practical_hours": 2,
+      "prerequisites": [
+        "1913402 (concurrent)"
+      ],
+      "learning": "face-to-face",
+      "jnqf_level": 7
+    },
+    {
+      "group": "area_of_study_requirements",
+      "group_title": "Area of Study (Major) Requirements",
+      "group_credit_hours": 91,
+      "group_rule": "compulsory",
+      "code": "1913404",
+      "title_en": "Fluid Mechanics Lab",
+      "title_ar": "مختبر ميكانيكا موائع",
+      "credit_hours": 1,
+      "theory_hours": 0,
+      "practical_hours": 2,
+      "prerequisites": [
+        "1912401"
+      ],
+      "learning": "face-to-face",
+      "jnqf_level": 6
+    },
+    {
+      "group": "area_of_study_requirements",
+      "group_title": "Area of Study (Major) Requirements",
+      "group_credit_hours": 91,
+      "group_rule": "compulsory",
+      "code": "1913501",
+      "title_en": "Electric Machines",
+      "title_ar": "آلات كهربائية",
+      "credit_hours": 3,
+      "theory_hours": 3,
+      "practical_hours": 0,
+      "prerequisites": [
+        "1912502"
+      ],
+      "learning": "face-to-face",
+      "jnqf_level": 7
+    },
+    {
+      "group": "area_of_study_requirements",
+      "group_title": "Area of Study (Major) Requirements",
+      "group_credit_hours": 91,
+      "group_rule": "compulsory",
+      "code": "1913502",
+      "title_en": "Electric Machines Lab",
+      "title_ar": "مختبر الآلات الكهربائية",
+      "credit_hours": 1,
+      "theory_hours": 0,
+      "practical_hours": 2,
+      "prerequisites": [
+        "1913501"
+      ],
+      "learning": "face-to-face",
+      "jnqf_level": 7
+    },
+    {
+      "group": "area_of_study_requirements",
+      "group_title": "Area of Study (Major) Requirements",
+      "group_credit_hours": 91,
+      "group_rule": "compulsory",
+      "code": "1913601",
+      "title_en": "Solar Thermal Energy",
+      "title_ar": "الطاقة الشمسية الحرارية",
+      "credit_hours": 2,
+      "theory_hours": 2,
+      "practical_hours": 0,
+      "prerequisites": [
+        "1913402 (concurrent)"
+      ],
+      "learning": "face-to-face",
+      "jnqf_level": 7
+    },
+    {
+      "group": "area_of_study_requirements",
+      "group_title": "Area of Study (Major) Requirements",
+      "group_credit_hours": 91,
+      "group_rule": "compulsory",
+      "code": "1913701",
+      "title_en": "Electronics",
+      "title_ar": "الإلكترونيات",
+      "credit_hours": 3,
+      "theory_hours": 3,
+      "practical_hours": 0,
+      "prerequisites": [
+        "1912502 (concurrent)"
+      ],
+      "learning": "face-to-face",
+      "jnqf_level": 6
+    },
+    {
+      "group": "area_of_study_requirements",
+      "group_title": "Area of Study (Major) Requirements",
+      "group_credit_hours": 91,
+      "group_rule": "compulsory",
+      "code": "1913702",
+      "title_en": "Power Systems",
+      "title_ar": "أنظمة القوى الكهربائية",
+      "credit_hours": 3,
+      "theory_hours": 3,
+      "practical_hours": 0,
+      "prerequisites": [
+        "1913501"
+      ],
+      "learning": "face-to-face",
+      "jnqf_level": 7
+    },
+    {
+      "group": "area_of_study_requirements",
+      "group_title": "Area of Study (Major) Requirements",
+      "group_credit_hours": 91,
+      "group_rule": "compulsory",
+      "code": "1914301",
+      "title_en": "Instrumentation Measurements",
+      "title_ar": "أجهزة قياس",
+      "credit_hours": 3,
+      "theory_hours": 3,
+      "practical_hours": 0,
+      "prerequisites": [
+        "1912502"
+      ],
+      "learning": "blended",
+      "jnqf_level": 6
+    },
+    {
+      "group": "area_of_study_requirements",
+      "group_title": "Area of Study (Major) Requirements",
+      "group_credit_hours": 91,
+      "group_rule": "compulsory",
+      "code": "1914302",
+      "title_en": "Instrumentation Measurements Lab",
+      "title_ar": "مختبر أجهزة قياس",
+      "credit_hours": 1,
+      "theory_hours": 0,
+      "practical_hours": 2,
+      "prerequisites": [
+        "1914301 (concurrent)"
+      ],
+      "learning": "face-to-face",
+      "jnqf_level": 6
+    },
+    {
+      "group": "area_of_study_requirements",
+      "group_title": "Area of Study (Major) Requirements",
+      "group_credit_hours": 91,
+      "group_rule": "compulsory",
+      "code": "1914303",
+      "title_en": "Simulation I",
+      "title_ar": "التصميم والمحاكاة (1)",
+      "credit_hours": 2,
+      "theory_hours": 0,
+      "practical_hours": 4,
+      "prerequisites": [
+        "1912602"
+      ],
+      "learning": "face-to-face",
+      "jnqf_level": 7
+    },
+    {
+      "group": "area_of_study_requirements",
+      "group_title": "Area of Study (Major) Requirements",
+      "group_credit_hours": 91,
+      "group_rule": "compulsory",
+      "code": "1914304",
+      "title_en": "Simulation II",
+      "title_ar": "التصميم والمحاكاة (2)",
+      "credit_hours": 1,
+      "theory_hours": 0,
+      "practical_hours": 2,
+      "prerequisites": [
+        "1913601",
+        "1914603"
+      ],
+      "learning": "blended",
+      "jnqf_level": 7
+    },
+    {
+      "group": "area_of_study_requirements",
+      "group_title": "Area of Study (Major) Requirements",
+      "group_credit_hours": 91,
+      "group_rule": "compulsory",
+      "code": "1914601",
+      "title_en": "Photovoltaic Energy",
+      "title_ar": "الطاقة الكهروضوئية",
+      "credit_hours": 3,
+      "theory_hours": 3,
+      "practical_hours": 0,
+      "prerequisites": [
+        "1913701"
+      ],
+      "learning": "blended",
+      "jnqf_level": 7
+    },
+    {
+      "group": "area_of_study_requirements",
+      "group_title": "Area of Study (Major) Requirements",
+      "group_credit_hours": 91,
+      "group_rule": "compulsory",
+      "code": "1914602",
+      "title_en": "Solar Energy Lab",
+      "title_ar": "مختبر الطاقة الشمسية",
+      "credit_hours": 1,
+      "theory_hours": 0,
+      "practical_hours": 2,
+      "prerequisites": [
+        "1913601",
+        "1914601 (concurrent)"
+      ],
+      "learning": "face-to-face",
+      "jnqf_level": 7
+    },
+    {
+      "group": "area_of_study_requirements",
+      "group_title": "Area of Study (Major) Requirements",
+      "group_credit_hours": 91,
+      "group_rule": "compulsory",
+      "code": "1914603",
+      "title_en": "Wind Energy",
+      "title_ar": "طاقة الرياح",
+      "credit_hours": 3,
+      "theory_hours": 3,
+      "practical_hours": 0,
+      "prerequisites": [
+        "1913501"
+      ],
+      "learning": "face-to-face",
+      "jnqf_level": 7
+    },
+    {
+      "group": "area_of_study_requirements",
+      "group_title": "Area of Study (Major) Requirements",
+      "group_credit_hours": 91,
+      "group_rule": "compulsory",
+      "code": "1914604",
+      "title_en": "Wind Energy Lab",
+      "title_ar": "مختبر أنظمة طاقة الرياح",
+      "credit_hours": 1,
+      "theory_hours": 0,
+      "practical_hours": 2,
+      "prerequisites": [
+        "1914603 (concurrent)"
+      ],
+      "learning": "face-to-face",
+      "jnqf_level": 7
+    },
+    {
+      "group": "area_of_study_requirements",
+      "group_title": "Area of Study (Major) Requirements",
+      "group_credit_hours": 91,
+      "group_rule": "compulsory",
+      "code": "1914701",
+      "title_en": "Power Electronics",
+      "title_ar": "إلكترونيات القوى الكهربائية",
+      "credit_hours": 3,
+      "theory_hours": 3,
+      "practical_hours": 0,
+      "prerequisites": [
+        "1913701"
+      ],
+      "learning": "face-to-face",
+      "jnqf_level": 7
+    },
+    {
+      "group": "area_of_study_requirements",
+      "group_title": "Area of Study (Major) Requirements",
+      "group_credit_hours": 91,
+      "group_rule": "compulsory",
+      "code": "1914702",
+      "title_en": "Power Electronics and Systems Lab",
+      "title_ar": "مختبر أنظمة وإلكترونيات القوى الكهربائية",
+      "credit_hours": 1,
+      "theory_hours": 0,
+      "practical_hours": 2,
+      "prerequisites": [
+        "1913702",
+        "1914701 (concurrent)"
+      ],
+      "learning": "face-to-face",
+      "jnqf_level": 7
+    },
+    {
+      "group": "area_of_study_requirements",
+      "group_title": "Area of Study (Major) Requirements",
+      "group_credit_hours": 91,
+      "group_rule": "compulsory",
+      "code": "1914703",
+      "title_en": "Energy Conversion and Storage",
+      "title_ar": "تحويل وتخزين الطاقة",
+      "credit_hours": 3,
+      "theory_hours": 3,
+      "practical_hours": 0,
+      "prerequisites": [
+        "1913401"
+      ],
+      "learning": "face-to-face",
+      "jnqf_level": 7
+    },
+    {
+      "group": "area_of_study_requirements",
+      "group_title": "Area of Study (Major) Requirements",
+      "group_credit_hours": 91,
+      "group_rule": "compulsory",
+      "code": "1915201",
+      "title_en": "Engineering Economy",
+      "title_ar": "اقتصاد هندسي",
+      "credit_hours": 2,
+      "theory_hours": 2,
+      "practical_hours": 0,
+      "prerequisites": [
+        "120 credit hours completed"
+      ],
+      "learning": "face-to-face",
+      "jnqf_level": 7
+    },
+    {
+      "group": "area_of_study_requirements",
+      "group_title": "Area of Study (Major) Requirements",
+      "group_credit_hours": 91,
+      "group_rule": "compulsory",
+      "code": "1915301",
+      "title_en": "Control Systems",
+      "title_ar": "التحكم الآلي",
+      "credit_hours": 3,
+      "theory_hours": 3,
+      "practical_hours": 0,
+      "prerequisites": [
+        "A0183105",
+        "1913301"
+      ],
+      "learning": "face-to-face",
+      "jnqf_level": 7
+    },
+    {
+      "group": "area_of_study_requirements",
+      "group_title": "Area of Study (Major) Requirements",
+      "group_credit_hours": 91,
+      "group_rule": "compulsory",
+      "code": "1915302",
+      "title_en": "Control Systems Lab",
+      "title_ar": "مختبر التحكم الآلي",
+      "credit_hours": 1,
+      "theory_hours": 0,
+      "practical_hours": 2,
+      "prerequisites": [
+        "1915301 (concurrent)"
+      ],
+      "learning": "face-to-face",
+      "jnqf_level": 7
+    },
+    {
+      "group": "area_of_study_requirements",
+      "group_title": "Area of Study (Major) Requirements",
+      "group_credit_hours": 91,
+      "group_rule": "compulsory",
+      "code": "1915801",
+      "title_en": "Energy Efficiency and Economics",
+      "title_ar": "اقتصاد وكفاءة الطاقة",
+      "credit_hours": 3,
+      "theory_hours": 3,
+      "practical_hours": 0,
+      "prerequisites": [
+        "1913402"
+      ],
+      "learning": "blended",
+      "jnqf_level": 7
+    },
+    {
+      "group": "area_of_study_requirements",
+      "group_title": "Area of Study (Major) Requirements",
+      "group_credit_hours": 91,
+      "group_rule": "compulsory",
+      "code": "1915802",
+      "title_en": "Energy Management and Regulations",
+      "title_ar": "إدارة وتشريعات الطاقة",
+      "credit_hours": 3,
+      "theory_hours": 3,
+      "practical_hours": 0,
+      "prerequisites": [
+        "1915801 (concurrent)"
+      ],
+      "learning": "blended",
+      "jnqf_level": 7
+    },
+    {
+      "group": "area_of_study_requirements",
+      "group_title": "Area of Study (Major) Requirements",
+      "group_credit_hours": 91,
+      "group_rule": "compulsory",
+      "code": "1915803",
+      "title_en": "Environmental Impact of Energy",
+      "title_ar": "الأثر البيئي للطاقة",
+      "credit_hours": 3,
+      "theory_hours": 3,
+      "practical_hours": 0,
+      "prerequisites": [
+        "1915801 (concurrent)"
+      ],
+      "learning": "online",
+      "jnqf_level": 7
+    },
+    {
+      "group": "area_of_study_requirements",
+      "group_title": "Area of Study (Major) Requirements",
+      "group_credit_hours": 91,
+      "group_rule": "compulsory",
+      "code": "1915901",
+      "title_en": "Graduation Project I",
+      "title_ar": "مشروع التخرج (1)",
+      "credit_hours": 1,
+      "theory_hours": 1,
+      "practical_hours": 0,
+      "prerequisites": [
+        "1915903"
+      ],
+      "learning": "face-to-face",
+      "jnqf_level": 7
+    },
+    {
+      "group": "area_of_study_requirements",
+      "group_title": "Area of Study (Major) Requirements",
+      "group_credit_hours": 91,
+      "group_rule": "compulsory",
+      "code": "1915902",
+      "title_en": "Graduation Project II",
+      "title_ar": "مشروع التخرج (2)",
+      "credit_hours": 2,
+      "theory_hours": 2,
+      "practical_hours": 0,
+      "prerequisites": [
+        "1915901"
+      ],
+      "learning": "face-to-face",
+      "jnqf_level": 7
+    },
+    {
+      "group": "area_of_study_requirements",
+      "group_title": "Area of Study (Major) Requirements",
+      "group_credit_hours": 91,
+      "group_rule": "compulsory",
+      "code": "1915903",
+      "title_en": "Field Training",
+      "title_ar": "التدريب الميداني",
+      "credit_hours": 3,
+      "theory_hours": 3,
+      "practical_hours": 0,
+      "prerequisites": [
+        "115 credit hours completed"
+      ],
+      "learning": "external",
+      "jnqf_level": 7
+    },
+    {
+      "group": "ancillary_courses",
+      "group_title": "Ancillary (Supporting) Courses",
+      "group_credit_hours": 14,
+      "group_rule": "compulsory",
+      "code": "1931201",
+      "title_en": "Engineering Drawing",
+      "title_ar": "الرسم الهندسي",
+      "credit_hours": 2,
+      "theory_hours": 1,
+      "practical_hours": 2,
+      "prerequisites": [],
+      "learning": "face-to-face",
+      "jnqf_level": 6
+    },
+    {
+      "group": "ancillary_courses",
+      "group_title": "Ancillary (Supporting) Courses",
+      "group_credit_hours": 14,
+      "group_rule": "compulsory",
+      "code": "A0182101",
+      "title_en": "Calculus III",
+      "title_ar": "تفاضل وتكامل (3)",
+      "credit_hours": 3,
+      "theory_hours": 3,
+      "practical_hours": 0,
+      "prerequisites": [
+        "A0181102"
+      ],
+      "learning": "face-to-face",
+      "jnqf_level": 6
+    },
+    {
+      "group": "ancillary_courses",
+      "group_title": "Ancillary (Supporting) Courses",
+      "group_credit_hours": 14,
+      "group_rule": "compulsory",
+      "code": "A0182102",
+      "title_en": "Probability and Statistics",
+      "title_ar": "الاحتمالات والإحصاء",
+      "credit_hours": 3,
+      "theory_hours": 3,
+      "practical_hours": 0,
+      "prerequisites": [
+        "A0181101"
+      ],
+      "learning": "face-to-face",
+      "jnqf_level": 6
+    },
+    {
+      "group": "ancillary_courses",
+      "group_title": "Ancillary (Supporting) Courses",
+      "group_credit_hours": 14,
+      "group_rule": "compulsory",
+      "code": "A0183104",
+      "title_en": "Numerical Analysis",
+      "title_ar": "التحليل العددي",
+      "credit_hours": 3,
+      "theory_hours": 3,
+      "practical_hours": 0,
+      "prerequisites": [
+        "A0181102"
+      ],
+      "learning": "face-to-face",
+      "jnqf_level": 6
+    },
+    {
+      "group": "ancillary_courses",
+      "group_title": "Ancillary (Supporting) Courses",
+      "group_credit_hours": 14,
+      "group_rule": "compulsory",
+      "code": "A0183105",
+      "title_en": "Engineering Mathematics",
+      "title_ar": "رياضيات هندسية",
+      "credit_hours": 3,
+      "theory_hours": 3,
+      "practical_hours": 0,
+      "prerequisites": [
+        "A0182101"
+      ],
+      "learning": "face-to-face",
+      "jnqf_level": 6
+    },
+    {
+      "group": "area_of_study_electives",
+      "group_title": "Area of Study (Major) Electives",
+      "group_credit_hours": 9,
+      "group_rule": "choose 9 credit hours",
+      "code": "1913603",
+      "title_en": "Hydroelectric Energy",
+      "title_ar": "الطاقة المائية",
+      "credit_hours": 3,
+      "theory_hours": 3,
+      "practical_hours": 0,
+      "prerequisites": [
+        "1912401"
+      ],
+      "learning": "blended",
+      "jnqf_level": 7
+    },
+    {
+      "group": "area_of_study_electives",
+      "group_title": "Area of Study (Major) Electives",
+      "group_credit_hours": 9,
+      "group_rule": "choose 9 credit hours",
+      "code": "1914401",
+      "title_en": "Air Conditioning and Heating Systems",
+      "title_ar": "أنظمة التكييف والتبريد",
+      "credit_hours": 3,
+      "theory_hours": 3,
+      "practical_hours": 0,
+      "prerequisites": [
+        "1913402 (concurrent)"
+      ],
+      "learning": "blended",
+      "jnqf_level": 7
+    },
+    {
+      "group": "area_of_study_electives",
+      "group_title": "Area of Study (Major) Electives",
+      "group_credit_hours": 9,
+      "group_rule": "choose 9 credit hours",
+      "code": "1914801",
+      "title_en": "Green Buildings",
+      "title_ar": "المباني الخضراء",
+      "credit_hours": 3,
+      "theory_hours": 3,
+      "practical_hours": 0,
+      "prerequisites": [
+        "1913402"
+      ],
+      "learning": "blended",
+      "jnqf_level": 7
+    },
+    {
+      "group": "area_of_study_electives",
+      "group_title": "Area of Study (Major) Electives",
+      "group_credit_hours": 9,
+      "group_rule": "choose 9 credit hours",
+      "code": "1915601",
+      "title_en": "Water Desalination by Solar Energy",
+      "title_ar": "تحلية المياه بالطاقة الشمسية",
+      "credit_hours": 3,
+      "theory_hours": 3,
+      "practical_hours": 0,
+      "prerequisites": [
+        "1913402"
+      ],
+      "learning": "blended",
+      "jnqf_level": 7
+    },
+    {
+      "group": "area_of_study_electives",
+      "group_title": "Area of Study (Major) Electives",
+      "group_credit_hours": 9,
+      "group_rule": "choose 9 credit hours",
+      "code": "1915602",
+      "title_en": "Advanced Photovoltaic Systems",
+      "title_ar": "أنظمة الخلايا الشمسية المتقدمة",
+      "credit_hours": 3,
+      "theory_hours": 3,
+      "practical_hours": 0,
+      "prerequisites": [
+        "1914601"
+      ],
+      "learning": "blended",
+      "jnqf_level": 7
+    },
+    {
+      "group": "area_of_study_electives",
+      "group_title": "Area of Study (Major) Electives",
+      "group_credit_hours": 9,
+      "group_rule": "choose 9 credit hours",
+      "code": "1915603",
+      "title_en": "Special Topics in Renewable Energy",
+      "title_ar": "مواضيع خاصة في الطاقة المتجددة",
+      "credit_hours": 3,
+      "theory_hours": 3,
+      "practical_hours": 0,
+      "prerequisites": [
+        "100 credit hours completed"
+      ],
+      "learning": "blended",
+      "jnqf_level": 7
+    },
+    {
+      "group": "area_of_study_electives",
+      "group_title": "Area of Study (Major) Electives",
+      "group_credit_hours": 9,
+      "group_rule": "choose 9 credit hours",
+      "code": "1915701",
+      "title_en": "Smart Grid Systems",
+      "title_ar": "شبكات الطاقة الذكية",
+      "credit_hours": 3,
+      "theory_hours": 3,
+      "practical_hours": 0,
+      "prerequisites": [
+        "100 credit hours completed"
+      ],
+      "learning": "blended",
+      "jnqf_level": 7
+    },
+    {
+      "group": "area_of_study_electives",
+      "group_title": "Area of Study (Major) Electives",
+      "group_credit_hours": 9,
+      "group_rule": "choose 9 credit hours",
+      "code": "1915804",
+      "title_en": "Artificial Intelligence in Renewable Energy",
+      "title_ar": "الذكاء الاصطناعي في الطاقة المتجددة",
+      "credit_hours": 3,
+      "theory_hours": 3,
+      "practical_hours": 0,
+      "prerequisites": [
+        "100 credit hours completed"
+      ],
+      "learning": "blended",
+      "jnqf_level": 7
+    },
+    {
+      "group": "area_of_study_electives",
+      "group_title": "Area of Study (Major) Electives",
+      "group_credit_hours": 9,
+      "group_rule": "choose 9 credit hours",
+      "code": "1922201",
+      "title_en": "Engineering Programming",
+      "title_ar": "برمجة هندسية",
+      "credit_hours": 3,
+      "theory_hours": 3,
+      "practical_hours": 0,
+      "prerequisites": [
+        "A0181101"
+      ],
+      "learning": "blended",
+      "jnqf_level": 6
+    },
+    {
+      "group": "remedial_courses",
+      "group_title": "Remedial Courses (only if required by placement)",
+      "group_credit_hours": 0,
+      "group_rule": "not counted in the 162 hours",
+      "code": "A0161100",
+      "title_en": "Remedial Arabic Language Skills",
+      "title_ar": "مهارات الاتصال باللغة العربية الاستدراكية",
+      "credit_hours": 3,
+      "theory_hours": 3,
+      "practical_hours": 0,
+      "prerequisites": [],
+      "learning": "online",
+      "jnqf_level": 5
+    },
+    {
+      "group": "remedial_courses",
+      "group_title": "Remedial Courses (only if required by placement)",
+      "group_credit_hours": 0,
+      "group_rule": "not counted in the 162 hours",
+      "code": "A0161200",
+      "title_en": "Remedial English Language Skills",
+      "title_ar": "مهارات الاتصال باللغة الإنجليزية الاستدراكية",
+      "credit_hours": 3,
+      "theory_hours": 3,
+      "practical_hours": 0,
+      "prerequisites": [],
+      "learning": "online",
+      "jnqf_level": 5
+    },
+    {
+      "group": "remedial_courses",
+      "group_title": "Remedial Courses (only if required by placement)",
+      "group_credit_hours": 0,
+      "group_rule": "not counted in the 162 hours",
+      "code": "A0181500",
+      "title_en": "Remedial Computer Skills",
+      "title_ar": "مهارات الحاسوب الاستدراكي",
+      "credit_hours": 3,
+      "theory_hours": 3,
+      "practical_hours": 0,
+      "prerequisites": [],
+      "learning": "online",
+      "jnqf_level": 5
+    }
+  ]
+}

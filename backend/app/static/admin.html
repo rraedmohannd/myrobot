@@ -1,0 +1,147 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Review Queue</title>
+<style>
+  :root { --bg:#f6f4f3; --card:#fff; --ink:#231b1c; --muted:#6b6162; --line:#e3dcdb;
+          --brand:#931b1f; --ok:#1f7a3a; --warn:#a15c00; --bad:#a3262a; }
+  * { box-sizing: border-box; }
+  body { margin:0; font:15px/1.5 system-ui, "Segoe UI", Tahoma, sans-serif; background:var(--bg); color:var(--ink); }
+  header { background:var(--brand); color:#fff; padding:12px 16px; display:flex; gap:12px; align-items:center; flex-wrap:wrap; }
+  header h1 { font-size:18px; margin:0 auto 0 0; }
+  input, select, button, textarea { font:inherit; }
+  input[type=password] { padding:6px 8px; border-radius:6px; border:0; width:180px; }
+  button { cursor:pointer; border:1px solid var(--line); background:#fff; border-radius:6px; padding:6px 12px; }
+  button.ok { background:var(--ok); color:#fff; border-color:var(--ok); }
+  button.bad { background:var(--bad); color:#fff; border-color:var(--bad); }
+  main { display:grid; grid-template-columns: minmax(280px, 1fr) 2fr; gap:16px; padding:16px; }
+  @media (max-width: 800px) { main { grid-template-columns: 1fr; } }
+  .card { background:var(--card); border:1px solid var(--line); border-radius:10px; padding:12px; }
+  .stats { display:flex; gap:8px; flex-wrap:wrap; margin-bottom:8px; }
+  .pill { font-size:12px; padding:2px 8px; border-radius:999px; background:#eee; white-space:nowrap; }
+  .pending { background:#fff1d6; color:var(--warn); } .approved { background:#dcf3e3; color:var(--ok); }
+  .rejected { background:#f8dcdc; color:var(--bad); } .stale { background:#e6e3f5; color:#4b3f9a; }
+  .tabs { display:flex; gap:6px; flex-wrap:wrap; margin-bottom:8px; }
+  .tabs button.active { background:var(--ink); color:#fff; }
+  .src { padding:8px; border-radius:8px; cursor:pointer; border:1px solid transparent; }
+  .src:hover, .src.sel { border-color:var(--brand); background:#fbf7f7; }
+  .src .t { font-weight:600; } .src .u { font-size:12px; color:var(--muted); word-break:break-all; }
+  .chunk { border-top:1px solid var(--line); padding:10px 0; }
+  .chunk textarea { width:100%; min-height:120px; border:1px solid var(--line); border-radius:6px; padding:8px; }
+  .row { display:flex; gap:8px; align-items:center; flex-wrap:wrap; }
+  .muted { color:var(--muted); font-size:13px; }
+  #msg { margin-left:8px; }
+</style>
+</head>
+<body>
+<header>
+  <h1>Review Queue — MEU Engineering knowledge</h1>
+  <input id="token" type="password" placeholder="Admin token">
+  <button id="connect">Connect</button>
+  <span id="msg"></span>
+</header>
+<main>
+  <section class="card">
+    <div class="stats" id="stats"></div>
+    <div class="tabs" id="tabs"></div>
+    <div id="list" class="muted">Enter the ADMIN_TOKEN from your .env file and press Connect.</div>
+  </section>
+  <section class="card" id="detail"><p class="muted">Select a page to review its chunks.</p></section>
+</main>
+<script>
+const STATUSES = ["pending", "stale", "approved", "rejected"];
+let token = "", filter = "pending", selected = null;
+try { token = sessionStorage.getItem("adminToken") || ""; } catch (e) {}
+document.getElementById("token").value = token;
+
+const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+const dec = u => { try { return decodeURI(u); } catch (e) { return u; } };
+const pill = (st, n) => `<span class="pill ${st}">${st}${n !== undefined ? ": " + n : ""}</span>`;
+function msg(t, bad) { const m = document.getElementById("msg"); m.textContent = t; m.style.color = bad ? "#ffd2d2" : "#fff"; }
+
+async function api(path, opts = {}) {
+  const r = await fetch(path, { ...opts, headers: { "Content-Type": "application/json", "X-Admin-Token": token, ...(opts.headers || {}) } });
+  if (!r.ok) { const b = await r.json().catch(() => ({})); throw new Error(b.detail || r.statusText); }
+  return r.json();
+}
+
+async function loadStats() {
+  const s = await api("/api/admin/stats");
+  document.getElementById("stats").innerHTML =
+    "<b>Pages</b> " + STATUSES.map(k => pill(k, s.sources[k])).join(" ") +
+    " &nbsp; <b>Chunks</b> " + STATUSES.map(k => pill(k, s.chunks[k])).join(" ");
+}
+
+function renderTabs() {
+  document.getElementById("tabs").innerHTML = [...STATUSES, "all"].map(st =>
+    `<button class="${st === filter ? "active" : ""}" data-st="${st}">${st}</button>`).join("");
+  document.querySelectorAll("#tabs button").forEach(b => b.onclick = () => { filter = b.dataset.st; refresh(); });
+}
+
+async function loadList() {
+  const q = filter === "all" ? "" : `?status=${filter}`;
+  const data = await api(`/api/admin/sources${q}${q ? "&" : "?"}limit=200`);
+  const el = document.getElementById("list");
+  if (!data.items.length) { el.innerHTML = `<p class="muted">No pages with status “${filter}”.</p>`; return; }
+  el.innerHTML = data.items.map(s => `
+    <div class="src ${s.id === selected ? "sel" : ""}" data-id="${s.id}">
+      <div class="t" dir="auto">${esc(s.title || "(no title)")}</div>
+      <div class="u">${esc(dec(s.url))}</div>
+      <div class="row">${pill(s.review_status)} <span class="muted">${s.lang || ""} · ${Object.entries(s.chunk_counts).map(([k, v]) => k + " " + v).join(", ") || "no chunks"}</span></div>
+    </div>`).join("");
+  el.querySelectorAll(".src").forEach(d => d.onclick = () => openSource(+d.dataset.id));
+}
+
+async function openSource(id) {
+  selected = id;
+  const s = await api(`/api/admin/sources/${id}`);
+  const el = document.getElementById("detail");
+  el.innerHTML = `
+    <div class="row"><h2 style="margin:0" dir="auto">${esc(s.title || "(no title)")}</h2> ${pill(s.review_status)}</div>
+    <p class="muted"><a href="${esc(s.url)}" target="_blank" rel="noopener">${esc(dec(s.url))}</a> · HTTP ${s.http_status ?? "?"} · fetched ${s.fetched_at ? new Date(s.fetched_at).toLocaleString() : "?"}${s.notes ? " · " + esc(s.notes) : ""}</p>
+    <div class="row">
+      <button class="ok" id="approve">Approve page (pending chunks → approved)</button>
+      <button class="bad" id="reject">Reject page</button>
+    </div>
+    <p class="muted">Check every fact against the official page. Edit or reject single chunks below before approving. Stale chunks are the old approved text of a changed page; approving deletes them.</p>
+    ${s.chunks.map(c => `
+      <div class="chunk" data-id="${c.id}">
+        <div class="row">${pill(c.review_status)} <span class="muted">#${c.position} · ${c.lang}</span></div>
+        <textarea dir="auto">${esc(c.text)}</textarea>
+        <div class="row">
+          <button data-act="save">Save text</button>
+          <button data-act="approved">Approve chunk</button>
+          <button data-act="rejected">Reject chunk</button>
+        </div>
+      </div>`).join("")}`;
+  document.getElementById("approve").onclick = () => review(id, "approve");
+  document.getElementById("reject").onclick = () => review(id, "reject");
+  el.querySelectorAll(".chunk").forEach(div => div.querySelectorAll("button").forEach(b => b.onclick = async () => {
+    const body = b.dataset.act === "save" ? { text: div.querySelector("textarea").value } : { review_status: b.dataset.act };
+    try { await api(`/api/admin/chunks/${div.dataset.id}`, { method: "PATCH", body: JSON.stringify(body) }); msg("Saved"); await openSource(id); await loadStats(); }
+    catch (e) { msg(e.message, true); }
+  }));
+  loadList();
+}
+
+async function review(id, decision) {
+  try { await api(`/api/admin/sources/${id}/review`, { method: "POST", body: JSON.stringify({ decision }) }); msg(decision + "d"); await openSource(id); await loadStats(); }
+  catch (e) { msg(e.message, true); }
+}
+
+async function refresh() {
+  try { renderTabs(); await loadStats(); await loadList(); msg("Connected"); }
+  catch (e) { msg(e.message, true); }
+}
+
+document.getElementById("connect").onclick = () => {
+  token = document.getElementById("token").value.trim();
+  try { sessionStorage.setItem("adminToken", token); } catch (e) {}
+  refresh();
+};
+if (token) refresh();
+</script>
+</body>
+</html>

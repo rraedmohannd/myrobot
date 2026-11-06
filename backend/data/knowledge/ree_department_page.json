@@ -1,0 +1,39 @@
+{
+  "source": {
+    "url": "meu-web://department-renewable-energy-engineering",
+    "title": "Department of Renewable Energy Engineering — MEU website (English)",
+    "lang": "en",
+    "notes": "Text copied by the student from the official MEU website (Renewable Energy Engineering department page) on 2026-11-06. A paragraph about the Department of Architecture that appeared in the pasted text was left out (wrong department / out of scope). Exact page URL still to be recorded. Staff count is dated 2016/17 on the page."
+  },
+  "program": {
+    "slug": "renewable-energy-engineering",
+    "summary_en": "Bachelor's degree in Renewable Energy Engineering, focused on engineering science in thermodynamics, fluid mechanics, solid mechanics, heat transfer, materials, power systems and conversion, with broad knowledge of photovoltaic (PV/CPV), concentrated solar power (CSP) and wind energy technologies."
+  },
+  "chunks": [
+    {
+      "category": "program_overview",
+      "lang": "en",
+      "text": "Renewable Energy Engineering (هندسة الطاقة المتجددة) at Middle East University — about the department.\nThe Department was established in 2014 and, according to the department, was the first program in Jordanian private universities. It offers a Bachelor's degree in Renewable Energy Engineering, focused on engineering science in thermodynamics, fluid mechanics, solid mechanics, heat transfer, materials, power system and conversion. According to the study plan, the student gets a broad and intensive knowledge in renewable energy technologies, mainly in Photo-voltaic (PV/CPV), Concentrated Solar Power (CSP) and Wind Energy. The program includes elective courses that permit the student to undertake further studies in other sustainable technologies such as Biomass Energy and Hydropower."
+    },
+    {
+      "category": "labs",
+      "lang": "en",
+      "text": "Renewable Energy Engineering — laboratories and staff (as stated on the department page).\nThe program has more than 12 laboratories specialized in renewable/thermal energy, equipped with high-tech instruments to give the student practical insight. The department page states that in 2016/17 the department had more than 7 dedicated faculty members (this figure is from 2016/17 and may have changed)."
+    },
+    {
+      "category": "program_overview",
+      "lang": "en",
+      "text": "Renewable Energy Engineering — mission and objective (department page).\nThe department is committed to excellent education and research in all areas centered on Renewable Energy, and to guiding students within a challenging and stimulating environment that provides knowledge, creativity, a sense of responsibility towards society and team work, so they are ready to deal with future challenges. Its major objective is to graduate high quality renewable energy engineers who will conduct outstanding research, promoting job creation and development in Jordan and regional markets."
+    },
+    {
+      "category": "outcomes",
+      "lang": "en",
+      "text": "Renewable Energy Engineering — Student Outcomes (SOs):\n1. An ability to identify, formulate, and solve complex engineering problems by applying principles of engineering, science, and mathematics.\n2. An ability to apply engineering design to produce solutions that meet specified needs with consideration of public health, safety, and welfare, as well as global, cultural, social, environmental, and economic factors.\n3. An ability to communicate effectively with a range of audiences.\n4. An ability to recognize ethical and professional responsibilities in engineering situations and make informed judgments, which must consider the impact of engineering solutions in global, economic, environmental, and societal contexts.\n5. An ability to function effectively on a team whose members together provide leadership, create a collaborative and inclusive environment, establish goals, plan tasks, and meet objectives.\n6. An ability to develop and conduct appropriate experimentation, analyze and interpret data, and use engineering judgment to draw conclusions.\n7. An ability to acquire and apply new knowledge as needed, using appropriate learning strategies."
+    },
+    {
+      "category": "outcomes",
+      "lang": "en",
+      "text": "Renewable Energy Engineering — Program Educational Objectives (PEOs): graduates are expected to\n1. Attain leadership, competency, and successful growth in their engineering profession.\n2. Pursue graduate studies and research in renewable energy engineering or related disciplines.\n3. Become an active global citizen to fight global warming and reduce the energy use index."
+    }
+  ]
+}

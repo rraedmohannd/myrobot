@@ -5,7 +5,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from app import __version__
-from app.api.rest import health
+from app.api.rest import admin, health
 from app.core.config import get_settings
 from app.core.logging import setup_logging
 from app.db.session import get_engine
@@ -29,6 +29,8 @@ def create_app() -> FastAPI:
         allow_headers=["*"],
     )
     app.include_router(health.router)
+    app.include_router(admin.router)
+    app.include_router(admin.page_router)
     return app
 
 

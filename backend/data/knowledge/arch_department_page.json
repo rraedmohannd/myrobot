@@ -1,0 +1,24 @@
+{
+  "source": {
+    "url": "meu-web://department-architecture",
+    "title": "Department of Architecture — MEU website (English)",
+    "lang": "en",
+    "notes": "Text copied by the student from the official MEU website (Department of Architecture page) on 2026-11-06. The careers paragraph was pasted twice; stored once. Exact page URL still to be recorded."
+  },
+  "program": {
+    "slug": "architectural-engineering",
+    "summary_en": "Five-year Bachelor degree program covering pure science, the humanities, engineering, technology and art, in theory and practice, preparing students to become architects."
+  },
+  "chunks": [
+    {
+      "category": "program_overview",
+      "lang": "en",
+      "text": "Architectural Engineering / Department of Architecture (هندسة العمارة) at Middle East University — about the department.\nThe Department of Architecture was founded in the academic year 2010/2011 and welcomed its first students for the fall semester of the following year. The five-year Bachelor Degree Program offers a wide range of subjects related to various fields and disciplines including pure science, the humanities, engineering, technology, and art, both in theory and practice, where students may begin to formulate a solid basis for their future careers as empowered architects, in accordance with the department's slogan, \"Knowledge Is Power\"."
+    },
+    {
+      "category": "careers",
+      "lang": "en",
+      "text": "Architectural Engineering — careers for graduates of the Department of Architecture (department page).\nGraduates are qualified for an unlimited range of careers in architecture, art, and design in general: the design of buildings, landscape design, urban design, interior design, industrial design, graphic design, fashion design, stage set design, etc. Some architects are even known to have designed automobiles or yachts. An architect may also work as a building project manager and site engineer, among other things. Those interested in an academic career may continue their studies to obtain a Master's or Doctoral degree in any branch of architecture, such as architectural design, urban design, architectural technology, or the history-theory-criticism of architecture, to qualify them to teach and become professors. From the department's viewpoint, architecture is not merely a career opportunity; it becomes a career, a passion, and a whole way of life."
+    }
+  ]
+}

@@ -79,15 +79,17 @@ async def test_arabic_full_text_search(engine) -> None:
             )
             ar = await conn.scalar(
                 text(
-                    "SELECT count(*) FROM chunks "
-                    "WHERE tsv @@ plainto_tsquery('arabic', 'الهندسة')"
-                )
+                    "SELECT count(*) FROM chunks WHERE source_id = :s "
+                    "AND tsv @@ plainto_tsquery('arabic', 'الهندسة')"
+                ),
+                {"s": source_id},  # only this test's rows: the real DB holds crawled pages too
             )
             en = await conn.scalar(
                 text(
-                    "SELECT count(*) FROM chunks "
-                    "WHERE tsv @@ plainto_tsquery('english', 'engineering')"
-                )
+                    "SELECT count(*) FROM chunks WHERE source_id = :s "
+                    "AND tsv @@ plainto_tsquery('english', 'engineering')"
+                ),
+                {"s": source_id},
             )
             assert ar == 1
             assert en == 1

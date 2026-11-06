@@ -1,0 +1,19 @@
+{
+  "source": {
+    "url": "meu-web://department-interior-design",
+    "title": "Department of Interior Design — MEU website (English)",
+    "lang": "en",
+    "notes": "Text copied by the student from the official MEU website (Interior Design department page) on 2026-11-06. Exact page URL still to be recorded."
+  },
+  "program": {
+    "slug": "interior-design",
+    "summary_en": "A theoretical and practical program designed to prepare capable interior designers to participate actively in the labor market, regionally and globally."
+  },
+  "chunks": [
+    {
+      "category": "program_overview",
+      "lang": "en",
+      "text": "Interior Design (التصميم الداخلي) at Middle East University — about the department (department page).\nThe Interior Design Department has adopted a theoretical and practical program designed to prepare capable designers to actively participate in the labor market and enrich the community with skills and expertise, regionally and globally, in the field of interior design.\nThe program seeks to improve and develop the level of students through modern methods of teaching used globally, and to develop their personality so they can deal with modern requirements for design and implementation and meet the requirements of the field.\nLooking to the future, the department strives to be at the forefront of corresponding departments by adopting the latest educational and practical means, and works to bridge the gap between the academic and practical sides of vocational training."
+    }
+  ]
+}

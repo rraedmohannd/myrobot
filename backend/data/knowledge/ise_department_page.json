@@ -1,0 +1,29 @@
+{
+  "source": {
+    "url": "meu-web://department-intelligent-systems-engineering",
+    "title": "Department Intelligent Systems Engineering — MEU website (English)",
+    "lang": "en",
+    "notes": "Text copied by the student from the official MEU website page 'Department Intelligent Systems Engineering' on 2026-11-06 (screenshot kept). Exact page URL still to be recorded."
+  },
+  "program": {
+    "slug": "intelligent-systems-engineering",
+    "summary_en": "Smart Systems is one of the modern disciplines that emerged lately, considering the accelerating development of wireless sensors and remote control devices, as well as the need to introduce modern, smart technologies that can adapt to the fourth industrial revolution to solve technical problems in the modern society in an effective way within a safe digital environment."
+  },
+  "chunks": [
+    {
+      "category": "program_overview",
+      "lang": "en",
+      "text": "Intelligent Systems Engineering (هندسة الأنظمة الذكية) at Middle East University — what the program is about.\nSmart Systems is one of the modern disciplines that emerged lately, considering the accelerating development of wireless sensors and remote control devices, as well as the need to introduce modern, smart technologies that can adapt to the fourth industrial revolution to solve technical problems in the modern society in an effective way within a safe digital environment. Smart Systems was listed as one of the future careers considering its direct influence on different life areas."
+    },
+    {
+      "category": "careers",
+      "lang": "en",
+      "text": "Intelligent Systems Engineering — where and what do graduates work?\nInformation technology; telecommunication technology; banking and financial control; electric cars and auto-driving; security applications on all service levels; monitoring, data analysis and auto-control; digital media; smart building management; transportation sector; smart production lines at factories; educational and healthcare facilities.\nIn addition, the Bachelor of Smart Systems enables graduates to start their own enterprises in one of the various areas taught during their studies."
+    },
+    {
+      "category": "why_meu",
+      "lang": "en",
+      "text": "Why study Intelligent Systems Engineering at MEU (as stated by the university):\n1. A syllabus that is up to date with the needs of the local and international market.\n2. A distinguished academic faculty composed of graduates from esteemed international universities.\n3. Specialized training courses in advanced engineering software.\n4. Research labs for testing smart system applications.\n5. The university boasts state-of-the-art technologies and classrooms, providing students with an advanced learning experience.\n6. The program is accredited by the Federation of Arab Engineers.\n7. This specialty is accredited by the Jordan Engineers Association under the Systems and Control Engineering branch.\n8. The faculty of engineering, which teaches the program, signs agreements with various local and regional companies to provide work opportunities for graduates. Free extracurricular training courses provided by the Career Guidance and Alumni Office / King Abdullah II Fund for Development."
+    }
+  ]
+}
