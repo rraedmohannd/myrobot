@@ -1,0 +1,45 @@
+# How to start — Claude Code + the project (Windows)
+
+Project folder: `C:\Users\hanan\Documents\smart-campus-robot`
+(not the OneDrive copy)
+
+## One-time setup
+1. Install **Git for Windows** (installer in Downloads) — lets Claude Code use Git Bash.
+2. Install **Docker Desktop** (installer in Downloads), restart, open it once.
+3. Install **Claude Code**: open PowerShell (Start → "PowerShell") and run:
+   ```powershell
+   irm https://claude.ai/install.ps1 | iex
+   ```
+   Close PowerShell, open a new one, check: `claude --version`
+   (If "not recognized": see https://code.claude.com/docs/en/troubleshoot-install)
+4. First run of `claude` opens the browser to log in (needs a Pro/Max plan or Console account).
+
+## Every time — open Claude Code on the project
+1. Open **Docker Desktop** and wait until it says "Engine running".
+2. Open PowerShell (or VS Code → Terminal → New Terminal) and run:
+   ```powershell
+   cd C:\Users\hanan\Documents\smart-campus-robot
+   claude
+   ```
+3. Type your request. To exit: `/exit` (or Ctrl+C twice).
+   To continue the last conversation next time: `claude --continue`
+
+## Prompt for phase B1 (paste into Claude Code)
+> اقرأ CLAUDE.md وكل ملفات docs، وابدأ بالمرحلة B1 من BACKEND_SPEC.md: هيكل المشروع، Docker Compose فيه PostgreSQL + pgvector، Alembic، الإعدادات، و/health، مع اختبارات. لا تبلّش بأي مرحلة بعدها قبل ما أراجع.
+
+## Run the project (after B1 exists)
+Run in the project folder (PowerShell):
+```powershell
+copy .env.example .env                              # first time only
+docker compose up -d                                # start backend + database
+docker compose exec backend alembic upgrade head    # apply DB migrations
+docker compose exec backend pytest                  # run tests
+```
+Check: open http://localhost:8000/health in the browser (port per BACKEND_SPEC / compose file).
+Stop: `docker compose down`
+
+B1 is done when: compose starts, migrations apply, tests pass.
+No OpenAI key is needed until B4.
+
+## When something fails
+Copy the error text, paste it into Claude Code, and ask it to fix it. Then send the result here for review before moving to the next phase.
