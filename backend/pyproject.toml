@@ -13,6 +13,8 @@ dependencies = [
     "alembic>=1.14,<2.0",
     "httpx>=0.27,<1.0",
     "openai>=1.60,<3.0",
+    "numpy>=1.26,<3",
+    "sherpa-onnx>=1.10,<2",
 ]
 
 [project.optional-dependencies]
@@ -33,7 +35,10 @@ include = ["app*"]
 asyncio_mode = "auto"
 asyncio_default_fixture_loop_scope = "function"
 # pgvector columns cannot be reflected by SQLAlchemy; app.db.types.alembic_compare_type handles it
-filterwarnings = ["ignore:Did not recognize type 'vector':sqlalchemy.exc.SAWarning"]
+filterwarnings = [
+    "ignore:Did not recognize type 'vector':sqlalchemy.exc.SAWarning",
+    "ignore:Using `httpx` with `starlette.testclient` is deprecated",
+]
 testpaths = ["tests"]
 
 [tool.ruff]

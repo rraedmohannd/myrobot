@@ -62,6 +62,15 @@ docker compose exec backend python -m app.ingestion.cli evaluate                
 ```
 API: POST http://localhost:8000/api/chat  {"message": "..."}  (try it at http://localhost:8000/docs)
 
+## Talk to the robot (voice) — B4
+Open http://localhost:8000/voice in Chrome or Edge → "ابدأ محادثة" → allow the microphone.
+```powershell
+docker compose exec backend python -m app.ingestion.cli tts-samples    # one mp3 per voice in backend\data\voice_samples
+```
+Pick the best Jordanian-sounding voice → set `TTS_VOICE=...` in .env → `docker compose up -d`.
+
+Several visitors: each utterance is labelled "متحدث 1/2/3" in the /voice log (anonymous, forgotten when the conversation ends). See docs/SPEAKERS.md.
+
 ## Save a version (after each phase passes its tests)
 ```powershell
 git add .

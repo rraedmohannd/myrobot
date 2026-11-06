@@ -1,6 +1,16 @@
 from datetime import datetime
 
-from sqlalchemy import CheckConstraint, DateTime, ForeignKey, Integer, String, Text, UniqueConstraint
+from sqlalchemy import (
+    CheckConstraint,
+    DateTime,
+    Float,
+    ForeignKey,
+    Integer,
+    SmallInteger,
+    String,
+    Text,
+    UniqueConstraint,
+)
 from sqlalchemy.dialects.postgresql import ARRAY
 from sqlalchemy.orm import Mapped, mapped_column
 
@@ -49,4 +59,8 @@ class Turn(Base):
     tts_ms: Mapped[int | None] = mapped_column(Integer)
     total_ms: Mapped[int | None] = mapped_column(Integer)
     error: Mapped[str | None] = mapped_column(Text)
+    # Anonymous "Speaker N" within this session (no voiceprints are stored) — docs/SPEAKERS.md
+    speaker_label: Mapped[int | None] = mapped_column(SmallInteger)
+    speaker_confidence: Mapped[float | None] = mapped_column(Float)
+    speaker_source: Mapped[str | None] = mapped_column(String(16))
     created_at: Mapped[datetime] = created_at_column()

@@ -1,0 +1,244 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Robot Voice Test</title>
+<style>
+  :root { --bg:#f6f4f3; --card:#fff; --ink:#231b1c; --muted:#6b6162; --line:#e3dcdb; --brand:#931b1f; --ok:#1f7a3a; --warn:#a15c00; }
+  * { box-sizing:border-box; }
+  body { margin:0; font:16px/1.6 system-ui, "Segoe UI", Tahoma, sans-serif; background:var(--bg); color:var(--ink); }
+  header { background:var(--brand); color:#fff; padding:12px 16px; display:flex; align-items:center; gap:12px; flex-wrap:wrap; }
+  header h1 { font-size:18px; margin:0 0 0 auto; }
+  main { display:grid; grid-template-columns: 2fr 1fr; gap:16px; padding:16px; }
+  @media (max-width: 860px) { main { grid-template-columns:1fr; } }
+  .card { background:var(--card); border:1px solid var(--line); border-radius:12px; padding:16px; }
+  button { font:inherit; cursor:pointer; border:1px solid var(--line); background:#fff; border-radius:8px; padding:8px 14px; }
+  button.primary { background:var(--brand); color:#fff; border-color:var(--brand); font-size:18px; padding:12px 22px; }
+  button:disabled { opacity:.5; cursor:not-allowed; }
+  .row { display:flex; gap:8px; align-items:center; flex-wrap:wrap; }
+  #face { font-size:64px; text-align:center; line-height:1.2; }
+  #state { display:inline-block; padding:2px 10px; border-radius:999px; background:#eee; font-size:14px; }
+  #subtitle { min-height:110px; font-size:24px; line-height:1.5; margin:12px 0; }
+  #meter { height:10px; background:#eee; border-radius:6px; overflow:hidden; }
+  #meter > div { height:100%; width:0; background:var(--ok); transition:width .05s; }
+  .muted { color:var(--muted); font-size:14px; }
+  table { width:100%; border-collapse:collapse; font-size:13px; direction:ltr; }
+  th, td { border-bottom:1px solid var(--line); padding:4px 6px; text-align:left; }
+  #log { max-height:260px; overflow:auto; font-size:14px; }
+  #log div { border-bottom:1px solid var(--line); padding:4px 0; }
+  input[type=text], select, textarea { font:inherit; padding:6px 8px; border:1px solid var(--line); border-radius:6px; }
+  textarea { width:100%; min-height:70px; }
+</style>
+</head>
+<body>
+<header>
+  <h1>تجربة صوت الروبوت — كلية الهندسة والتصميم</h1>
+  <span id="conn" class="muted" style="color:#fff">غير متصل</span>
+</header>
+<main>
+  <section class="card">
+    <div id="face">🙂</div>
+    <div class="row"><span id="state">IDLE</span><span id="hint" class="muted"></span></div>
+    <div id="subtitle" dir="auto"></div>
+    <div id="meter"><div></div></div>
+    <p class="muted">اكبس "ابدأ محادثة" (مكان ما الروبوت بيشوف وجه). احكي بعد ما يخلص الروبوت حكي؛ المايك بيسكّر وهو بيحكي. بعد "عندك سؤال ثاني؟" احكي "لا شكراً" أو اسكت لتنتهي المحادثة.</p>
+    <div class="row">
+      <button id="start" class="primary">ابدأ محادثة</button>
+      <button id="stop">إنهاء</button>
+    </div>
+    <div class="row" style="margin-top:12px">
+      <input id="typed" type="text" dir="auto" placeholder="أو اكتب سؤالك هون…" style="flex:1">
+      <button id="send">إرسال</button>
+    </div>
+    <h3>المحادثة</h3>
+    <div id="log"></div>
+  </section>
+  <section class="card">
+    <h3>الأوقات (لكل سؤال)</h3>
+    <table><thead><tr><th>#</th><th>STT</th><th>search</th><th>LLM</th><th>1st audio*</th><th>browser*</th></tr></thead><tbody id="times"></tbody></table>
+    <p class="muted">* من آخر الكلام لحد أول صوت. الوقت بالملّي ثانية.</p>
+    <h3>تجربة الأصوات</h3>
+    <div class="row"><select id="voice"></select><button id="tryVoice">اسمع</button></div>
+    <textarea id="sample" dir="auto">أهلاً وسهلاً فيك! تخصص هندسة الأنظمة الذكية بدّه ١٦٢ ساعة معتمدة، وفيه مواد عن الروبوتات والذكاء الاصطناعي. عندك سؤال ثاني؟</textarea>
+    <p class="muted">جرّب كل صوت، واختار الأقرب للهجة الأردنية، وحطه بـ .env بسطر TTS_VOICE=…</p>
+    <h3>إعدادات المايك</h3>
+    <label class="muted">حساسية الصوت <input id="sens" type="range" min="1.5" max="6" step="0.5" value="3"></label>
+  </section>
+</main>
+<script>
+const TARGET_RATE = 16000, FRAME_MS = 30;
+const FACES = { idle:"🙂", attentive:"😃", listening:"👂", processing:"🤔", answering:"🗣️", finished:"👋", unavailable:"⚠️" };
+let ws, ctx, node, stream;
+let state = "IDLE", followUpTimeout = 10, maxUtterance = 20;
+let playing = false, queue = [], listenTimer = null;
+let inSpeech = false, speechFrames = 0, silenceFrames = 0, voicedFrames = 0;
+let preRoll = [], pending = [], frameBuf = new Float32Array(0), noise = 0.01, calib = 0;
+let endSentAt = null, firstAudioAt = null, turnNo = 0;
+const $ = id => document.getElementById(id);
+
+function log(who, text) {
+  const d = document.createElement("div"); d.dir = "auto";
+  d.innerHTML = `<b>${who}:</b> ` + String(text).replace(/[&<>]/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;"}[c]));
+  $("log").prepend(d);
+}
+function send(msg) { if (ws && ws.readyState === 1) ws.send(JSON.stringify(msg)); }
+function canListen() { return (state === "LISTENING" || state === "FOLLOW_UP") && !playing && queue.length === 0; }
+
+function connect() {
+  return new Promise(resolve => {
+    if (ws && ws.readyState === 1) return resolve();
+    ws = new WebSocket(`${location.protocol === "https:" ? "wss" : "ws"}://${location.host}/ws/robot`);
+    ws.onopen = () => { $("conn").textContent = "متصل"; send({type:"hello", robot_id:"laptop-browser", fw_version:"voice-page-1", protocol_version:1}); resolve(); };
+    ws.onclose = () => { $("conn").textContent = "انقطع الاتصال"; setFace("unavailable"); };
+    ws.onmessage = e => onMessage(JSON.parse(e.data));
+  });
+}
+function setFace(mode) { $("face").textContent = FACES[mode] || "🙂"; }
+
+function onMessage(m) {
+  switch (m.type) {
+    case "hello.ack": followUpTimeout = m.follow_up_timeout_s; maxUtterance = m.max_utterance_s; break;
+    case "dialogue.state": state = m.state; $("state").textContent = state; maybeListen(); break;
+    case "display.update": setFace(m.mode); if (m.subtitle) $("subtitle").textContent = m.subtitle; break;
+    case "transcript": {
+      const sp = m.speaker ? ` (متحدث ${m.speaker.label}${m.speaker.is_new ? " جديد" : ""} · ${m.speaker.source}${m.speaker.confidence != null ? " · " + m.speaker.confidence : ""})` : "";
+      log("أنت" + sp, m.text || "(ما انسمع اشي)"); break;
+    }
+    case "answer.text": log("الروبوت", m.text); lastServerTimings = m.timings || {}; break;
+    case "answer.audio": {
+      if (endSentAt && !firstAudioAt) firstAudioAt = performance.now();
+      const bytes = Uint8Array.from(atob(m.mp3_b64), c => c.charCodeAt(0));
+      queue.push(bytes); playNext(); break;
+    }
+    case "turn.timings": addTimes(m); break;
+    case "session.ended": log("—", "انتهت المحادثة (" + m.reason + ")"); clearTimeout(listenTimer); break;
+    case "error": log("خطأ", m.message); break;
+  }
+}
+let lastServerTimings = {};
+function addTimes(t) {
+  turnNo++;
+  const browser = endSentAt && firstAudioAt ? Math.round(firstAudioAt - endSentAt) : "";
+  const tr = document.createElement("tr");
+  tr.innerHTML = `<td>${turnNo}</td><td>${t.stt_ms ?? ""}</td><td>${t.retrieval_ms ?? ""}</td><td>${t.llm_ms ?? ""}</td><td>${t.total_ms ?? ""}</td><td>${browser}</td>`;
+  $("times").prepend(tr);
+}
+
+function playNext() {
+  if (playing || queue.length === 0) return;
+  playing = true; resetVad();
+  const url = URL.createObjectURL(new Blob([queue.shift()], {type:"audio/mpeg"}));
+  const a = new Audio(url);
+  const done = () => { URL.revokeObjectURL(url); playing = false; if (queue.length) playNext(); else maybeListen(); };
+  a.onended = done; a.onerror = done;
+  a.play().catch(done);
+}
+
+function maybeListen() {
+  clearTimeout(listenTimer);
+  if (!canListen()) { $("hint").textContent = playing ? "الروبوت عم يحكي…" : ""; return; }
+  $("hint").textContent = "احكي هلأ…";
+  resetVad();
+  if (state === "FOLLOW_UP") listenTimer = setTimeout(() => { if (canListen() && !inSpeech) send({type:"listen.timeout"}); }, followUpTimeout * 1000);
+}
+function resetVad() { inSpeech = false; speechFrames = silenceFrames = voicedFrames = 0; preRoll = []; pending = []; }
+
+// ---------- microphone ----------
+async function initAudio() {
+  if (ctx) return;
+  stream = await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation:true, noiseSuppression:true, autoGainControl:true, channelCount:1 } });
+  ctx = new AudioContext();
+  const code = `class Cap extends AudioWorkletProcessor { process(i){ const c=i[0][0]; if(c) this.port.postMessage(c.slice(0)); return true; } } registerProcessor('cap', Cap);`;
+  await ctx.audioWorklet.addModule(URL.createObjectURL(new Blob([code], {type:"application/javascript"})));
+  node = new AudioWorkletNode(ctx, "cap");
+  ctx.createMediaStreamSource(stream).connect(node);
+  node.port.onmessage = e => onSamples(e.data);
+}
+
+function onSamples(f32) {
+  const merged = new Float32Array(frameBuf.length + f32.length);
+  merged.set(frameBuf); merged.set(f32, frameBuf.length);
+  const size = Math.round(ctx.sampleRate * FRAME_MS / 1000);
+  let off = 0;
+  while (merged.length - off >= size) { onFrame(merged.subarray(off, off + size)); off += size; }
+  frameBuf = merged.slice(off);
+}
+
+function downsample(frame) {
+  const ratio = ctx.sampleRate / TARGET_RATE, n = Math.floor(frame.length / ratio), out = new Int16Array(n);
+  for (let i = 0; i < n; i++) {
+    let s = 0, a = Math.floor(i * ratio), b = Math.min(frame.length, Math.floor((i + 1) * ratio));
+    for (let j = a; j < b; j++) s += frame[j];
+    const v = Math.max(-1, Math.min(1, s / Math.max(1, b - a)));
+    out[i] = v < 0 ? v * 0x8000 : v * 0x7fff;
+  }
+  return out;
+}
+
+function onFrame(frame) {
+  let sum = 0; for (let i = 0; i < frame.length; i++) sum += frame[i] * frame[i];
+  const rms = Math.sqrt(sum / frame.length);
+  $("meter").firstElementChild.style.width = Math.min(100, rms * 800) + "%";
+  if (!canListen()) return;                       // turn-taking: deaf while the robot talks/thinks
+  if (!inSpeech && calib < 20) { noise = (noise * calib + rms) / (calib + 1); calib++; }
+  const thr = Math.max(0.012, noise * parseFloat($("sens").value));
+  const pcm = downsample(frame);
+  if (!inSpeech) {
+    preRoll.push(pcm); if (preRoll.length > 10) preRoll.shift();
+    if (rms > thr) speechFrames++; else { speechFrames = 0; noise = noise * 0.95 + rms * 0.05; }
+    if (speechFrames >= 4) {                       // ~120 ms of voice: speech started
+      inSpeech = true; silenceFrames = 0; voicedFrames = 0; clearTimeout(listenTimer);
+      $("hint").textContent = "عم بسمعك…"; setFace("listening");
+      pending = preRoll.slice(); preRoll = [];
+    }
+    return;
+  }
+  pending.push(pcm); voicedFrames++;
+  if (rms > thr) silenceFrames = 0; else silenceFrames++;
+  if (pending.length >= 3) flush();
+  if (silenceFrames >= 30 || voicedFrames * FRAME_MS > maxUtterance * 1000) {   // ~0.9 s silence: done
+    flush(); inSpeech = false; endSentAt = performance.now(); firstAudioAt = null;
+    send({type:"audio.end"}); $("hint").textContent = "عم بفكّر…"; state = "ANSWERING";
+  }
+}
+
+function flush() {
+  if (!pending.length) return;
+  const total = pending.reduce((n, a) => n + a.length, 0), all = new Int16Array(total);
+  let o = 0; for (const a of pending) { all.set(a, o); o += a.length; }
+  pending = [];
+  const bytes = new Uint8Array(all.buffer); let bin = "";
+  for (let i = 0; i < bytes.length; i += 0x8000) bin += String.fromCharCode.apply(null, bytes.subarray(i, i + 0x8000));
+  send({type:"audio.chunk", seq: Date.now(), sample_rate: TARGET_RATE, pcm16_b64: btoa(bin)});
+}
+
+// ---------- controls ----------
+$("start").onclick = async () => {
+  try { await initAudio(); } catch (e) { alert("ما قدرت أفتح المايك: " + e.message); return; }
+  await ctx.resume(); await connect();
+  $("subtitle").textContent = "";
+  send({type:"session.start", lang:"ar"});
+};
+$("stop").onclick = () => send({type:"session.end", reason:"user_done"});
+$("send").onclick = async () => {
+  const t = $("typed").value.trim(); if (!t) return;
+  await connect(); endSentAt = performance.now(); firstAudioAt = null;
+  send({type:"text.input", text:t}); $("typed").value = "";
+};
+$("typed").addEventListener("keydown", e => { if (e.key === "Enter") $("send").click(); });
+
+fetch("/api/tts/voices").then(r => r.json()).then(d => {
+  for (const v of d.voices) { const o = document.createElement("option"); o.value = o.textContent = v; if (v === d.default) o.selected = true; $("voice").appendChild(o); }
+});
+$("tryVoice").onclick = async () => {
+  $("tryVoice").disabled = true;
+  try {
+    const r = await fetch("/api/tts", {method:"POST", headers:{"Content-Type":"application/json"}, body: JSON.stringify({text: $("sample").value, voice: $("voice").value})});
+    if (!r.ok) throw new Error((await r.json()).detail || r.statusText);
+    const url = URL.createObjectURL(await r.blob()); const a = new Audio(url); a.onended = () => URL.revokeObjectURL(url); await a.play();
+  } catch (e) { alert(e.message); } finally { $("tryVoice").disabled = false; }
+};
+</script>
+</body>
+</html>

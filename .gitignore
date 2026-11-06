@@ -8,3 +8,4 @@ node_modules/
 dist/
 *.egg-info/
 backend/debug_page.html
+backend/data/tts_cache/

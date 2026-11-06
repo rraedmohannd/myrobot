@@ -11,6 +11,9 @@ User-facing robot speech and UI are **Arabic (Jordanian) first, English second**
 - `docs/ODOMETRY.md` — pose estimation, trajectory logging, return-to-origin.
 - `docs/HARDWARE.md` — confirmed parts list (Rover 5, ESP32, Pi 5, USB webcam, HDMI screen).
 - `docs/HOW_TO_START.md` — how to run the stack, crawl, import knowledge and review.
+- `docs/PROTOCOL.md` — robot ↔ backend WebSocket protocol (/ws/robot), used by /voice and the Pi.
+- `docs/PLAN.md` — status per phase, milestones, final-week checklist (incl. ElevenLabs switch).
+- `docs/SPEAKERS.md` — multi-speaker "who is speaking now" (voice + camera), privacy rules, validation.
 - `backend/data/knowledge/` — curated knowledge files built from official documents (originals in `documents/`).
 
 ## Repository layout

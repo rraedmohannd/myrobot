@@ -36,6 +36,31 @@ class Settings(BaseSettings):
     embedding_model: str = "text-embedding-3-small"
     embedding_dim: int = 1536  # must match the vector(1536) column (migration 0003)
 
+    # Speech (B4)
+    stt_model: str = "gpt-transcribe"
+    stt_prompt: str = (
+        "محادثة بالعامية الأردنية أو بالإنجليزية مع روبوت استقبال كلية الهندسة والتصميم في "
+        "جامعة الشرق الأوسط: هندسة الأنظمة الذكية، هندسة الطاقة المتجددة، هندسة العمارة، "
+        "التصميم الداخلي، التصميم الجرافيكي، ساعات معتمدة، القبول والتسجيل."
+    )
+    tts_model: str = "gpt-4o-mini-tts"
+    tts_voice: str = "coral"
+    tts_instructions: str = (
+        "You are a friendly university receptionist robot. When the text is Arabic, speak it with "
+        "a natural, warm Jordanian (Ammani, Levantine) accent and pronunciation, not formal "
+        "Modern Standard Arabic. When the text is English, use a clear, friendly neutral accent. "
+        "Moderate pace, cheerful and welcoming."
+    )
+    follow_up_timeout_s: int = 10  # silence after "عندك سؤال ثاني؟" before a polite goodbye
+    max_utterance_s: int = 20
+    robot_token: SecretStr | None = None  # if set, /ws/robot requires ?token=...
+
+    # Speakers (docs/SPEAKERS.md): anonymous, in-memory voiceprints per conversation
+    speaker_model_path: str = "/models/speaker-campplus.onnx"
+    speaker_threshold: float = 0.5  # cosine similarity to count as the same voice
+    speaker_min_seconds: float = 1.0  # shorter utterances use the face hint / last speaker
+    max_speakers: int = 4
+
     # Retrieval-augmented answers
     rag_top_k: int = 8  # passages given to the LLM
     rag_candidates: int = 20  # candidates from each search before fusion

@@ -29,8 +29,10 @@ LANGUAGE
 (عامية أردنية مهذبة), not formal Modern Standard Arabic. For English, use simple friendly English.
 
 STYLE (your answer is spoken aloud by text-to-speech and shown as subtitles)
-- 1 to 4 short sentences. No markdown, no bullet lists, no emojis, no links.
-- Warm, welcoming and proud of the faculty; you may encourage the visitor about its programs.
+- Start with the direct answer in the first few words. Then at most 1–2 more short sentences.
+- Keep the whole answer under about 40 words; if the visitor wants more, they will ask.
+- No markdown, no bullet lists, no emojis, no links, no greetings like "أهلين" at the start.
+- Warm and proud of the faculty, but do not add praise or claims that are not in the CONTEXT.
 
 GROUNDING RULES (most important)
 - Use ONLY facts written in the CONTEXT passages. Do not use any outside knowledge about MEU or \
@@ -115,15 +117,16 @@ def build_input(question: str, passages: list[Passage], history: list[tuple[str,
     return "\n\n".join(parts)
 
 
-async def _history(session: AsyncSession, session_id: int, n: int) -> list[tuple[str, str]]:
-    rows = (
-        await session.execute(
-            select(Turn.user_text, Turn.answer_text)
-            .where(Turn.session_id == session_id, Turn.error.is_(None))
-            .order_by(Turn.idx.desc())
-            .limit(n)
-        )
-    ).all()
+async def _history(
+    session: AsyncSession, session_id: int, n: int, speaker_label: int | None = None
+) -> list[tuple[str, str]]:
+    """Last n turns of the session; with several visitors, only this speaker's own turns."""
+    query = select(Turn.user_text, Turn.answer_text).where(
+        Turn.session_id == session_id, Turn.error.is_(None), Turn.intent == "question"
+    )
+    if speaker_label is not None:
+        query = query.where(Turn.speaker_label == speaker_label)
+    rows = (await session.execute(query.order_by(Turn.idx.desc()).limit(n))).all()
     return [(q or "", a or "") for q, a in reversed(rows)]
 
 
@@ -134,6 +137,7 @@ async def answer_question(
     question: str,
     session_id: int | None = None,
     log: bool = True,
+    speaker_label: int | None = None,
 ) -> ChatResult:
     settings = get_settings()
     start = time.perf_counter()
@@ -150,7 +154,7 @@ async def answer_question(
             await session.flush()
 
     result = ChatResult(
-        session_id=chat_session.id if chat_session else None, answer="", lang=lang, found=False,
+        session_id=chat_session.id if chat_session else session_id, answer="", lang=lang, found=False,
         sources=[], model=None, timings=timings,
     )  # fmt: skip
     try:
@@ -164,8 +168,8 @@ async def answer_question(
             result.answer = NOT_FOUND[lang]
         else:
             history = (
-                await _history(session, chat_session.id, settings.chat_history_turns)
-                if chat_session is not None and session_id is not None
+                await _history(session, session_id, settings.chat_history_turns, speaker_label)
+                if session_id is not None
                 else []
             )
             llm_result = await llm.complete_json(
