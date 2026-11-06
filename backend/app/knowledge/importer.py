@@ -26,6 +26,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db.models import Faculty, Program, Source
+from app.knowledge.hints import refresh_hints
 from app.knowledge.store import ChunkSpec, add_chunks, retire_old_chunks
 
 DEFAULT_DIR = Path(__file__).resolve().parents[2] / "data" / "knowledge"
@@ -43,6 +44,7 @@ class KnowledgeFileError(ValueError):
 @dataclass
 class ImportReport:
     files: list[tuple[str, str]] = field(default_factory=list)  # (file name, outcome)
+    hints_updated: int = 0
 
 
 # ---------------- course chunks ----------------
@@ -227,4 +229,5 @@ async def import_dir(session: AsyncSession, directory: Path = DEFAULT_DIR) -> Im
         outcome = await import_doc(session, doc, name)
         await session.commit()
         report.files.append((name, outcome))
+    report.hints_updated = await refresh_hints(session)
     return report

@@ -54,6 +54,14 @@ docker compose exec backend python -m app.ingestion.cli import-knowledge
 Review page: http://localhost:8000/admin (token = ADMIN_TOKEN in .env).
 Only approved content will ever be used by the robot.
 
+## Ask the robot (text) — B3
+```powershell
+docker compose exec backend python -m app.ingestion.cli check-openai             # key + models OK?
+docker compose exec backend python -m app.ingestion.cli ask "كم ساعة هندسة الأنظمة الذكية؟"
+docker compose exec backend python -m app.ingestion.cli evaluate                 # 35 golden questions
+```
+API: POST http://localhost:8000/api/chat  {"message": "..."}  (try it at http://localhost:8000/docs)
+
 ## Save a version (after each phase passes its tests)
 ```powershell
 git add .

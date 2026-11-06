@@ -5,7 +5,7 @@ async def test_health_ok(client) -> None:
     assert body["status"] == "ok"
     assert body["database"] == "ok"
     assert body["pgvector"] is True
-    assert body["migration"] == "0002"
+    assert body["migration"] == "0004"
 
 
 async def test_openapi_lists_health(client) -> None:

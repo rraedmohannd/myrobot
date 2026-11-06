@@ -1,0 +1,491 @@
+{
+  "description": "Golden evaluation set for /api/chat (B3). 'answerable' = facts exist in the approved knowledge base; 'unanswerable' = the robot must say it does not know (found=false) and must not state the forbidden strings; 'partial' = only must_include is checked. Each inner list in must_include is a group of alternatives; every group must match (case-insensitive).",
+  "questions": [
+    {
+      "id": "ise-hours-ar",
+      "lang": "ar",
+      "question": "كم ساعة معتمدة بدها هندسة الأنظمة الذكية؟",
+      "kind": "answerable",
+      "must_include": [
+        [
+          "162"
+        ]
+      ],
+      "must_not_include": []
+    },
+    {
+      "id": "ise-hours-en",
+      "lang": "en",
+      "question": "How many credit hours is the Intelligent Systems Engineering degree?",
+      "kind": "answerable",
+      "must_include": [
+        [
+          "162"
+        ]
+      ],
+      "must_not_include": []
+    },
+    {
+      "id": "faculty-programs-ar",
+      "lang": "ar",
+      "question": "شو التخصصات الموجودة بكلية الهندسة والتصميم؟",
+      "kind": "answerable",
+      "must_include": [
+        [
+          "الأنظمة الذكية",
+          "أنظمة ذكية"
+        ],
+        [
+          "الطاقة المتجددة",
+          "طاقة متجددة"
+        ],
+        [
+          "العمارة",
+          "عمارة"
+        ],
+        [
+          "الداخلي"
+        ],
+        [
+          "الجرافيك",
+          "جرافيك",
+          "الجرافيكي"
+        ]
+      ],
+      "must_not_include": []
+    },
+    {
+      "id": "faculty-programs-en",
+      "lang": "en",
+      "question": "Which bachelor programs does the Faculty of Engineering & Design offer?",
+      "kind": "answerable",
+      "must_include": [
+        [
+          "intelligent systems"
+        ],
+        [
+          "renewable energy"
+        ],
+        [
+          "architect"
+        ],
+        [
+          "interior design"
+        ],
+        [
+          "graphic design"
+        ]
+      ],
+      "must_not_include": []
+    },
+    {
+      "id": "arch-hours-ar",
+      "lang": "ar",
+      "question": "قديش ساعة هندسة العمارة؟",
+      "kind": "answerable",
+      "must_include": [
+        [
+          "165"
+        ]
+      ],
+      "must_not_include": []
+    },
+    {
+      "id": "interior-hours-en",
+      "lang": "en",
+      "question": "How many credit hours do I need for Interior Design?",
+      "kind": "answerable",
+      "must_include": [
+        [
+          "141"
+        ]
+      ],
+      "must_not_include": []
+    },
+    {
+      "id": "graphic-hours-ar",
+      "lang": "ar",
+      "question": "التصميم الجرافيكي كم ساعة معتمدة؟",
+      "kind": "answerable",
+      "must_include": [
+        [
+          "135"
+        ]
+      ],
+      "must_not_include": []
+    },
+    {
+      "id": "ree-hours-ar",
+      "lang": "ar",
+      "question": "هندسة الطاقة المتجددة كم ساعة؟",
+      "kind": "answerable",
+      "must_include": [
+        [
+          "162"
+        ]
+      ],
+      "must_not_include": []
+    },
+    {
+      "id": "ise-robots-ar",
+      "lang": "ar",
+      "question": "في مواد عن الروبوتات بتخصص الأنظمة الذكية؟",
+      "kind": "answerable",
+      "must_include": [
+        [
+          "روبوت",
+          "الروبوت",
+          "robot"
+        ]
+      ],
+      "must_not_include": []
+    },
+    {
+      "id": "ise-robot-course-en",
+      "lang": "en",
+      "question": "Is there a robot programming course in Intelligent Systems Engineering?",
+      "kind": "answerable",
+      "must_include": [
+        [
+          "robot programming",
+          "robot"
+        ]
+      ],
+      "must_not_include": []
+    },
+    {
+      "id": "ise-robot-prereq-ar",
+      "lang": "ar",
+      "question": "شو المتطلب السابق لمادة برمجة الروبوت؟",
+      "kind": "answerable",
+      "must_include": [
+        [
+          "الأنظمة المضمنة",
+          "المضمنة",
+          "embedded",
+          "1923803"
+        ]
+      ],
+      "must_not_include": []
+    },
+    {
+      "id": "ise-ml-prereq-en",
+      "lang": "en",
+      "question": "What is the prerequisite of Machine Learning in Intelligent Systems Engineering?",
+      "kind": "answerable",
+      "must_include": [
+        [
+          "data science",
+          "1922602",
+          "علم البيانات"
+        ]
+      ],
+      "must_not_include": []
+    },
+    {
+      "id": "ise-careers-ar",
+      "lang": "ar",
+      "question": "وين بيشتغلوا خريجين هندسة الأنظمة الذكية؟",
+      "kind": "answerable",
+      "must_include": [
+        [
+          "البنوك",
+          "بنوك",
+          "المصارف",
+          "الاتصالات",
+          "السيارات",
+          "المصانع",
+          "تكنولوجيا المعلومات",
+          "المباني الذكية",
+          "النقل"
+        ]
+      ],
+      "must_not_include": []
+    },
+    {
+      "id": "ise-careers-en",
+      "lang": "en",
+      "question": "Where do Intelligent Systems Engineering graduates work?",
+      "kind": "answerable",
+      "must_include": [
+        [
+          "banking",
+          "telecommunication",
+          "information technology",
+          "electric cars",
+          "factories",
+          "transportation",
+          "smart building"
+        ]
+      ],
+      "must_not_include": []
+    },
+    {
+      "id": "ise-accredit-ar",
+      "lang": "ar",
+      "question": "هل تخصص الأنظمة الذكية معتمد من نقابة المهندسين الأردنيين؟",
+      "kind": "answerable",
+      "must_include": [
+        [
+          "نقابة",
+          "أنظمة التحكم",
+          "النظم والتحكم",
+          "engineers association"
+        ]
+      ],
+      "must_not_include": []
+    },
+    {
+      "id": "ise-accredit-en",
+      "lang": "en",
+      "question": "Is the Intelligent Systems Engineering program accredited?",
+      "kind": "answerable",
+      "must_include": [
+        [
+          "arab engineers",
+          "engineers association"
+        ]
+      ],
+      "must_not_include": []
+    },
+    {
+      "id": "ree-founded-ar",
+      "lang": "ar",
+      "question": "إمتى تأسس قسم هندسة الطاقة المتجددة؟",
+      "kind": "answerable",
+      "must_include": [
+        [
+          "2014"
+        ]
+      ],
+      "must_not_include": []
+    },
+    {
+      "id": "ree-tech-en",
+      "lang": "en",
+      "question": "What renewable technologies does the Renewable Energy Engineering program focus on?",
+      "kind": "answerable",
+      "must_include": [
+        [
+          "photovoltaic",
+          "solar",
+          "wind",
+          "pv",
+          "csp"
+        ]
+      ],
+      "must_not_include": []
+    },
+    {
+      "id": "ree-labs-ar",
+      "lang": "ar",
+      "question": "كم مختبر في قسم الطاقة المتجددة؟",
+      "kind": "answerable",
+      "must_include": [
+        [
+          "12"
+        ]
+      ],
+      "must_not_include": []
+    },
+    {
+      "id": "arch-years-ar",
+      "lang": "ar",
+      "question": "كم سنة دراسة العمارة؟",
+      "kind": "answerable",
+      "must_include": [
+        [
+          "خمس",
+          "5",
+          "five"
+        ]
+      ],
+      "must_not_include": []
+    },
+    {
+      "id": "arch-founded-en",
+      "lang": "en",
+      "question": "When was the Department of Architecture founded?",
+      "kind": "answerable",
+      "must_include": [
+        [
+          "2010"
+        ]
+      ],
+      "must_not_include": []
+    },
+    {
+      "id": "arch-careers-ar",
+      "lang": "ar",
+      "question": "شو ممكن يشتغل خريج العمارة؟",
+      "kind": "answerable",
+      "must_include": [
+        [
+          "تصميم",
+          "المباني",
+          "مباني",
+          "مدير مشاريع",
+          "مهندس موقع",
+          "تنسيق"
+        ]
+      ],
+      "must_not_include": []
+    },
+    {
+      "id": "arch-training-en",
+      "lang": "en",
+      "question": "How long is the field practice in Architectural Engineering?",
+      "kind": "answerable",
+      "must_include": [
+        [
+          "320"
+        ]
+      ],
+      "must_not_include": []
+    },
+    {
+      "id": "interior-training-ar",
+      "lang": "ar",
+      "question": "التدريب الميداني بالتصميم الداخلي قديش؟",
+      "kind": "answerable",
+      "must_include": [
+        [
+          "420",
+          "6"
+        ]
+      ],
+      "must_not_include": []
+    },
+    {
+      "id": "ise-head-en",
+      "lang": "en",
+      "question": "Who is the head of the Intelligent Systems Engineering department?",
+      "kind": "answerable",
+      "must_include": [
+        [
+          "klaib",
+          "كليب"
+        ]
+      ],
+      "must_not_include": []
+    },
+    {
+      "id": "dean-ar",
+      "lang": "ar",
+      "question": "مين عميد كلية الهندسة والتصميم؟",
+      "kind": "answerable",
+      "must_include": [
+        [
+          "أيمن",
+          "ايمن",
+          "ayman",
+          "عوض",
+          "awad"
+        ]
+      ],
+      "must_not_include": []
+    },
+    {
+      "id": "graphic-animation-en",
+      "lang": "en",
+      "question": "Do Graphic Design students study animation?",
+      "kind": "answerable",
+      "must_include": [
+        [
+          "animation",
+          "2d",
+          "3d"
+        ]
+      ],
+      "must_not_include": []
+    },
+    {
+      "id": "graphic-history-ar",
+      "lang": "ar",
+      "question": "إمتى صار قسم التصميم الجرافيكي جزء من كلية العمارة والتصميم؟",
+      "kind": "answerable",
+      "must_include": [
+        [
+          "2010"
+        ]
+      ],
+      "must_not_include": []
+    },
+    {
+      "id": "ise-vs-se-ar",
+      "lang": "ar",
+      "question": "شو الفرق بين هندسة الأنظمة الذكية وهندسة البرمجيات؟",
+      "kind": "partial",
+      "must_include": [
+        [
+          "الأنظمة الذكية",
+          "أنظمة ذكية",
+          "intelligent"
+        ]
+      ],
+      "must_not_include": []
+    },
+    {
+      "id": "ise-admission-avg-en",
+      "lang": "en",
+      "question": "What high school average do I need to get into Intelligent Systems Engineering?",
+      "kind": "unanswerable",
+      "must_include": [],
+      "must_not_include": [
+        "%"
+      ]
+    },
+    {
+      "id": "ise-fee-ar",
+      "lang": "ar",
+      "question": "قديش سعر الساعة بهندسة الأنظمة الذكية؟",
+      "kind": "unanswerable",
+      "must_include": [],
+      "must_not_include": [
+        "دينار",
+        "jd",
+        "jod"
+      ]
+    },
+    {
+      "id": "scholarships-ar",
+      "lang": "ar",
+      "question": "في منح أو خصومات للطلاب الجدد بكلية الهندسة؟",
+      "kind": "unanswerable",
+      "must_include": [],
+      "must_not_include": [
+        "%"
+      ]
+    },
+    {
+      "id": "arch-fees-en",
+      "lang": "en",
+      "question": "What are the tuition fees for Architecture?",
+      "kind": "unanswerable",
+      "must_include": [],
+      "must_not_include": [
+        "jd",
+        "jod",
+        "dinar"
+      ]
+    },
+    {
+      "id": "business-en",
+      "lang": "en",
+      "question": "Tell me about the Faculty of Business programs.",
+      "kind": "unanswerable",
+      "must_include": [],
+      "must_not_include": []
+    },
+    {
+      "id": "meu-founded-ar",
+      "lang": "ar",
+      "question": "إمتى تأسست جامعة الشرق الأوسط؟",
+      "kind": "unanswerable",
+      "must_include": [],
+      "must_not_include": [
+        "2005"
+      ]
+    }
+  ]
+}

@@ -5,6 +5,10 @@
     python -m app.ingestion.cli stats
     python -m app.ingestion.cli import-knowledge [--dir data/knowledge]
     python -m app.ingestion.cli debug-page URL
+    python -m app.ingestion.cli check-openai          # key + model check (B3)
+    python -m app.ingestion.cli embed                 # embeddings for approved chunks
+    python -m app.ingestion.cli ask "question"        # one grounded answer with sources
+    python -m app.ingestion.cli evaluate              # golden set -> data/golden/results/
 """
 
 import argparse
@@ -59,8 +63,99 @@ async def _debug_page(url: str) -> None:
     print(f"\nRaw HTML saved to backend/{out}")
 
 
+async def _check_openai() -> None:
+    from app.services.providers import OpenAIEmbedder, OpenAILLM, ProviderError, _openai_client
+
+    settings = get_settings()
+    print(f"LLM_MODEL={settings.llm_model}  EMBEDDING_MODEL={settings.embedding_model}")
+    try:
+        client = _openai_client()
+        ids = sorted(m.id for m in (await client.models.list()).data)
+        chat_like = [i for i in ids if i.startswith(("gpt-", "o")) and "embedding" not in i]
+        print(f"key OK — {len(ids)} models visible. Chat models:\n  " + ", ".join(chat_like))
+        print("Embedding models: " + ", ".join(i for i in ids if "embedding" in i))
+    except Exception as e:  # noqa: BLE001
+        print(f"FAILED to list models: {e}")
+        return
+    try:
+        vec = (await OpenAIEmbedder().embed(["اختبار test"]))[0]
+        print(f"embedding OK — {len(vec)} dimensions")
+    except ProviderError as e:
+        print(f"embedding FAILED: {e}")
+    try:
+        r = await OpenAILLM().complete_json(
+            'Reply with the JSON object {"ok": true, "answer": "<one short Jordanian Arabic greeting>"}',
+            "Say hello. Reply in JSON.",
+        )
+        print(f"LLM OK — {r.ms} ms, reply: {r.data}")
+    except ProviderError as e:
+        print(f"LLM FAILED: {e}\nPick a chat model from the list above and set LLM_MODEL in .env")
+
+
+async def _ask(question: str) -> None:
+    from app.services.chat import answer_question
+    from app.services.providers import get_embedder, get_llm
+
+    async with get_sessionmaker()() as session:
+        r = await answer_question(session, get_embedder(), get_llm(), question, log=False)
+    print(f"\n{r.answer}\n")
+    print(f"found={r.found} lang={r.lang} model={r.model} timings={r.timings}")
+    for s in r.sources:
+        print(f"  [{s.n}] {s.title}  ({s.category})")
+    if r.invented_numbers:
+        print(f"  WARNING numbers not in sources: {r.invented_numbers}")
+    if r.error:
+        print(f"  ERROR: {r.error}")
+    print("\nPassages given to the model:")
+    for i, p in enumerate(r.passages, start=1):
+        print(f"  [{i}] score={p.score} fts={p.in_fts} vec={p.in_vector}  {p.source_title}")
+
+
+async def _embed() -> None:
+    from app.services.providers import get_embedder
+    from app.services.rag import embed_missing
+
+    async with get_sessionmaker()() as session:
+        n = await embed_missing(session, get_embedder())
+    print(f"embedded {n} approved chunk(s)")
+
+
+async def _evaluate() -> None:
+    from app.services.evaluate import evaluate, load_questions, write_report
+    from app.services.providers import get_embedder, get_llm
+
+    questions = load_questions()
+    async with get_sessionmaker()() as session:
+        report = await evaluate(session, get_embedder(), get_llm(), questions)
+    json_path, md_path = write_report(report)
+    for r in report.results:
+        mark = "PASS" if r.passed else "FAIL"
+        print(f"{mark}  {r.id}: {r.answer[:110]}")
+        for reason in r.reasons:
+            print(f"        - {reason}")
+    print(
+        f"\nPassed {report.passed}/{report.total} ({report.accuracy:.0%}), "
+        f"numbers not in sources: {report.invented_numbers_total}, "
+        f"median {report.latency_median_ms} ms, p90 {report.latency_p90_ms} ms"
+    )
+    print(f"Report: backend/{md_path.relative_to(md_path.parents[3])}")
+
+
 async def _main(args: argparse.Namespace) -> None:
     cfg = CrawlConfig()
+    simple = {
+        "check-openai": _check_openai,
+        "embed": _embed,
+        "evaluate": _evaluate,
+    }
+    if args.cmd in simple:
+        await simple[args.cmd]()
+        await get_engine().dispose()
+        return
+    if args.cmd == "ask":
+        await _ask(" ".join(args.question))
+        await get_engine().dispose()
+        return
     if args.cmd == "stats":
         await _stats()
         return
@@ -77,6 +172,7 @@ async def _main(args: argparse.Namespace) -> None:
             report = await import_dir(session, directory)
         for name, outcome in report.files:
             print(f"{outcome:9s} {name}")
+        print(f"search hints updated on {report.hints_updated} chunk(s)")
         print("New/changed knowledge is 'pending': review it at http://localhost:8000/admin")
         await get_engine().dispose()
         return
@@ -109,6 +205,11 @@ def main() -> None:
     d.add_argument("url")
     k = sub.add_parser("import-knowledge", help="import curated files from data/knowledge/*.json")
     k.add_argument("--dir", help="folder with knowledge JSON files (default: data/knowledge)")
+    sub.add_parser("check-openai", help="check the OpenAI key, list models, test embedding + LLM")
+    sub.add_parser("embed", help="compute embeddings for approved chunks that have none")
+    a = sub.add_parser("ask", help="ask one question (text) and show answer, sources, timings")
+    a.add_argument("question", nargs="+")
+    sub.add_parser("evaluate", help="run the golden question set and write a report")
     asyncio.run(_main(p.parse_args()))
 
 

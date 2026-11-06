@@ -28,6 +28,18 @@ class Settings(BaseSettings):
     tts_provider: Literal["openai"] = "openai"
     openai_api_key: SecretStr | None = None
     anthropic_api_key: SecretStr | None = None
+    # Model ids are configuration, not code: run `python -m app.ingestion.cli check-openai`
+    # to see what the key can use, then set LLM_MODEL / EMBEDDING_MODEL in .env.
+    llm_model: str = "gpt-6-luna"
+    llm_max_output_tokens: int = 1500  # includes reasoning tokens on reasoning models
+    llm_reasoning_effort: str | None = None  # e.g. "low" for reasoning models; empty = not sent
+    embedding_model: str = "text-embedding-3-small"
+    embedding_dim: int = 1536  # must match the vector(1536) column (migration 0003)
+
+    # Retrieval-augmented answers
+    rag_top_k: int = 8  # passages given to the LLM
+    rag_candidates: int = 20  # candidates from each search before fusion
+    chat_history_turns: int = 3  # previous turns of the same session sent as context
 
     # Token for the admin API/page (sent as X-Admin-Token). Empty = admin API disabled.
     admin_token: SecretStr | None = None

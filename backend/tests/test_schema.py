@@ -11,6 +11,7 @@ from sqlalchemy.exc import IntegrityError
 
 import app.db.models  # noqa: F401
 from app.db.base import Base
+from app.db.types import alembic_compare_type
 
 EXPECTED_TABLES = {
     "sources", "faculties", "programs", "media", "labs", "chunks", "faqs", "pitches",
@@ -32,7 +33,7 @@ async def test_models_match_migrations(engine) -> None:
     """If this fails, a model was changed without a new Alembic migration."""
 
     def diff(sync_conn):
-        ctx = MigrationContext.configure(sync_conn, opts={"compare_type": True})
+        ctx = MigrationContext.configure(sync_conn, opts={"compare_type": alembic_compare_type})
         return compare_metadata(ctx, Base.metadata)
 
     async with engine.connect() as conn:

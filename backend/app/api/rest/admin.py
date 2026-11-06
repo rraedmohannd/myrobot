@@ -201,6 +201,9 @@ async def patch_chunk(chunk_id: int, body: ChunkPatch, session: SessionDep) -> C
         raise HTTPException(422, "Unknown program_id")
     for key, value in changes.items():
         setattr(chunk, key, value)
+    if "text" in changes:  # the old vector no longer matches the text; recomputed on next use
+        chunk.embedding = None
+        chunk.embedding_model = None
     await session.commit()
     await session.refresh(chunk)
     return ChunkOut.model_validate(chunk, from_attributes=True)
