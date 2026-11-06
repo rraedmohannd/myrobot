@@ -27,7 +27,7 @@ camera pan servo → active speaker's face                                      
 ### Voice part (backend, done first)
 - Embedding model: **3D-Speaker CAM++ (VoxCeleb, 16 kHz)**, about 30 MB ONNX, run through **sherpa-onnx** (CPU, also runs on the Raspberry Pi). It is downloaded when the Docker image is built.
 - The embedding is computed **in parallel with STT**, so it adds no latency.
-- `SpeakerTracker` compares the utterance with the session's speakers by cosine similarity (default threshold 0.5, configurable). If the best match passes, the utterance is assigned to that speaker; otherwise a new speaker is created (at most 4). Utterances shorter than 1 s are not embedded, and the face hint or the last speaker is used instead.
+- `SpeakerTracker` compares the utterance with the session's speakers by cosine similarity, with **hysteresis**: a similarity of **0.30 or more** goes to the closest speaker (0.45 or more counts as confident), and only a similarity **below 0.30** creates a new speaker (at most 4). This came from the first live test (2026-11-06): with a single 0.5 threshold, one weak first sample split one person into two speakers. Utterances shorter than 1 s are not embedded, and the face hint or the last speaker is used instead. The similarities are shown in the /voice log so the thresholds can be calibrated on real voices.
 - Voice and face together: once a face track id has been heard with a speaker, they are linked. When the voice is ambiguous, the face decides; when the voice is clearly a different known person, the voice wins.
 
 ### Camera part (robot; prototype first in the /voice page with the laptop webcam)

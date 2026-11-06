@@ -51,13 +51,15 @@ class Settings(BaseSettings):
         "Modern Standard Arabic. When the text is English, use a clear, friendly neutral accent. "
         "Moderate pace, cheerful and welcoming."
     )
+    filler_enabled: bool = True  # short cached "لحظة بس…" right after a question (masks latency)
     follow_up_timeout_s: int = 10  # silence after "عندك سؤال ثاني؟" before a polite goodbye
     max_utterance_s: int = 20
     robot_token: SecretStr | None = None  # if set, /ws/robot requires ?token=...
 
     # Speakers (docs/SPEAKERS.md): anonymous, in-memory voiceprints per conversation
     speaker_model_path: str = "/models/speaker-campplus.onnx"
-    speaker_threshold: float = 0.5  # cosine similarity to count as the same voice
+    speaker_threshold: float = 0.45  # cosine similarity: at or above = same voice
+    speaker_new_threshold: float = 0.3  # below = a new visitor; in between = closest visitor
     speaker_min_seconds: float = 1.0  # shorter utterances use the face hint / last speaker
     max_speakers: int = 4
 

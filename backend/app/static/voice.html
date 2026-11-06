@@ -56,8 +56,8 @@
   </section>
   <section class="card">
     <h3>الأوقات (لكل سؤال)</h3>
-    <table><thead><tr><th>#</th><th>STT</th><th>search</th><th>LLM</th><th>1st audio*</th><th>browser*</th></tr></thead><tbody id="times"></tbody></table>
-    <p class="muted">* من آخر الكلام لحد أول صوت. الوقت بالملّي ثانية.</p>
+    <table><thead><tr><th>#</th><th>STT</th><th>search</th><th>LLM</th><th>ack*</th><th>answer*</th></tr></thead><tbody id="times"></tbody></table>
+    <p class="muted">* من آخر كلامك: ack = أول صوت (جملة الانتظار)، answer = أول صوت من الجواب نفسه. الوقت بالملّي ثانية.</p>
     <h3>تجربة الأصوات</h3>
     <div class="row"><select id="voice"></select><button id="tryVoice">اسمع</button></div>
     <textarea id="sample" dir="auto">أهلاً وسهلاً فيك! تخصص هندسة الأنظمة الذكية بدّه ١٦٢ ساعة معتمدة، وفيه مواد عن الروبوتات والذكاء الاصطناعي. عندك سؤال ثاني؟</textarea>
@@ -102,7 +102,8 @@ function onMessage(m) {
     case "dialogue.state": state = m.state; $("state").textContent = state; maybeListen(); break;
     case "display.update": setFace(m.mode); if (m.subtitle) $("subtitle").textContent = m.subtitle; break;
     case "transcript": {
-      const sp = m.speaker ? ` (متحدث ${m.speaker.label}${m.speaker.is_new ? " جديد" : ""} · ${m.speaker.source}${m.speaker.confidence != null ? " · " + m.speaker.confidence : ""})` : "";
+      const sims = m.speaker && m.speaker.sims ? Object.entries(m.speaker.sims).map(([k, v]) => `${k}:${v}`).join(" ") : "";
+      const sp = m.speaker ? ` (متحدث ${m.speaker.label}${m.speaker.is_new ? " جديد" : ""} · ${m.speaker.source}${sims ? " · تشابه " + sims : ""})` : "";
       log("أنت" + sp, m.text || "(ما انسمع اشي)"); break;
     }
     case "answer.text": log("الروبوت", m.text); lastServerTimings = m.timings || {}; break;
@@ -119,9 +120,8 @@ function onMessage(m) {
 let lastServerTimings = {};
 function addTimes(t) {
   turnNo++;
-  const browser = endSentAt && firstAudioAt ? Math.round(firstAudioAt - endSentAt) : "";
   const tr = document.createElement("tr");
-  tr.innerHTML = `<td>${turnNo}</td><td>${t.stt_ms ?? ""}</td><td>${t.retrieval_ms ?? ""}</td><td>${t.llm_ms ?? ""}</td><td>${t.total_ms ?? ""}</td><td>${browser}</td>`;
+  tr.innerHTML = `<td>${turnNo}</td><td>${t.stt_ms ?? ""}</td><td>${t.retrieval_ms ?? ""}</td><td>${t.llm_ms ?? ""}</td><td>${t.ack_ms ?? ""}</td><td>${t.tts_ms ?? ""}</td>`;
   $("times").prepend(tr);
 }
 

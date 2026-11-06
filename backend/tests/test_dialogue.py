@@ -89,6 +89,9 @@ async def test_full_voice_conversation(db_session) -> None:
     assert "transcript" in types and "answer.text" in types and "turn.timings" in types
     answer = next(m for m in sent if m["type"] == "answer.text")
     assert answer["found"] and "162" in answer["text"]
+    assert PHRASES["filler_0"]["ar"] in said(tts)  # instant cached filler before the answer
+    timing = next(m for m in sent if m["type"] == "turn.timings")
+    assert timing["ack_ms"] is not None and timing["ack_ms"] <= timing["tts_ms"]
     assert said(tts).endswith(PHRASES["follow_up"]["ar"])
     assert dm.state == "FOLLOW_UP"
 

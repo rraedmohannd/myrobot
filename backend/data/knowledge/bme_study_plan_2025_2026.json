@@ -1,0 +1,1482 @@
+{
+ "source": {
+  "url": "https://meu.edu.jo/plan/%D8%A7%D9%84%D9%87%D9%86%D8%AF%D8%B3%D8%A9%20%D8%A7%D9%84%D8%B7%D8%A8%D9%8A%D8%A9%20%D8%A7%D9%84%D8%AD%D9%8A%D9%88%D9%8A%D8%A9.pdf",
+  "title": "Study Plan — B.Sc. Biomedical Engineering 2025/2026 (official MEU plan)",
+  "lang": "en",
+  "academic_year": "2025/2026",
+  "notes": "Official plan PDF on meu.edu.jo (/plan/الهندسة الطبية الحيوية.pdf), read through web text extraction on 2026-11-06, plus screenshots of the MEU website plan page provided by the student on 2026-11-06. Faculty Council decision 06/06-2025/2026 (adopted 06/11/2025); Deans' Council decision 09/15-2025/2026 (adopted 30/12/2025). Course codes, Arabic titles, credit hours and named prerequisites come from the screenshots; group totals (162) and the elective rules (6 university, 9 major) from the PDF. Courses shared with the other five plans use those plans' official English titles, theory/practical split, learning mode and JNQF level. For courses only in this plan, English titles, learning mode, JNQF level and the credit-hour prerequisites (115/120/100) come from the PDF text extraction, whose Arabic and English text is partly reversed: to be re-checked against the PDF file itself. The website shows compulsory and elective courses in one table; the split matches the PDF totals."
+ },
+ "faculty": {
+  "slug": "engineering-and-design",
+  "name_en": "Faculty of Engineering & Design",
+  "name_ar": "كلية الهندسة والتصميم"
+ },
+ "program": {
+  "slug": "biomedical-engineering",
+  "name_en": "Biomedical Engineering",
+  "name_ar": "الهندسة الطبية الحيوية",
+  "degree": "BSc",
+  "credit_hours": 162,
+  "academic_year": "2025/2026"
+ },
+ "chunks": [
+  {
+   "category": "study_plan",
+   "lang": "en",
+   "text": "Biomedical Engineering (الهندسة الطبية الحيوية) — B.Sc. study plan 2025/2026, Faculty of Engineering & Design, Middle East University.\nThe degree requires 162 credit hours in total:\n- University requirements: 18 credit hours (compulsory)\n- University electives: 6 credit hours\n- Faculty requirements: 24 credit hours (group A: 6, group B: 18 — mathematics, physics, chemistry)\n- Area of study (major) requirements: 61 credit hours\n- Ancillary (supporting) courses: 44 credit hours\n- Area of study (major) electives: 9 credit hours (three 3-hour courses chosen from nine)\nRemedial courses (Arabic, English, computer skills) are taken only when required and are not counted in the 162 hours.\nThe plan includes external Field Training (after 115 completed credit hours) and a two-part graduation project (Graduation Project I after 120 completed credit hours, then Graduation Project II)."
+  },
+  {
+   "category": "study_plan",
+   "lang": "en",
+   "text": "Biomedical Engineering study plan 2025/2026 — approvals and signatories.\nFaculty Council decision 06/06-2025/2026, adopted 06/11/2025. Deans' Council decision 09/15-2025/2026, adopted 30/12/2025.\nDean of the Faculty: Prof. Ayman Abdel Salam Awad. Director of Admissions and Registration: Mrs. Nadia Al-Bakri."
+  },
+  {
+   "category": "study_plan",
+   "lang": "en",
+   "text": "Biomedical Engineering — biomedical courses in the 2025/2026 study plan:\nBiochemistry (كيمياء حيوية, 1961601), Anatomy and Physiology (علم وظائف الأعضاء والتشريح, 1962601), Biomechanics (ميكانيكا حيوية, 1962602), Introduction to Biomedical Engineering (1962701), Biostatistics (1963401), Biomedical Signal Processing (معالجة الإشارة الطبية, 1963403), Biomaterials (مواد طبية حيوية, 1963601), Biofluid Mechanics with lab (1963602/1964601), Medical Electronics with lab (الإلكترونيات الطبية, 1963701/1963702), Biomedical Measurements (1964805), Biomedical Instruments with lab (الأجهزة الطبية الحيوية, 1964701/1964702), Medical Image Processing with lab (1964801/1964802), Biomedical Modeling with lab (1964803/1964804), Microcontrollers with lab (1965501/1965502), Biomedical Sensors with lab (المجسات الطبية الحيوية, 1965801/1965802), Medical Imaging (التصوير الطبي, 1965701).\nMajor electives (choose 9 credit hours): Artificial Intelligence in Medical Diagnosis, Bioinformatics, Bio-Signal Monitoring Systems (أنظمة المراقبة الحيوية), Medical Robots (الروبوتات الطبية), Prosthetics (الأطراف الصناعية), Tissue Engineering (هندسة الأنسجة), Biomedical Transition (الانتقال الطبي الحيوي), Management and Specifications of Medical Devices in Hospitals, Special Topics in Biomedical Engineering.\nSupporting engineering courses include electric circuits, electronics, digital logic design, signals and systems, control systems, engineering programming, numerical analysis and engineering mathematics."
+  }
+ ],
+ "courses": [
+  {
+   "group": "university_requirements",
+   "group_title": "University Requirements",
+   "group_credit_hours": 18,
+   "group_rule": "compulsory",
+   "code": "A0161101",
+   "title_en": "Arabic Communication Skills",
+   "title_ar": "مهارات الاتصال باللغة العربية",
+   "credit_hours": 3,
+   "theory_hours": 3,
+   "practical_hours": 0,
+   "prerequisites": [
+    "A0161100"
+   ],
+   "learning": "online",
+   "jnqf_level": 5
+  },
+  {
+   "group": "university_requirements",
+   "group_title": "University Requirements",
+   "group_credit_hours": 18,
+   "group_rule": "compulsory",
+   "code": "A0161201",
+   "title_en": "English Communication Skills",
+   "title_ar": "مهارات الاتصال باللغة الإنجليزية",
+   "credit_hours": 3,
+   "theory_hours": 3,
+   "practical_hours": 0,
+   "prerequisites": [
+    "A0161200"
+   ],
+   "learning": "online",
+   "jnqf_level": 5
+  },
+  {
+   "group": "university_requirements",
+   "group_title": "University Requirements",
+   "group_credit_hours": 18,
+   "group_rule": "compulsory",
+   "code": "A0161301",
+   "title_en": "National Education",
+   "title_ar": "التربية الوطنية",
+   "credit_hours": 3,
+   "theory_hours": 3,
+   "practical_hours": 0,
+   "prerequisites": [],
+   "learning": "blended",
+   "jnqf_level": 5
+  },
+  {
+   "group": "university_requirements",
+   "group_title": "University Requirements",
+   "group_credit_hours": 18,
+   "group_rule": "compulsory",
+   "code": "A0161401",
+   "title_en": "Life Skills",
+   "title_ar": "مهارات حياتية",
+   "credit_hours": 3,
+   "theory_hours": 3,
+   "practical_hours": 0,
+   "prerequisites": [],
+   "learning": "blended",
+   "jnqf_level": 5
+  },
+  {
+   "group": "university_requirements",
+   "group_title": "University Requirements",
+   "group_credit_hours": 18,
+   "group_rule": "compulsory",
+   "code": "A0161400",
+   "title_en": "Community Service",
+   "title_ar": "خدمة المجتمع",
+   "credit_hours": 0,
+   "theory_hours": 0,
+   "practical_hours": 0,
+   "prerequisites": [],
+   "learning": "face-to-face",
+   "jnqf_level": 5
+  },
+  {
+   "group": "university_requirements",
+   "group_title": "University Requirements",
+   "group_credit_hours": 18,
+   "group_rule": "compulsory",
+   "code": "A0181501",
+   "title_en": "Artificial Intelligence and Cybersecurity",
+   "title_ar": "الذكاء الاصطناعي والأمن السيبراني",
+   "credit_hours": 3,
+   "theory_hours": 3,
+   "practical_hours": 0,
+   "prerequisites": [],
+   "learning": "blended",
+   "jnqf_level": 5
+  },
+  {
+   "group": "university_requirements",
+   "group_title": "University Requirements",
+   "group_credit_hours": 18,
+   "group_rule": "compulsory",
+   "code": "A0161302",
+   "title_en": "Military Science",
+   "title_ar": "العلوم العسكرية",
+   "credit_hours": 3,
+   "theory_hours": 3,
+   "practical_hours": 0,
+   "prerequisites": [],
+   "learning": "online",
+   "jnqf_level": 5
+  },
+  {
+   "group": "university_electives",
+   "group_title": "University Electives",
+   "group_credit_hours": 6,
+   "group_rule": "choose 6 credit hours",
+   "code": "A0161303",
+   "title_en": "Media Literacy",
+   "title_ar": "الدراية الإعلامية",
+   "credit_hours": 1,
+   "theory_hours": 1,
+   "practical_hours": 0,
+   "prerequisites": [],
+   "learning": "online",
+   "jnqf_level": 5
+  },
+  {
+   "group": "university_electives",
+   "group_title": "University Electives",
+   "group_credit_hours": 6,
+   "group_rule": "choose 6 credit hours",
+   "code": "A0161402",
+   "title_en": "Leadership, Entrepreneurship, and Innovation",
+   "title_ar": "القيادة والريادة والابتكار",
+   "credit_hours": 1,
+   "theory_hours": 1,
+   "practical_hours": 0,
+   "prerequisites": [],
+   "learning": "online",
+   "jnqf_level": 5
+  },
+  {
+   "group": "university_electives",
+   "group_title": "University Electives",
+   "group_credit_hours": 6,
+   "group_rule": "choose 6 credit hours",
+   "code": "A0161403",
+   "title_en": "Practical Applications in Sustainability",
+   "title_ar": "تطبيقات عملية في الاستدامة",
+   "credit_hours": 1,
+   "theory_hours": 1,
+   "practical_hours": 0,
+   "prerequisites": [],
+   "learning": "online",
+   "jnqf_level": 5
+  },
+  {
+   "group": "university_electives",
+   "group_title": "University Electives",
+   "group_credit_hours": 6,
+   "group_rule": "choose 6 credit hours",
+   "code": "A0161404",
+   "title_en": "The Art of Etiquette",
+   "title_ar": "فن الإتيكيت",
+   "credit_hours": 1,
+   "theory_hours": 1,
+   "practical_hours": 0,
+   "prerequisites": [],
+   "learning": "online",
+   "jnqf_level": 5
+  },
+  {
+   "group": "university_electives",
+   "group_title": "University Electives",
+   "group_credit_hours": 6,
+   "group_rule": "choose 6 credit hours",
+   "code": "A0161501",
+   "title_en": "Islamic Education",
+   "title_ar": "الثقافة الإسلامية",
+   "credit_hours": 3,
+   "theory_hours": 3,
+   "practical_hours": 0,
+   "prerequisites": [],
+   "learning": "online",
+   "jnqf_level": 5
+  },
+  {
+   "group": "university_electives",
+   "group_title": "University Electives",
+   "group_credit_hours": 6,
+   "group_rule": "choose 6 credit hours",
+   "code": "A0161502",
+   "title_en": "Jerusalem (The Question of Palestine)",
+   "title_ar": "القدس (القضية الفلسطينية)",
+   "credit_hours": 3,
+   "theory_hours": 3,
+   "practical_hours": 0,
+   "prerequisites": [],
+   "learning": "online",
+   "jnqf_level": 5
+  },
+  {
+   "group": "university_electives",
+   "group_title": "University Electives",
+   "group_credit_hours": 6,
+   "group_rule": "choose 6 credit hours",
+   "code": "A0161503",
+   "title_en": "Critical Thinking",
+   "title_ar": "الفكر الناقد",
+   "credit_hours": 2,
+   "theory_hours": 2,
+   "practical_hours": 0,
+   "prerequisites": [],
+   "learning": "online",
+   "jnqf_level": 5
+  },
+  {
+   "group": "university_electives",
+   "group_title": "University Electives",
+   "group_credit_hours": 6,
+   "group_rule": "choose 6 credit hours",
+   "code": "A0161504",
+   "title_en": "Law and Everyday Life",
+   "title_ar": "القانون في حياتنا",
+   "credit_hours": 2,
+   "theory_hours": 2,
+   "practical_hours": 0,
+   "prerequisites": [],
+   "learning": "online",
+   "jnqf_level": 5
+  },
+  {
+   "group": "university_electives",
+   "group_title": "University Electives",
+   "group_credit_hours": 6,
+   "group_rule": "choose 6 credit hours",
+   "code": "A0181502",
+   "title_en": "Programming for Non-Programmers",
+   "title_ar": "البرمجة لغير المبرمجين",
+   "credit_hours": 2,
+   "theory_hours": 2,
+   "practical_hours": 0,
+   "prerequisites": [],
+   "learning": "online",
+   "jnqf_level": 5
+  },
+  {
+   "group": "university_electives",
+   "group_title": "University Electives",
+   "group_credit_hours": 6,
+   "group_rule": "choose 6 credit hours",
+   "code": "A0181601",
+   "title_en": "First Aid",
+   "title_ar": "إسعافات أولية",
+   "credit_hours": 1,
+   "theory_hours": 1,
+   "practical_hours": 0,
+   "prerequisites": [],
+   "learning": "online",
+   "jnqf_level": 5
+  },
+  {
+   "group": "university_electives",
+   "group_title": "University Electives",
+   "group_credit_hours": 6,
+   "group_rule": "choose 6 credit hours",
+   "code": "A0181602",
+   "title_en": "Public Health and Nutrition",
+   "title_ar": "الصحة العامة والتغذية",
+   "credit_hours": 2,
+   "theory_hours": 2,
+   "practical_hours": 0,
+   "prerequisites": [],
+   "learning": "online",
+   "jnqf_level": 5
+  },
+  {
+   "group": "university_electives",
+   "group_title": "University Electives",
+   "group_credit_hours": 6,
+   "group_rule": "choose 6 credit hours",
+   "code": "A0161305",
+   "title_en": "Social Responsibility",
+   "title_ar": "المسؤولية المجتمعية",
+   "credit_hours": 3,
+   "theory_hours": 3,
+   "practical_hours": 0,
+   "prerequisites": [],
+   "learning": "online",
+   "jnqf_level": 5
+  },
+  {
+   "group": "university_electives",
+   "group_title": "University Electives",
+   "group_credit_hours": 6,
+   "group_rule": "choose 6 credit hours",
+   "code": "A0161309",
+   "title_en": "Traffic Safety",
+   "title_ar": "السلامة المرورية",
+   "credit_hours": 1,
+   "theory_hours": 1,
+   "practical_hours": 0,
+   "prerequisites": [],
+   "learning": "online",
+   "jnqf_level": 5
+  },
+  {
+   "group": "university_electives",
+   "group_title": "University Electives",
+   "group_credit_hours": 6,
+   "group_rule": "choose 6 credit hours",
+   "code": "A0181508",
+   "title_en": "Data Analysis",
+   "title_ar": "تحليل البيانات",
+   "credit_hours": 2,
+   "theory_hours": 2,
+   "practical_hours": 0,
+   "prerequisites": [],
+   "learning": "online",
+   "jnqf_level": 5
+  },
+  {
+   "group": "faculty_requirements_a",
+   "group_title": "Faculty Requirements Group A",
+   "group_credit_hours": 6,
+   "group_rule": "compulsory",
+   "code": "1913201",
+   "title_en": "Communication Skills and Professional Ethics",
+   "title_ar": "مهارات الاتصال وأخلاقيات المهنة",
+   "credit_hours": 1,
+   "theory_hours": 1,
+   "practical_hours": 0,
+   "prerequisites": [
+    "A0161201"
+   ],
+   "learning": "blended",
+   "jnqf_level": 6
+  },
+  {
+   "group": "faculty_requirements_a",
+   "group_title": "Faculty Requirements Group A",
+   "group_credit_hours": 6,
+   "group_rule": "compulsory",
+   "code": "A0162204",
+   "title_en": "Communication Skills for Engineering and Design in English",
+   "title_ar": "مهارات الاتصال باللغة الإنجليزية للهندسة والتصميم",
+   "credit_hours": 2,
+   "theory_hours": 2,
+   "practical_hours": 0,
+   "prerequisites": [
+    "A0161201"
+   ],
+   "learning": "blended",
+   "jnqf_level": 6
+  },
+  {
+   "group": "faculty_requirements_a",
+   "group_title": "Faculty Requirements Group A",
+   "group_credit_hours": 6,
+   "group_rule": "compulsory",
+   "code": "A0163401",
+   "title_en": "Introduction to Project Management",
+   "title_ar": "مقدمة في إدارة المشاريع",
+   "credit_hours": 3,
+   "theory_hours": 3,
+   "practical_hours": 0,
+   "prerequisites": [
+    "60 credit hours completed"
+   ],
+   "learning": "blended",
+   "jnqf_level": 6
+  },
+  {
+   "group": "faculty_requirements_b",
+   "group_title": "Faculty Requirements Group B",
+   "group_credit_hours": 18,
+   "group_rule": "compulsory",
+   "code": "A0181101",
+   "title_en": "Calculus I",
+   "title_ar": "تفاضل وتكامل (1)",
+   "credit_hours": 3,
+   "theory_hours": 3,
+   "practical_hours": 0,
+   "prerequisites": [],
+   "learning": "face-to-face",
+   "jnqf_level": 5
+  },
+  {
+   "group": "faculty_requirements_b",
+   "group_title": "Faculty Requirements Group B",
+   "group_credit_hours": 18,
+   "group_rule": "compulsory",
+   "code": "A0181201",
+   "title_en": "Physics I",
+   "title_ar": "فيزياء عامة (1)",
+   "credit_hours": 3,
+   "theory_hours": 3,
+   "practical_hours": 0,
+   "prerequisites": [],
+   "learning": "face-to-face",
+   "jnqf_level": 5
+  },
+  {
+   "group": "faculty_requirements_b",
+   "group_title": "Faculty Requirements Group B",
+   "group_credit_hours": 18,
+   "group_rule": "compulsory",
+   "code": "A0181301",
+   "title_en": "General Chemistry",
+   "title_ar": "كيمياء عامة",
+   "credit_hours": 3,
+   "theory_hours": 3,
+   "practical_hours": 0,
+   "prerequisites": [],
+   "learning": "face-to-face",
+   "jnqf_level": 5
+  },
+  {
+   "group": "faculty_requirements_b",
+   "group_title": "Faculty Requirements Group B",
+   "group_credit_hours": 18,
+   "group_rule": "compulsory",
+   "code": "A0181302",
+   "title_en": "General Chemistry (Lab)",
+   "title_ar": "كيمياء عامة (عملي)",
+   "credit_hours": 1,
+   "theory_hours": 0,
+   "practical_hours": 2,
+   "prerequisites": [
+    "A0181301"
+   ],
+   "learning": "face-to-face",
+   "jnqf_level": 5
+  },
+  {
+   "group": "faculty_requirements_b",
+   "group_title": "Faculty Requirements Group B",
+   "group_credit_hours": 18,
+   "group_rule": "compulsory",
+   "code": "A0181102",
+   "title_en": "Calculus II",
+   "title_ar": "تفاضل وتكامل (2)",
+   "credit_hours": 3,
+   "theory_hours": 3,
+   "practical_hours": 0,
+   "prerequisites": [
+    "A0181101"
+   ],
+   "learning": "face-to-face",
+   "jnqf_level": 6
+  },
+  {
+   "group": "faculty_requirements_b",
+   "group_title": "Faculty Requirements Group B",
+   "group_credit_hours": 18,
+   "group_rule": "compulsory",
+   "code": "A0181203",
+   "title_en": "Physics II",
+   "title_ar": "فيزياء عامة (2)",
+   "credit_hours": 3,
+   "theory_hours": 3,
+   "practical_hours": 0,
+   "prerequisites": [
+    "A0181201"
+   ],
+   "learning": "face-to-face",
+   "jnqf_level": 6
+  },
+  {
+   "group": "faculty_requirements_b",
+   "group_title": "Faculty Requirements Group B",
+   "group_credit_hours": 18,
+   "group_rule": "compulsory",
+   "code": "A0181204",
+   "title_en": "Physics II (Lab)",
+   "title_ar": "فيزياء عامة (2) عملي",
+   "credit_hours": 1,
+   "theory_hours": 0,
+   "practical_hours": 2,
+   "prerequisites": [
+    "A0181203"
+   ],
+   "learning": "face-to-face",
+   "jnqf_level": 6
+  },
+  {
+   "group": "faculty_requirements_b",
+   "group_title": "Faculty Requirements Group B",
+   "group_credit_hours": 18,
+   "group_rule": "compulsory",
+   "code": "A0181202",
+   "title_en": "Physics I (Lab)",
+   "title_ar": "فيزياء عامة (1) عملي",
+   "credit_hours": 1,
+   "theory_hours": 0,
+   "practical_hours": 2,
+   "prerequisites": [
+    "A0181201"
+   ],
+   "learning": "face-to-face",
+   "jnqf_level": 5
+  },
+  {
+   "group": "area_of_study_requirements",
+   "group_title": "Area of Study (Major) Requirements",
+   "group_credit_hours": 61,
+   "group_rule": "compulsory",
+   "code": "1961601",
+   "title_en": "Biochemistry",
+   "title_ar": "كيمياء حيوية",
+   "credit_hours": 3,
+   "theory_hours": 3,
+   "practical_hours": 0,
+   "prerequisites": [
+    "A0181301"
+   ],
+   "learning": "face-to-face",
+   "jnqf_level": 6
+  },
+  {
+   "group": "area_of_study_requirements",
+   "group_title": "Area of Study (Major) Requirements",
+   "group_credit_hours": 61,
+   "group_rule": "compulsory",
+   "code": "1962601",
+   "title_en": "Anatomy and Physiology",
+   "title_ar": "علم وظائف الأعضاء والتشريح",
+   "credit_hours": 3,
+   "theory_hours": 3,
+   "practical_hours": 0,
+   "prerequisites": [
+    "A0181401"
+   ],
+   "learning": "blended",
+   "jnqf_level": 5
+  },
+  {
+   "group": "area_of_study_requirements",
+   "group_title": "Area of Study (Major) Requirements",
+   "group_credit_hours": 61,
+   "group_rule": "compulsory",
+   "code": "1962602",
+   "title_en": "Biomechanics",
+   "title_ar": "ميكانيكا حيوية",
+   "credit_hours": 3,
+   "theory_hours": 3,
+   "practical_hours": 0,
+   "prerequisites": [
+    "A0181201"
+   ],
+   "learning": "face-to-face",
+   "jnqf_level": 7
+  },
+  {
+   "group": "area_of_study_requirements",
+   "group_title": "Area of Study (Major) Requirements",
+   "group_credit_hours": 61,
+   "group_rule": "compulsory",
+   "code": "1962701",
+   "title_en": "Introduction to Biomedical Engineering",
+   "title_ar": "مقدمة في الهندسة الطبية الحيوية",
+   "credit_hours": 3,
+   "theory_hours": 3,
+   "practical_hours": 0,
+   "prerequisites": [
+    "A0181203"
+   ],
+   "learning": "blended",
+   "jnqf_level": 6
+  },
+  {
+   "group": "area_of_study_requirements",
+   "group_title": "Area of Study (Major) Requirements",
+   "group_credit_hours": 61,
+   "group_rule": "compulsory",
+   "code": "1963401",
+   "title_en": "Biostatistics",
+   "title_ar": "الإحصاء الحيوي",
+   "credit_hours": 3,
+   "theory_hours": 3,
+   "practical_hours": 0,
+   "prerequisites": [
+    "A0181101"
+   ],
+   "learning": "face-to-face",
+   "jnqf_level": 6
+  },
+  {
+   "group": "area_of_study_requirements",
+   "group_title": "Area of Study (Major) Requirements",
+   "group_credit_hours": 61,
+   "group_rule": "compulsory",
+   "code": "1963403",
+   "title_en": "Biomedical Signal Processing",
+   "title_ar": "معالجة الإشارة الطبية",
+   "credit_hours": 3,
+   "theory_hours": 3,
+   "practical_hours": 0,
+   "prerequisites": [
+    "1963401"
+   ],
+   "learning": "blended",
+   "jnqf_level": 7
+  },
+  {
+   "group": "area_of_study_requirements",
+   "group_title": "Area of Study (Major) Requirements",
+   "group_credit_hours": 61,
+   "group_rule": "compulsory",
+   "code": "1963601",
+   "title_en": "Biomaterials",
+   "title_ar": "مواد طبية حيوية",
+   "credit_hours": 3,
+   "theory_hours": 3,
+   "practical_hours": 0,
+   "prerequisites": [
+    "1961601"
+   ],
+   "learning": "blended",
+   "jnqf_level": 7
+  },
+  {
+   "group": "area_of_study_requirements",
+   "group_title": "Area of Study (Major) Requirements",
+   "group_credit_hours": 61,
+   "group_rule": "compulsory",
+   "code": "1963602",
+   "title_en": "Biofluid Mechanics",
+   "title_ar": "ميكانيكا الموائع الحيوية",
+   "credit_hours": 3,
+   "theory_hours": 3,
+   "practical_hours": 0,
+   "prerequisites": [
+    "1962602"
+   ],
+   "learning": "face-to-face",
+   "jnqf_level": 7
+  },
+  {
+   "group": "area_of_study_requirements",
+   "group_title": "Area of Study (Major) Requirements",
+   "group_credit_hours": 61,
+   "group_rule": "compulsory",
+   "code": "1963701",
+   "title_en": "Medical Electronics",
+   "title_ar": "الإلكترونيات الطبية",
+   "credit_hours": 3,
+   "theory_hours": 3,
+   "practical_hours": 0,
+   "prerequisites": [
+    "1913701"
+   ],
+   "learning": "face-to-face",
+   "jnqf_level": 7
+  },
+  {
+   "group": "area_of_study_requirements",
+   "group_title": "Area of Study (Major) Requirements",
+   "group_credit_hours": 61,
+   "group_rule": "compulsory",
+   "code": "1963702",
+   "title_en": "Medical Electronics Lab",
+   "title_ar": "مختبر الإلكترونيات الطبية",
+   "credit_hours": 1,
+   "theory_hours": 0,
+   "practical_hours": 2,
+   "prerequisites": [
+    "1963701"
+   ],
+   "learning": "face-to-face",
+   "jnqf_level": 7
+  },
+  {
+   "group": "area_of_study_requirements",
+   "group_title": "Area of Study (Major) Requirements",
+   "group_credit_hours": 61,
+   "group_rule": "compulsory",
+   "code": "1964601",
+   "title_en": "Biofluid Mechanics Lab",
+   "title_ar": "مختبر ميكانيكا الموائع الحيوية",
+   "credit_hours": 1,
+   "theory_hours": 0,
+   "practical_hours": 2,
+   "prerequisites": [
+    "1963602"
+   ],
+   "learning": "face-to-face",
+   "jnqf_level": 7
+  },
+  {
+   "group": "area_of_study_requirements",
+   "group_title": "Area of Study (Major) Requirements",
+   "group_credit_hours": 61,
+   "group_rule": "compulsory",
+   "code": "1964701",
+   "title_en": "Biomedical Instruments",
+   "title_ar": "الأجهزة الطبية الحيوية",
+   "credit_hours": 3,
+   "theory_hours": 3,
+   "practical_hours": 0,
+   "prerequisites": [
+    "1964805"
+   ],
+   "learning": "face-to-face",
+   "jnqf_level": 7
+  },
+  {
+   "group": "area_of_study_requirements",
+   "group_title": "Area of Study (Major) Requirements",
+   "group_credit_hours": 61,
+   "group_rule": "compulsory",
+   "code": "1964702",
+   "title_en": "Biomedical Instruments Lab",
+   "title_ar": "مختبر الأجهزة الطبية الحيوية",
+   "credit_hours": 1,
+   "theory_hours": 0,
+   "practical_hours": 2,
+   "prerequisites": [
+    "1964701"
+   ],
+   "learning": "face-to-face",
+   "jnqf_level": 7
+  },
+  {
+   "group": "area_of_study_requirements",
+   "group_title": "Area of Study (Major) Requirements",
+   "group_credit_hours": 61,
+   "group_rule": "compulsory",
+   "code": "1964801",
+   "title_en": "Medical Image Processing",
+   "title_ar": "معالجة الصور الطبية",
+   "credit_hours": 3,
+   "theory_hours": 3,
+   "practical_hours": 0,
+   "prerequisites": [
+    "1963403"
+   ],
+   "learning": "blended",
+   "jnqf_level": 7
+  },
+  {
+   "group": "area_of_study_requirements",
+   "group_title": "Area of Study (Major) Requirements",
+   "group_credit_hours": 61,
+   "group_rule": "compulsory",
+   "code": "1964802",
+   "title_en": "Medical Image Processing Lab",
+   "title_ar": "مختبر معالجة الصور الطبية",
+   "credit_hours": 1,
+   "theory_hours": 0,
+   "practical_hours": 2,
+   "prerequisites": [
+    "1964801"
+   ],
+   "learning": "face-to-face",
+   "jnqf_level": 7
+  },
+  {
+   "group": "area_of_study_requirements",
+   "group_title": "Area of Study (Major) Requirements",
+   "group_credit_hours": 61,
+   "group_rule": "compulsory",
+   "code": "1964803",
+   "title_en": "Biomedical Modeling",
+   "title_ar": "النمذجة الطبية الحيوية",
+   "credit_hours": 3,
+   "theory_hours": 3,
+   "practical_hours": 0,
+   "prerequisites": [
+    "1964805"
+   ],
+   "learning": "face-to-face",
+   "jnqf_level": 7
+  },
+  {
+   "group": "area_of_study_requirements",
+   "group_title": "Area of Study (Major) Requirements",
+   "group_credit_hours": 61,
+   "group_rule": "compulsory",
+   "code": "1964804",
+   "title_en": "Medical Modeling Lab",
+   "title_ar": "مختبر النمذجة الطبية",
+   "credit_hours": 1,
+   "theory_hours": 0,
+   "practical_hours": 2,
+   "prerequisites": [
+    "1964803"
+   ],
+   "learning": "blended",
+   "jnqf_level": 7
+  },
+  {
+   "group": "area_of_study_requirements",
+   "group_title": "Area of Study (Major) Requirements",
+   "group_credit_hours": 61,
+   "group_rule": "compulsory",
+   "code": "1964805",
+   "title_en": "Biomedical Measurements",
+   "title_ar": "القياسات الطبية الحيوية",
+   "credit_hours": 3,
+   "theory_hours": 3,
+   "practical_hours": 0,
+   "prerequisites": [
+    "1963701"
+   ],
+   "learning": "blended",
+   "jnqf_level": 7
+  },
+  {
+   "group": "area_of_study_requirements",
+   "group_title": "Area of Study (Major) Requirements",
+   "group_credit_hours": 61,
+   "group_rule": "compulsory",
+   "code": "1965501",
+   "title_en": "Microcontrollers",
+   "title_ar": "المتحكمات الدقيقة",
+   "credit_hours": 3,
+   "theory_hours": 3,
+   "practical_hours": 0,
+   "prerequisites": [
+    "1963701"
+   ],
+   "learning": "face-to-face",
+   "jnqf_level": 7
+  },
+  {
+   "group": "area_of_study_requirements",
+   "group_title": "Area of Study (Major) Requirements",
+   "group_credit_hours": 61,
+   "group_rule": "compulsory",
+   "code": "1965502",
+   "title_en": "Microcontroller Lab",
+   "title_ar": "مختبر المتحكمات الدقيقة",
+   "credit_hours": 1,
+   "theory_hours": 0,
+   "practical_hours": 2,
+   "prerequisites": [
+    "1965501"
+   ],
+   "learning": "face-to-face",
+   "jnqf_level": 7
+  },
+  {
+   "group": "area_of_study_requirements",
+   "group_title": "Area of Study (Major) Requirements",
+   "group_credit_hours": 61,
+   "group_rule": "compulsory",
+   "code": "1965701",
+   "title_en": "Medical Imaging",
+   "title_ar": "التصوير الطبي",
+   "credit_hours": 3,
+   "theory_hours": 3,
+   "practical_hours": 0,
+   "prerequisites": [
+    "1965801"
+   ],
+   "learning": "face-to-face",
+   "jnqf_level": 7
+  },
+  {
+   "group": "area_of_study_requirements",
+   "group_title": "Area of Study (Major) Requirements",
+   "group_credit_hours": 61,
+   "group_rule": "compulsory",
+   "code": "1965801",
+   "title_en": "Biomedical Sensors",
+   "title_ar": "المجسات الطبية الحيوية",
+   "credit_hours": 3,
+   "theory_hours": 3,
+   "practical_hours": 0,
+   "prerequisites": [
+    "1964805"
+   ],
+   "learning": "blended",
+   "jnqf_level": 7
+  },
+  {
+   "group": "area_of_study_requirements",
+   "group_title": "Area of Study (Major) Requirements",
+   "group_credit_hours": 61,
+   "group_rule": "compulsory",
+   "code": "1965802",
+   "title_en": "Sensors Lab",
+   "title_ar": "مختبر المجسات الطبية",
+   "credit_hours": 1,
+   "theory_hours": 0,
+   "practical_hours": 2,
+   "prerequisites": [
+    "1965801"
+   ],
+   "learning": "face-to-face",
+   "jnqf_level": 7
+  },
+  {
+   "group": "area_of_study_requirements",
+   "group_title": "Area of Study (Major) Requirements",
+   "group_credit_hours": 61,
+   "group_rule": "compulsory",
+   "code": "1965901",
+   "title_en": "Field Training",
+   "title_ar": "التدريب الميداني",
+   "credit_hours": 3,
+   "theory_hours": 3,
+   "practical_hours": 0,
+   "prerequisites": [
+    "115 credit hours completed"
+   ],
+   "learning": "external",
+   "jnqf_level": 7
+  },
+  {
+   "group": "area_of_study_requirements",
+   "group_title": "Area of Study (Major) Requirements",
+   "group_credit_hours": 61,
+   "group_rule": "compulsory",
+   "code": "1965902",
+   "title_en": "Graduation Project I",
+   "title_ar": "مشروع تخرج (1)",
+   "credit_hours": 1,
+   "theory_hours": 1,
+   "practical_hours": 0,
+   "prerequisites": [
+    "120 credit hours completed"
+   ],
+   "learning": "face-to-face",
+   "jnqf_level": 7
+  },
+  {
+   "group": "area_of_study_requirements",
+   "group_title": "Area of Study (Major) Requirements",
+   "group_credit_hours": 61,
+   "group_rule": "compulsory",
+   "code": "1965903",
+   "title_en": "Graduation Project II",
+   "title_ar": "مشروع تخرج (2)",
+   "credit_hours": 2,
+   "theory_hours": 2,
+   "practical_hours": 0,
+   "prerequisites": [
+    "1965902"
+   ],
+   "learning": "face-to-face",
+   "jnqf_level": 7
+  },
+  {
+   "group": "area_of_study_electives",
+   "group_title": "Area of Study (Major) Electives",
+   "group_credit_hours": 9,
+   "group_rule": "choose 9 credit hours",
+   "code": "1965401",
+   "title_en": "Artificial Intelligence in Medical Diagnosis",
+   "title_ar": "الذكاء الاصطناعي في التشخيص الطبي",
+   "credit_hours": 3,
+   "theory_hours": 3,
+   "practical_hours": 0,
+   "prerequisites": [
+    "100 credit hours completed"
+   ],
+   "learning": "blended",
+   "jnqf_level": 7
+  },
+  {
+   "group": "area_of_study_electives",
+   "group_title": "Area of Study (Major) Electives",
+   "group_credit_hours": 9,
+   "group_rule": "choose 9 credit hours",
+   "code": "1965402",
+   "title_en": "Bioinformatics",
+   "title_ar": "علم المعلومات الحيوية",
+   "credit_hours": 3,
+   "theory_hours": 3,
+   "practical_hours": 0,
+   "prerequisites": [
+    "100 credit hours completed"
+   ],
+   "learning": "blended",
+   "jnqf_level": 7
+  },
+  {
+   "group": "area_of_study_electives",
+   "group_title": "Area of Study (Major) Electives",
+   "group_credit_hours": 9,
+   "group_rule": "choose 9 credit hours",
+   "code": "1965403",
+   "title_en": "Bio-Signal Monitoring Systems",
+   "title_ar": "أنظمة المراقبة الحيوية",
+   "credit_hours": 3,
+   "theory_hours": 3,
+   "practical_hours": 0,
+   "prerequisites": [
+    "100 credit hours completed"
+   ],
+   "learning": "blended",
+   "jnqf_level": 7
+  },
+  {
+   "group": "area_of_study_electives",
+   "group_title": "Area of Study (Major) Electives",
+   "group_credit_hours": 9,
+   "group_rule": "choose 9 credit hours",
+   "code": "1965503",
+   "title_en": "Medical Robots",
+   "title_ar": "الروبوتات الطبية",
+   "credit_hours": 3,
+   "theory_hours": 3,
+   "practical_hours": 0,
+   "prerequisites": [
+    "100 credit hours completed"
+   ],
+   "learning": "blended",
+   "jnqf_level": 7
+  },
+  {
+   "group": "area_of_study_electives",
+   "group_title": "Area of Study (Major) Electives",
+   "group_credit_hours": 9,
+   "group_rule": "choose 9 credit hours",
+   "code": "1965601",
+   "title_en": "Prosthetics",
+   "title_ar": "الأطراف الصناعية",
+   "credit_hours": 3,
+   "theory_hours": 3,
+   "practical_hours": 0,
+   "prerequisites": [
+    "100 credit hours completed"
+   ],
+   "learning": "online",
+   "jnqf_level": 7
+  },
+  {
+   "group": "area_of_study_electives",
+   "group_title": "Area of Study (Major) Electives",
+   "group_credit_hours": 9,
+   "group_rule": "choose 9 credit hours",
+   "code": "1965602",
+   "title_en": "Tissue Engineering",
+   "title_ar": "هندسة الأنسجة",
+   "credit_hours": 3,
+   "theory_hours": 3,
+   "practical_hours": 0,
+   "prerequisites": [
+    "100 credit hours completed"
+   ],
+   "learning": "online",
+   "jnqf_level": 7
+  },
+  {
+   "group": "area_of_study_electives",
+   "group_title": "Area of Study (Major) Electives",
+   "group_credit_hours": 9,
+   "group_rule": "choose 9 credit hours",
+   "code": "1965603",
+   "title_en": "Biomedical Transition",
+   "title_ar": "الانتقال الطبي الحيوي",
+   "credit_hours": 3,
+   "theory_hours": 3,
+   "practical_hours": 0,
+   "prerequisites": [
+    "100 credit hours completed"
+   ],
+   "learning": "online",
+   "jnqf_level": 7
+  },
+  {
+   "group": "area_of_study_electives",
+   "group_title": "Area of Study (Major) Electives",
+   "group_credit_hours": 9,
+   "group_rule": "choose 9 credit hours",
+   "code": "1965703",
+   "title_en": "Management and Specifications of Medical Devices in Hospitals",
+   "title_ar": "إدارة ومواصفات الأجهزة الطبية في المستشفيات",
+   "credit_hours": 3,
+   "theory_hours": 3,
+   "practical_hours": 0,
+   "prerequisites": [
+    "100 credit hours completed"
+   ],
+   "learning": "blended",
+   "jnqf_level": 7
+  },
+  {
+   "group": "area_of_study_electives",
+   "group_title": "Area of Study (Major) Electives",
+   "group_credit_hours": 9,
+   "group_rule": "choose 9 credit hours",
+   "code": "1965803",
+   "title_en": "Special Topics in Biomedical Engineering",
+   "title_ar": "مواضيع خاصة في الهندسة الطبية الحيوية",
+   "credit_hours": 3,
+   "theory_hours": 3,
+   "practical_hours": 0,
+   "prerequisites": [
+    "100 credit hours completed"
+   ],
+   "learning": "blended",
+   "jnqf_level": 7
+  },
+  {
+   "group": "ancillary_courses",
+   "group_title": "Ancillary (Supporting) Courses",
+   "group_credit_hours": 44,
+   "group_rule": "compulsory",
+   "code": "1911201",
+   "title_en": "Engineering Workshops I",
+   "title_ar": "مشاغل هندسية (1)",
+   "credit_hours": 1,
+   "theory_hours": 0,
+   "practical_hours": 2,
+   "prerequisites": [],
+   "learning": "face-to-face",
+   "jnqf_level": 6
+  },
+  {
+   "group": "ancillary_courses",
+   "group_title": "Ancillary (Supporting) Courses",
+   "group_credit_hours": 44,
+   "group_rule": "compulsory",
+   "code": "1911202",
+   "title_en": "Engineering Workshops II",
+   "title_ar": "مشاغل هندسية (2)",
+   "credit_hours": 1,
+   "theory_hours": 0,
+   "practical_hours": 2,
+   "prerequisites": [
+    "1911201"
+   ],
+   "learning": "face-to-face",
+   "jnqf_level": 6
+  },
+  {
+   "group": "ancillary_courses",
+   "group_title": "Ancillary (Supporting) Courses",
+   "group_credit_hours": 44,
+   "group_rule": "compulsory",
+   "code": "1912501",
+   "title_en": "Electric Circuits I",
+   "title_ar": "دوائر كهربائية (1)",
+   "credit_hours": 3,
+   "theory_hours": 3,
+   "practical_hours": 0,
+   "prerequisites": [
+    "A0181204"
+   ],
+   "learning": "face-to-face",
+   "jnqf_level": 6
+  },
+  {
+   "group": "ancillary_courses",
+   "group_title": "Ancillary (Supporting) Courses",
+   "group_credit_hours": 44,
+   "group_rule": "compulsory",
+   "code": "1912502",
+   "title_en": "Electric Circuits II",
+   "title_ar": "دوائر كهربائية (2)",
+   "credit_hours": 3,
+   "theory_hours": 3,
+   "practical_hours": 0,
+   "prerequisites": [
+    "1912501"
+   ],
+   "learning": "face-to-face",
+   "jnqf_level": 6
+  },
+  {
+   "group": "ancillary_courses",
+   "group_title": "Ancillary (Supporting) Courses",
+   "group_credit_hours": 44,
+   "group_rule": "compulsory",
+   "code": "1912503",
+   "title_en": "Electric and Electronic Circuits Lab",
+   "title_ar": "مختبر دوائر كهربائية وإلكترونية",
+   "credit_hours": 1,
+   "theory_hours": 0,
+   "practical_hours": 2,
+   "prerequisites": [
+    "1912502"
+   ],
+   "learning": "face-to-face",
+   "jnqf_level": 6
+  },
+  {
+   "group": "ancillary_courses",
+   "group_title": "Ancillary (Supporting) Courses",
+   "group_credit_hours": 44,
+   "group_rule": "compulsory",
+   "code": "1913701",
+   "title_en": "Electronics",
+   "title_ar": "الإلكترونيات",
+   "credit_hours": 3,
+   "theory_hours": 3,
+   "practical_hours": 0,
+   "prerequisites": [
+    "1912502"
+   ],
+   "learning": "face-to-face",
+   "jnqf_level": 6
+  },
+  {
+   "group": "ancillary_courses",
+   "group_title": "Ancillary (Supporting) Courses",
+   "group_credit_hours": 44,
+   "group_rule": "compulsory",
+   "code": "1915201",
+   "title_en": "Engineering Economics",
+   "title_ar": "اقتصاد هندسي",
+   "credit_hours": 2,
+   "theory_hours": 2,
+   "practical_hours": 0,
+   "prerequisites": [
+    "120 credit hours completed"
+   ],
+   "learning": "face-to-face",
+   "jnqf_level": 7
+  },
+  {
+   "group": "ancillary_courses",
+   "group_title": "Ancillary (Supporting) Courses",
+   "group_credit_hours": 44,
+   "group_rule": "compulsory",
+   "code": "1915301",
+   "title_en": "Control Systems",
+   "title_ar": "التحكم الآلي",
+   "credit_hours": 3,
+   "theory_hours": 3,
+   "practical_hours": 0,
+   "prerequisites": [
+    "1962602",
+    "A0183105"
+   ],
+   "learning": "face-to-face",
+   "jnqf_level": 7
+  },
+  {
+   "group": "ancillary_courses",
+   "group_title": "Ancillary (Supporting) Courses",
+   "group_credit_hours": 44,
+   "group_rule": "compulsory",
+   "code": "1915302",
+   "title_en": "Control Systems Lab",
+   "title_ar": "مختبر التحكم الآلي",
+   "credit_hours": 1,
+   "theory_hours": 0,
+   "practical_hours": 2,
+   "prerequisites": [
+    "1915301"
+   ],
+   "learning": "face-to-face",
+   "jnqf_level": 7
+  },
+  {
+   "group": "ancillary_courses",
+   "group_title": "Ancillary (Supporting) Courses",
+   "group_credit_hours": 44,
+   "group_rule": "compulsory",
+   "code": "1922201",
+   "title_en": "Engineering Programming",
+   "title_ar": "برمجة هندسية",
+   "credit_hours": 3,
+   "theory_hours": 3,
+   "practical_hours": 0,
+   "prerequisites": [
+    "A0181101"
+   ],
+   "learning": "blended",
+   "jnqf_level": 6
+  },
+  {
+   "group": "ancillary_courses",
+   "group_title": "Ancillary (Supporting) Courses",
+   "group_credit_hours": 44,
+   "group_rule": "compulsory",
+   "code": "1931201",
+   "title_en": "Engineering Drawing",
+   "title_ar": "الرسم الهندسي",
+   "credit_hours": 2,
+   "theory_hours": 1,
+   "practical_hours": 2,
+   "prerequisites": [],
+   "learning": "face-to-face",
+   "jnqf_level": 6
+  },
+  {
+   "group": "ancillary_courses",
+   "group_title": "Ancillary (Supporting) Courses",
+   "group_credit_hours": 44,
+   "group_rule": "compulsory",
+   "code": "A0182102",
+   "title_en": "Probability and Statistics",
+   "title_ar": "الاحتمالات والإحصاء",
+   "credit_hours": 3,
+   "theory_hours": 3,
+   "practical_hours": 0,
+   "prerequisites": [
+    "A0181101"
+   ],
+   "learning": "face-to-face",
+   "jnqf_level": 6
+  },
+  {
+   "group": "ancillary_courses",
+   "group_title": "Ancillary (Supporting) Courses",
+   "group_credit_hours": 44,
+   "group_rule": "compulsory",
+   "code": "A0183104",
+   "title_en": "Numerical Analysis",
+   "title_ar": "التحليل العددي",
+   "credit_hours": 3,
+   "theory_hours": 3,
+   "practical_hours": 0,
+   "prerequisites": [
+    "1922201"
+   ],
+   "learning": "face-to-face",
+   "jnqf_level": 6
+  },
+  {
+   "group": "ancillary_courses",
+   "group_title": "Ancillary (Supporting) Courses",
+   "group_credit_hours": 44,
+   "group_rule": "compulsory",
+   "code": "A0181401",
+   "title_en": "Biology",
+   "title_ar": "بيولوجيا عامة",
+   "credit_hours": 3,
+   "theory_hours": 3,
+   "practical_hours": 0,
+   "prerequisites": [],
+   "learning": "blended",
+   "jnqf_level": 5
+  },
+  {
+   "group": "ancillary_courses",
+   "group_title": "Ancillary (Supporting) Courses",
+   "group_credit_hours": 44,
+   "group_rule": "compulsory",
+   "code": "A0182101",
+   "title_en": "Calculus III",
+   "title_ar": "تفاضل وتكامل (3)",
+   "credit_hours": 3,
+   "theory_hours": 3,
+   "practical_hours": 0,
+   "prerequisites": [
+    "A0181102"
+   ],
+   "learning": "face-to-face",
+   "jnqf_level": 6
+  },
+  {
+   "group": "ancillary_courses",
+   "group_title": "Ancillary (Supporting) Courses",
+   "group_credit_hours": 44,
+   "group_rule": "compulsory",
+   "code": "A0183105",
+   "title_en": "Engineering Mathematics",
+   "title_ar": "رياضيات هندسية",
+   "credit_hours": 3,
+   "theory_hours": 3,
+   "practical_hours": 0,
+   "prerequisites": [
+    "A0182101"
+   ],
+   "learning": "face-to-face",
+   "jnqf_level": 6
+  },
+  {
+   "group": "ancillary_courses",
+   "group_title": "Ancillary (Supporting) Courses",
+   "group_credit_hours": 44,
+   "group_rule": "compulsory",
+   "code": "1921301",
+   "title_en": "Digital Logic Design",
+   "title_ar": "تصميم المنطق الرقمي",
+   "credit_hours": 3,
+   "theory_hours": 2,
+   "practical_hours": 2,
+   "prerequisites": [
+    "A0181102"
+   ],
+   "learning": "face-to-face",
+   "jnqf_level": 6
+  },
+  {
+   "group": "ancillary_courses",
+   "group_title": "Ancillary (Supporting) Courses",
+   "group_credit_hours": 44,
+   "group_rule": "compulsory",
+   "code": "1923401",
+   "title_en": "Signals and Systems",
+   "title_ar": "الإشارات والنظم",
+   "credit_hours": 3,
+   "theory_hours": 3,
+   "practical_hours": 0,
+   "prerequisites": [
+    "A0183105"
+   ],
+   "learning": "face-to-face",
+   "jnqf_level": 7
+  },
+  {
+   "group": "remedial_courses",
+   "group_title": "Remedial Courses (only if required by placement)",
+   "group_credit_hours": 0,
+   "group_rule": "not counted in the 162 hours",
+   "code": "A0161100",
+   "title_en": "Remedial Arabic Language Skills",
+   "title_ar": "مهارات الاتصال باللغة العربية الاستدراكية",
+   "credit_hours": 3,
+   "theory_hours": 3,
+   "practical_hours": 0,
+   "prerequisites": [],
+   "learning": "online",
+   "jnqf_level": 5
+  },
+  {
+   "group": "remedial_courses",
+   "group_title": "Remedial Courses (only if required by placement)",
+   "group_credit_hours": 0,
+   "group_rule": "not counted in the 162 hours",
+   "code": "A0161200",
+   "title_en": "Remedial English Language Skills",
+   "title_ar": "مهارات الاتصال باللغة الإنجليزية الاستدراكية",
+   "credit_hours": 3,
+   "theory_hours": 3,
+   "practical_hours": 0,
+   "prerequisites": [],
+   "learning": "online",
+   "jnqf_level": 5
+  },
+  {
+   "group": "remedial_courses",
+   "group_title": "Remedial Courses (only if required by placement)",
+   "group_credit_hours": 0,
+   "group_rule": "not counted in the 162 hours",
+   "code": "A0181500",
+   "title_en": "Remedial Computer Skills",
+   "title_ar": "مهارات الحاسوب الاستدراكي",
+   "credit_hours": 3,
+   "theory_hours": 3,
+   "practical_hours": 0,
+   "prerequisites": [],
+   "learning": "online",
+   "jnqf_level": 5
+  }
+ ]
+}

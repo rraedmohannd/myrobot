@@ -58,7 +58,7 @@ Only approved content will ever be used by the robot.
 ```powershell
 docker compose exec backend python -m app.ingestion.cli check-openai             # key + models OK?
 docker compose exec backend python -m app.ingestion.cli ask "كم ساعة هندسة الأنظمة الذكية؟"
-docker compose exec backend python -m app.ingestion.cli evaluate                 # 35 golden questions
+docker compose exec backend python -m app.ingestion.cli evaluate                 # 49 golden questions
 ```
 API: POST http://localhost:8000/api/chat  {"message": "..."}  (try it at http://localhost:8000/docs)
 

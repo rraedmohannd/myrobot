@@ -26,17 +26,17 @@ The reference client is the browser page `/voice`. The Raspberry Pi client must 
 | `session.started` / `session.ended` | `session_id`, `reason` | conversation boundaries (stored in `sessions`) |
 | `dialogue.state` | `state`: IDLE, GREETING, LISTENING, ANSWERING, FOLLOW_UP, CLOSING | **the robot may listen only in LISTENING / FOLLOW_UP, and only after all queued audio has finished playing** |
 | `display.update` | `mode` (idle, attentive, listening, processing, answering, finished, unavailable), `subtitle`, `card?`, `speaker_label?` | screen content; `speaker_label` = the visitor being answered |
-| `transcript` | `text`, `lang`, `intent`, `speaker{label, is_new, confidence, source}` | what the backend heard and who said it (anonymous Speaker N; source = voice / face / voice+face / last / first) |
+| `transcript` | `text`, `lang`, `intent`, `speaker{label, is_new, confidence, source, sims}` | what the backend heard and who said it (anonymous Speaker N; source = voice / face / voice+face / last / first) |
 | `answer.text` | `text`, `lang`, `found`, `sources[]`, `timings`, `invented_numbers` | the grounded answer (subtitles) |
 | `answer.audio` | `seq`, `last`, `text`, `mp3_b64` | speech, sent sentence by sentence (the first sentence is sent first so playback can start early) |
-| `turn.timings` | `stt_ms`, `retrieval_ms`, `llm_ms`, `tts_ms`, `total_ms` | latency for the report; `total_ms` runs from end of speech to the first audio chunk |
+| `turn.timings` | `stt_ms`, `retrieval_ms`, `llm_ms`, `ack_ms`, `tts_ms`, `total_ms` | latency for the report: `ack_ms` runs from end of speech to the first audio of any kind (cached filler or greeting); `tts_ms` = `total_ms` runs from end of speech to the first audio of the **answer** |
 | `heartbeat` | – | reply to heartbeat |
 | `error` | `code`, `message` | `stt_failed`, `tts_failed`, `unknown_type`, `bad_message`, `internal` |
 
 ## Conversation
 ```
 session.start → greeting audio → LISTENING
-  speech → audio.chunk… audio.end → transcript → (question) answer.text + answer.audio → "عندك سؤال ثاني؟" → FOLLOW_UP
+  speech → audio.chunk… audio.end → transcript → (question) filler "لحظة بس…" → answer.text + answer.audio → "عندك سؤال ثاني؟" → FOLLOW_UP
   "لا شكراً" / "شكراً"            → goodbye → session.ended(user_done) → IDLE
   silence (listen.timeout)         → polite goodbye → session.ended(timeout) → IDLE
   "عيدها"                          → previous answer again

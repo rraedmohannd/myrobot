@@ -23,6 +23,43 @@ CATEGORY_HINTS: dict[str, str] = {
     "outcomes": "مخرجات التعلم، أهداف البرنامج | student outcomes, program educational objectives",
     "faculty_overview": "تخصصات الكلية، الأقسام، البرامج، شو التخصصات الموجودة، عميد الكلية | "
     "faculty programs, departments, majors, dean",
+    # University-wide rules and services from the Student Handbook (apply to the faculty's students)
+    "about_meu": "عن جامعة الشرق الأوسط، إمتى تأسست الجامعة، سنة التأسيس، وين موقع الجامعة، "
+    "الاعتماد والجودة، التصنيفات، لغة التدريس | about Middle East University, founded, location, "
+    "quality accreditation, rankings, teaching language",
+    "study_system": "نظام الدراسة، الساعات المعتمدة، الفصل الدراسي، الفصل الصيفي، كم سنة الدراسة، "
+    "مدة الدراسة، المستوى الدراسي، سنة أولى، العبء الدراسي، كم ساعة بسجل بالفصل، أكثر وأقل عدد "
+    "ساعات | study system, credit hours, semester, summer term, study duration, years, study load, "
+    "maximum and minimum hours per semester",
+    "university_requirements": "متطلبات الجامعة، مواد الجامعة الإجبارية والاختيارية، علوم عسكرية، "
+    "تربية وطنية، امتحان المستوى، امتحان مستوى انجليزي وعربي وحاسوب، مواد استدراكية | university "
+    "requirements, compulsory and elective university courses, placement test, remedial courses",
+    "attendance_exams": "الغياب، نسبة الغياب، الحرمان، العذر الطبي، الامتحان النهائي، غير مكتمل، "
+    "امتحان تكميلي، امتحان تعويضي، مراجعة العلامة | attendance, absence limit, barred from the "
+    "exam, medical excuse, final exam, incomplete, make-up exam, grade review",
+    "grading": "العلامات، الرموز، النقاط، المعدل التراكمي، المعدل الفصلي، التقدير، ممتاز، جيد جدًا، "
+    "علامة النجاح | grades, letter grades, grade points, GPA, cumulative average, classification, "
+    "passing grade",
+    "academic_standing": "الإنذار الأكاديمي، الفصل من التخصص، معدلي أقل من 2، إعادة المادة، رفع "
+    "المعدل، امتحان الإكمال، متوقع تخرجه | academic warning, probation, dismissal, repeat a course, "
+    "raise GPA, completion exam",
+    "registration_changes": "السحب والإضافة، الانسحاب من مادة، تأجيل الدراسة، تأجيل الفصل، فقدان "
+    "المقعد | add and drop, withdraw from a course, postpone or defer studies, losing the seat",
+    "transfer": "الانتقال من جامعة ثانية، التحويل، معادلة المواد، تغيير التخصص، التجسير، دبلوم كلية "
+    "مجتمع | transfer from another university, course equivalence, change of major, bridging, "
+    "community college diploma",
+    "graduation": "متطلبات التخرج، شروط التخرج، التدريب الميداني، تدريب عملي، مشروع التخرج، براءة "
+    "الذمة | graduation requirements, field training, internship, graduation project, clearance",
+    "scholarships": "منح، منحة، خصم، الطلبة المتفوقين، منحة الدكتور يعقوب ناصر الدين، منح رياضية، "
+    "تفوق رياضي، الأنشطة | scholarships, grants, discounts, outstanding students, sports "
+    "scholarship, extracurricular activities",
+    "student_support": "صندوق دعم الطالب، مساعدة مالية، ظروف مادية، تشغيل الطلبة، شغل بالجامعة، "
+    "عمل جزئي | student support fund, financial aid, hardship, student jobs on campus, part-time work",
+    "student_services": "خدمات الطلبة، سكن الطلبة، سكن داخلي، عيادة، طبيب، تأمين صحي، لوحة الشرف | "
+    "student services, housing, dormitory, clinic, doctor, health insurance, honor board",
+    "contacts": "أرقام التواصل، رقم الجامعة، رقم التلفون، كيف أتواصل، رقم القبول والتسجيل، رقم "
+    "كلية الهندسة، الرقم الفرعي | contact numbers, phone, telephone, admission and registration "
+    "phone, faculty extension",
 }
 
 

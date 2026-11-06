@@ -7,8 +7,8 @@ Milestones: **M1** 6 Dec (base moves + conversation works) · **M2** 27 Dec (ret
 | Phase | Scope | Status |
 |---|---|---|
 | B1 | Skeleton, Docker, Postgres + pgvector, Alembic, /health | ✅ done 2026-11-06 |
-| B2 | Crawler, review queue, curated knowledge (5 programs, official 2025/2026 plans) | ✅ done 2026-11-06 |
-| B3 | Hybrid retrieval, /api/chat, golden set | ✅ 35/35 on 2026-11-06 |
+| B2 | Crawler, review queue, curated knowledge (6 programs incl. Biomedical Engineering, official 2025/2026 plans; Student Handbook) | ✅ done 2026-11-06 |
+| B3 | Hybrid retrieval, /api/chat, golden set | ✅ 35/35 on 2026-11-06; Student Handbook 2025/2026 and Biomedical Engineering added (golden set now 49, re-run pending) |
 | B4 | Voice: STT/TTS, dialogue manager, /ws/robot, /voice page | 🟡 works end to end; latency 10 s → target about 4 s (bench, shorter answers) |
 | B4+ | Multi-speaker Level 2 (voice + camera), docs/SPEAKERS.md | 🟡 voice part done; camera part next |
 | B5 | Admin complete, analytics, telemetry + trajectory view, return-trial stats | ⏳ |

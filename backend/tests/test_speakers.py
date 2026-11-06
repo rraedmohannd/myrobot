@@ -131,3 +131,14 @@ async def test_voiceprints_are_forgotten_when_the_session_ends(db_session) -> No
     assert dm.tracker is not None
     await dm.handle({"type": "session.end", "reason": "lost_face"})
     assert dm.tracker is None
+
+
+def test_weak_sample_of_same_person_does_not_create_new_speaker() -> None:
+    """Hysteresis: in-between similarity goes to the closest visitor; only clearly different = new."""
+    t = SpeakerTracker(threshold=0.45, new_threshold=0.3)
+    assert t.assign(sample("A")).label == 1
+    weak_a = [0.4 * a + 0.92 * c for a, c in zip(VOICE["A"], VOICE["C"], strict=True)]  # cos ≈ 0.37
+    r = t.assign(weak_a)
+    assert r.label == 1 and not r.is_new and 0.3 <= r.confidence < 0.45
+    assert 1 in r.sims
+    assert t.assign(sample("B")).is_new  # a clearly different voice still becomes Speaker 2

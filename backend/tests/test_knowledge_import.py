@@ -23,7 +23,7 @@ def test_all_knowledge_files_are_valid() -> None:
 def test_study_plan_hours_match_the_official_pdfs() -> None:
     plans = [load_file(f) for f in sorted(DEFAULT_DIR.glob("*.json"))]
     plans = [d for d in plans if d.get("courses")]
-    assert len(plans) >= 5
+    assert len(plans) >= 6
     for doc in plans:
         per_group: dict[str, int] = defaultdict(int)
         required: dict[str, int] = {}
@@ -42,6 +42,25 @@ def test_study_plan_hours_match_the_official_pdfs() -> None:
         assert counted == doc["program"]["credit_hours"], doc["program"]["slug"]
         codes = [c["code"] for c in doc["courses"]]
         assert len(codes) == len(set(codes))
+
+
+def test_every_chunk_category_has_a_search_hint() -> None:
+    from app.knowledge.hints import CATEGORY_HINTS
+
+    for f in sorted(DEFAULT_DIR.glob("*.json")):
+        for ch in load_file(f).get("chunks", []):
+            assert ch.get("category") in CATEGORY_HINTS, (f.name, ch.get("category"))
+
+
+def test_student_handbook_file() -> None:
+    doc = load_file(DEFAULT_DIR / "meu_student_handbook_2025_2026.json")
+    assert doc["source"]["academic_year"] == "2025/2026"
+    assert (DEFAULT_DIR / doc["source"]["file"]).exists()
+    assert not doc.get("faculty") and not doc.get("program")  # university-wide rules, no program
+    text = "\n".join(c["text"] for c in doc["chunks"])
+    for fact in ("(18) ساعة", "(15%)", "(2.00)", "3.65", "06 4790222", "319 و320", "الطبية الحيوية"):
+        assert fact in text, fact
+    assert all(len(c["text"].split()) <= 280 for c in doc["chunks"])
 
 
 def test_course_chunks_resolve_prerequisite_names() -> None:
@@ -139,10 +158,12 @@ async def test_real_files_import(db_session) -> None:
         "arch_study_plan_2025_2026.json", "arch_department_page.json",
         "interior_design_study_plan_2025_2026.json", "interior_design_department_page.json",
         "graphic_design_study_plan_2025_2026.json", "graphic_design_department_page.json",
-        "faculty_overview.json",
+        "faculty_overview.json", "meu_student_handbook_2025_2026.json",
+        "bme_study_plan_2025_2026.json",
     }
     expected = {"intelligent-systems-engineering": 162, "renewable-energy-engineering": 162,
-                "architectural-engineering": 165, "interior-design": 141, "graphic-design": 135}
+                "architectural-engineering": 165, "interior-design": 141, "graphic-design": 135,
+                "biomedical-engineering": 162}
     for slug, hours in expected.items():
         prog = await db_session.scalar(select(Program).where(Program.slug == slug))
         assert prog is not None and prog.credit_hours == hours

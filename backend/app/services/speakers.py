@@ -106,14 +106,16 @@ class Assignment:
     is_new: bool
     confidence: float | None
     source: str  # voice | face | voice+face | last | first
+    sims: dict[int, float] = field(default_factory=dict)  # similarity to each speaker (calibration)
 
 
 class SpeakerTracker:
     """Decides 'Speaker N' for each utterance from voice similarity and/or the active face."""
 
-    def __init__(self, threshold: float = 0.5, max_speakers: int = 4, face_margin: float = 0.15,
-                 voice_override: float = 0.1) -> None:  # fmt: skip
-        self.threshold = threshold
+    def __init__(self, threshold: float = 0.45, max_speakers: int = 4, face_margin: float = 0.15,
+                 voice_override: float = 0.1, new_threshold: float = 0.3) -> None:  # fmt: skip
+        self.threshold = threshold  # at or above: confidently the same person
+        self.new_threshold = new_threshold  # below: a different person (between: closest speaker)
         self.max_speakers = max_speakers
         self.face_margin = face_margin  # face wins if its voice sim is within this of the threshold
         self.voice_override = voice_override  # a clearly different known voice beats the face
@@ -159,7 +161,8 @@ class SpeakerTracker:
                     source, conf = "voice", best_sim
                 else:
                     chosen, source, conf = face_sp, "face", face_sim
-            elif best_label is not None and best_sim >= self.threshold:
+            elif best_label is not None and best_sim >= self.new_threshold:
+                # same person (or ambiguous): never split one visitor into two on a weak sample
                 chosen = next(s for s in self.speakers if s.label == best_label)
                 source, conf = "voice", best_sim
             elif len(self.speakers) < self.max_speakers:
@@ -176,4 +179,5 @@ class SpeakerTracker:
                 s.face_tracks.discard(face_track)
             chosen.face_tracks.add(face_track)
         self.last_label = chosen.label
-        return Assignment(chosen.label, is_new, None if conf is None else round(conf, 3), source)
+        return Assignment(chosen.label, is_new, None if conf is None else round(conf, 3), source,
+                          {k: round(v, 3) for k, v in sims.items()})  # fmt: skip

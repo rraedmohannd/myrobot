@@ -60,6 +60,9 @@ PHRASES: dict[str, dict[str, str]] = {
         "en": "Sorry, I didn't catch that. Could you say it again?",
     },
     "new_speaker": {"ar": "أهلين فيك كمان!", "en": "Hi, welcome to you too!"},
+    "filler_0": {"ar": "سؤال حلو، لحظة بس.", "en": "Good question, one moment."},
+    "filler_1": {"ar": "خليني أشوفلك.", "en": "Let me check that for you."},
+    "filler_2": {"ar": "ثانية بس.", "en": "Just a second."},
     "one_at_a_time": {
         "ar": "لو سمحتوا واحد واحد، عشان أقدر أسمعكم منيح. تفضّلوا.",
         "en": "One at a time please, so I can hear you well. Go ahead.",
@@ -133,8 +136,9 @@ class TurnTimings:
     stt_ms: int | None = None
     retrieval_ms: int | None = None
     llm_ms: int | None = None
-    tts_ms: int | None = None  # until the first audio chunk was sent
-    total_ms: int | None = None  # from end of speech to first audio chunk
+    ack_ms: int | None = None  # end of speech -> first audio of any kind (filler / greeting)
+    tts_ms: int | None = None  # end of speech -> first audio chunk of the ANSWER
+    total_ms: int | None = None  # = tts_ms (answer latency, reported honestly apart from fillers)
 
 
 @dataclass
@@ -154,6 +158,7 @@ class DialogueManager:
     speaker_embedder: SpeakerEmbedder = field(default_factory=NullSpeakerEmbedder)
     tracker: SpeakerTracker | None = None
     speaker: Assignment | None = None  # who spoke the utterance being handled
+    filler_turn: int = 0
 
     # ---------- plumbing ----------
     async def _set_state(self, state: str) -> None:
@@ -241,7 +246,10 @@ class DialogueManager:
         self.audio.clear()
         self.last_answer = None
         settings = get_settings()
-        self.tracker = SpeakerTracker(settings.speaker_threshold, settings.max_speakers)
+        self.tracker = SpeakerTracker(
+            settings.speaker_threshold, settings.max_speakers,
+            new_threshold=settings.speaker_new_threshold,
+        )  # fmt: skip
         if greet:
             await self._set_state("GREETING")
             await self._say("greeting", "attentive")
@@ -351,10 +359,17 @@ class DialogueManager:
             answer_text = self.last_answer
             await self._display("answering", answer_text)
             timings.tts_ms = await self._speak(answer_text, started=started)
+            timings.ack_ms = timings.tts_ms
         else:
             label = speaker.label if speaker else None
             if speaker and speaker.is_new and speaker.label > 1:
                 await self._say("new_speaker", "attentive")  # cached: instant, and covers latency
+                timings.ack_ms = int((time.perf_counter() - started) * 1000)
+            elif get_settings().filler_enabled:
+                key = f"filler_{self.filler_turn % 3}"  # rotate so it does not sound repetitive
+                self.filler_turn += 1
+                await self._speak(PHRASES[key][self.lang], cache=True)
+                timings.ack_ms = int((time.perf_counter() - started) * 1000)
             await self._display("processing", speaker_label=label)
             async with self.sessionmaker() as db:
                 result = await answer_question(
