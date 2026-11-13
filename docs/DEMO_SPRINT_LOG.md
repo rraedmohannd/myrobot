@@ -57,3 +57,19 @@ Task file: `docs/DEMO_SPRINT.md`. Branch: `demo-sprint` (created from `master` a
   - Not measured with a real microphone today. Please do 5 spoken questions on `/voice` and read the timings table.
 - OpenAI budget used so far: 0 of 2 `evaluate` runs, **3 of 3** bench/latency runs.
 - Tests: **83 passed** (14 new in `tests/test_streaming.py`).
+- Commit: `e8a65d7` (16:49). Elapsed: 18 min. Not pushed (no remote).
+
+## M3 — Admin analytics and tools
+- `/admin` now has tabs: **Review queue** (unchanged), **Overview**, **Knowledge gaps**, **Conversations**, **Ask the robot**, **Evaluation**, **Knowledge coverage**. All new endpoints are under `/api/admin/…` and need `X-Admin-Token`.
+  - Overview: conversations and turns today / last 7–90 days, turns per day, found / not-found rate, speakers per conversation, median and p90 per stage (STT, search, LLM first piece, LLM, ack, answer audio).
+  - Knowledge gaps: questions answered with `found=false`, grouped by normalised text, most frequent first.
+  - Conversations: list, then the turns of one conversation with intent, speaker, answer, sources and timings.
+  - Ask the robot: a text question → answer, `found`, and every retrieved passage with source title, URL and score. It calls the real model and stores nothing.
+  - Evaluation: reads `data/golden/results/*.json`; pass rate per run and the failed questions.
+  - Coverage: sources and chunks by status; chunks by program and by category.
+- Migration **0006**: `turns.found`, `turns.ack_ms`, `turns.llm_first_ms` (nullable; older turns show "unknown" and are left out of the found rate). Applied with `alembic upgrade head`.
+- New setting `LOCAL_TIMEZONE` (default `Asia/Amman`) decides what "today" means.
+- The admin page stays in English (it is the student's tool; the visitor-facing pages are Arabic first).
+- Checked in headless Edge against the real database through a temporary preview container with a throwaway token (I never read `.env` or the real admin token). "Ask the robot" was tested with fakes only, not with the real model.
+- Note: the overview shows one empty conversation today (id 114). It is my `/robot` smoke test from M1 (greeting only).
+- Tests: **99 passed** (16 new in `tests/test_analytics_api.py`: each endpoint with and without the token).

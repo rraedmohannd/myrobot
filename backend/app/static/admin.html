@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Review Queue</title>
+<title>Robot admin — Review Queue and analytics</title>
 <style>
   :root { --bg:#f6f4f3; --card:#fff; --ink:#231b1c; --muted:#6b6162; --line:#e3dcdb;
           --brand:#931b1f; --ok:#1f7a3a; --warn:#a15c00; --bad:#a3262a; }
@@ -33,16 +33,72 @@
   .row { display:flex; gap:8px; align-items:center; flex-wrap:wrap; }
   .muted { color:var(--muted); font-size:13px; }
   #msg { margin-left:8px; }
+  /* ---- views (demo sprint M3+) ---- */
+  nav { background:#fff; border-bottom:1px solid var(--line); padding:8px 16px; display:flex; gap:6px; flex-wrap:wrap; }
+  nav button.active { background:var(--brand); color:#fff; border-color:var(--brand); }
+  .view { display:none; padding:16px; }
+  .view.on { display:block; }
+  main.view.on { display:grid; }
+  .grid { display:grid; grid-template-columns:repeat(auto-fit, minmax(440px, 1fr)); gap:16px; }
+  .tiles { display:grid; grid-template-columns:repeat(auto-fit, minmax(130px, 1fr)); gap:10px; }
+  .tile { border:1px solid var(--line); border-radius:8px; padding:10px; }
+  .tile b { display:block; font-size:26px; line-height:1.2; }
+  .tile span { color:var(--muted); font-size:13px; }
+  h2 { font-size:17px; margin:0 0 8px; } h3 { font-size:15px; margin:12px 0 6px; }
+  table.data { width:100%; border-collapse:collapse; font-size:14px; }
+  table.data th, table.data td { border-bottom:1px solid var(--line); padding:5px 8px; text-align:left; vertical-align:top; }
+  table.data th { color:var(--muted); font-weight:600; font-size:12px; }
+  table.data td.num, table.data th.num { text-align:right; font-variant-numeric:tabular-nums; }
+  table.data tr.click { cursor:pointer; } table.data tr.click:hover { background:#fbf7f7; }
+  /* bars: one hue for magnitude; the number is always printed next to the bar */
+  .bar { display:inline-block; height:10px; border-radius:0 4px 4px 0; background:#2a78d6; vertical-align:middle; min-width:1px; }
+  .barcell { width:40%; }
+  .days { display:flex; align-items:flex-end; gap:8px; height:120px; border-bottom:1px solid var(--line); padding-top:8px; }
+  .days .day { flex:1; display:flex; flex-direction:column; align-items:center; justify-content:flex-end; height:100%; gap:2px; font-size:12px; }
+  .days .col { width:60%; max-width:38px; background:#2a78d6; border-radius:4px 4px 0 0; min-height:1px; }
+  .daylabels { display:flex; gap:8px; font-size:11px; color:var(--muted); } .daylabels span { flex:1; text-align:center; }
+  .turn { border-top:1px solid var(--line); padding:8px 0; }
+  .turn .q { font-weight:600; } .turn .a { margin:4px 0; white-space:pre-wrap; }
+  .tag { font-size:12px; padding:1px 7px; border-radius:999px; background:#eee; white-space:nowrap; }
+  .tag.good { background:#dcf3e3; color:var(--ok); } .tag.bad { background:#f8dcdc; color:var(--bad); } .tag.warn { background:#fff1d6; color:var(--warn); }
+  .banner { background:#fff1d6; border:2px solid var(--warn); color:#6b3d00; font-weight:700; padding:10px 14px; border-radius:8px; margin-bottom:10px; font-size:17px; }
+  textarea.ask { width:100%; min-height:70px; border:1px solid var(--line); border-radius:6px; padding:8px; }
+  .passage { border-top:1px solid var(--line); padding:8px 0; } .passage.used { background:#f4faf5; }
+  .passage pre { white-space:pre-wrap; font:inherit; margin:4px 0 0; max-height:150px; overflow:auto; }
+  input[type=text], input[type=number], select { padding:5px 8px; border:1px solid var(--line); border-radius:6px; }
 </style>
 </head>
 <body>
 <header>
-  <h1>Review Queue — MEU Engineering knowledge</h1>
+  <h1>Robot admin — Review Queue and analytics</h1>
   <input id="token" type="password" placeholder="Admin token">
   <button id="connect">Connect</button>
   <span id="msg"></span>
 </header>
-<main>
+<nav id="nav">
+  <button data-view="review" class="active">Review queue</button>
+  <button data-view="overview">Overview</button>
+  <button data-view="gaps">Knowledge gaps</button>
+  <button data-view="conversations">Conversations</button>
+  <button data-view="ask">Ask the robot</button>
+  <button data-view="evaluation">Evaluation</button>
+  <button data-view="coverage">Knowledge coverage</button>
+</nav>
+<section class="view" id="view-overview"></section>
+<section class="view" id="view-gaps"></section>
+<section class="view" id="view-conversations"></section>
+<section class="view" id="view-ask">
+  <div class="card">
+    <h2>Ask the robot (text)</h2>
+    <p class="muted">Runs one real question through search + the language model (uses the OpenAI key). Shows every retrieved passage, so you can see why the robot answered the way it did. Nothing is stored.</p>
+    <textarea class="ask" id="askText" dir="auto" placeholder="كم ساعة معتمدة بدها هندسة الأنظمة الذكية؟"></textarea>
+    <div class="row" style="margin-top:8px"><button class="ok" id="askSend">Ask</button><span class="muted" id="askState"></span></div>
+    <div id="askResult"></div>
+  </div>
+</section>
+<section class="view" id="view-evaluation"></section>
+<section class="view" id="view-coverage"></section>
+<main class="view on" id="view-review">
   <section class="card">
     <div class="stats" id="stats"></div>
     <div class="tabs" id="tabs"></div>
@@ -132,9 +188,139 @@ async function review(id, decision) {
 }
 
 async function refresh() {
-  try { renderTabs(); await loadStats(); await loadList(); msg("Connected"); }
-  catch (e) { msg(e.message, true); }
+  try {
+    if (view === "review") { renderTabs(); await loadStats(); await loadList(); }
+    else if (VIEWS[view]) await VIEWS[view]();
+    msg("Connected");
+  } catch (e) { msg(e.message, true); }
 }
+
+// ---------------- views (demo sprint M3+) ----------------
+let view = "review";
+const el = id => document.getElementById(id);
+const fmt = v => v === null || v === undefined ? "–" : typeof v === "number" ? Math.round(v).toLocaleString() : esc(v);
+const when = t => t ? new Date(t).toLocaleString() : "–";
+const bar = (v, max) => v ? `<span class="bar" style="width:${max ? Math.max(1, 100 * v / max) : 0}%" title="${v}"></span>` : "";
+let overviewDays = 7;
+const STAGE_LABELS = { stt: "Speech-to-text", retrieval: "Search (embedding + database)", llm_first: "LLM until first spoken piece", llm: "LLM whole answer", ack: "Filler / greeting audio (ack)", answer_audio: "Answer audio (end of speech → first answer sound)" };
+
+document.querySelectorAll("#nav button").forEach(b => b.onclick = () => {
+  view = b.dataset.view;
+  document.querySelectorAll("#nav button").forEach(x => x.classList.toggle("active", x === b));
+  document.querySelectorAll(".view").forEach(v => v.classList.toggle("on", v.id === "view-" + view));
+  if (token) refresh();
+});
+
+async function loadOverview() {
+  const d = await api("/api/admin/analytics/overview?days=" + overviewDays);
+  const maxTurns = Math.max(1, ...d.per_day.map(x => x.turns));
+  const maxP90 = Math.max(1, ...Object.values(d.latency_ms).map(x => x.p90 || 0));
+  const a = d.answers, sp = d.speakers;
+  el("view-overview").innerHTML = `<div class="row" style="margin-bottom:12px"><label>Period <select id="ovDays">${[7, 14, 30, 90].map(n => `<option value="${n}" ${n === overviewDays ? "selected" : ""}>last ${n} days</option>`).join("")}</select></label></div><div class="grid">
+    <div class="card"><h2>Activity</h2>
+      <div class="tiles">
+        <div class="tile"><b>${d.today.sessions}</b><span>conversations today</span></div>
+        <div class="tile"><b>${d.today.turns}</b><span>turns today</span></div>
+        <div class="tile"><b>${d.period.sessions}</b><span>conversations, last ${d.days} days</span></div>
+        <div class="tile"><b>${d.period.turns}</b><span>turns, last ${d.days} days</span></div>
+      </div>
+      <h3>Turns per day (last ${Math.min(14, d.days)} days, ${esc(d.timezone)})</h3>
+      <div class="days">${d.per_day.slice(-14).map(x => `<div class="day" title="${x.date}: ${x.turns} turns, ${x.sessions} conversations"><span>${x.turns}</span><div class="col" style="height:${100 * x.turns / maxTurns}%"></div></div>`).join("")}</div>
+      <div class="daylabels">${d.per_day.slice(-14).map(x => `<span>${x.date.slice(5)}</span>`).join("")}</div>
+    </div>
+    <div class="card"><h2>Answers</h2>
+      <div class="tiles">
+        <div class="tile"><b>${a.found_rate === null ? "–" : Math.round(a.found_rate * 100) + "%"}</b><span>found rate (answered from the knowledge base)</span></div>
+        <div class="tile"><b>${a.found}</b><span>found</span></div>
+        <div class="tile"><b>${a.not_found}</b><span>not found → see “Knowledge gaps”</span></div>
+        <div class="tile"><b>${a.errors}</b><span>errors</span></div>
+      </div>
+      ${a.unknown ? `<p class="muted">${a.unknown} older question(s) were stored before the found flag existed (2026-11-13) and are not counted in the rate.</p>` : ""}
+      <h3>Speakers per conversation</h3>
+      ${sp.sessions_with_speaker_labels ? `<p>Average <b>${sp.average_per_session}</b>, maximum <b>${sp.max_per_session}</b>, over ${sp.sessions_with_speaker_labels} conversation(s) with voice labels.</p>
+      <table class="data"><tr><th>Speakers</th><th class="num">Conversations</th><th class="barcell"></th></tr>${Object.entries(sp.distribution).map(([k, v]) => `<tr><td>${k}</td><td class="num">${v}</td><td>${bar(v, sp.sessions_with_speaker_labels)}</td></tr>`).join("")}</table>` : `<p class="muted">No conversations with speaker labels in this period.</p>`}
+    </div>
+    <div class="card" style="grid-column:1/-1"><h2>Latency per stage — question turns, last ${d.days} days (ms)</h2>
+      <table class="data"><tr><th>Stage</th><th class="num">Median</th><th class="num">p90</th><th class="num">Turns</th><th class="barcell">p90</th></tr>
+      ${Object.entries(d.latency_ms).map(([k, v]) => `<tr><td>${STAGE_LABELS[k] || k}</td><td class="num">${fmt(v.median)}</td><td class="num">${fmt(v.p90)}</td><td class="num">${v.n}</td><td>${v.p90 ? bar(v.p90, maxP90) : ""}</td></tr>`).join("")}</table>
+      <p class="muted">“ack” is the short cached filler; it is reported separately and is never counted as the answer. Measured on real conversations only (the /voice and /robot pages).</p>
+    </div></div>`;
+  el("ovDays").onchange = e => { overviewDays = +e.target.value; refresh(); };
+}
+
+async function loadGaps() {
+  const d = await api("/api/admin/analytics/gaps?days=30");
+  el("view-gaps").innerHTML = `<div class="card"><h2>Knowledge gaps — questions the robot could not answer (last ${d.days} days)</h2>
+    <p class="muted">${d.total_not_found} question(s) answered with “I do not have this information”. Collect the official data for the most frequent ones, add it to backend/data/knowledge/, import and approve it.</p>
+    ${d.items.length ? `<table class="data"><tr><th class="num">Times</th><th>Question</th><th>Last asked</th><th>What the robot said</th></tr>
+      ${d.items.map(g => `<tr><td class="num">${g.count}</td><td dir="auto"><b>${esc(g.question)}</b>${g.variants.length > 1 ? `<div class="muted" dir="auto">${g.variants.slice(1).map(esc).join(" · ")}</div>` : ""}</td><td>${when(g.last_asked)}</td><td dir="auto" class="muted">${esc(g.last_answer)}</td></tr>`).join("")}</table>`
+      : `<p>No unanswered questions recorded yet. (Only conversations since 2026-11-13 store this.)</p>`}</div>`;
+}
+
+async function loadConversations() {
+  const d = await api("/api/admin/conversations?limit=50");
+  el("view-conversations").innerHTML = `<div class="grid"><div class="card"><h2>Conversations (${d.total})</h2>
+    <table class="data"><tr><th>#</th><th>Started</th><th class="num">Turns</th><th class="num">Speakers</th><th>End</th><th>First question</th></tr>
+    ${d.items.map(s => `<tr class="click" data-id="${s.id}"><td>${s.id}</td><td>${when(s.started_at)}</td><td class="num">${s.turns}</td><td class="num">${s.speakers || "–"}</td><td>${esc(s.end_reason || "open")}</td><td dir="auto">${esc(s.first_question || "")}</td></tr>`).join("")}</table></div>
+    <div class="card" id="conv"><p class="muted">Select a conversation to see its turns.</p></div></div>`;
+  el("view-conversations").querySelectorAll("tr.click").forEach(tr => tr.onclick = () => openConversation(+tr.dataset.id));
+}
+async function openConversation(id) {
+  const c = await api(`/api/admin/conversations/${id}`);
+  const t = x => Object.entries(x).filter(([, v]) => v !== null).map(([k, v]) => `${k} ${v}`).join(" · ");
+  el("conv").innerHTML = `<h2>Conversation ${c.id}</h2><p class="muted">${when(c.started_at)} → ${when(c.ended_at)} · ${esc(c.end_reason || "open")} · ${esc(c.lang || "")}</p>
+    ${c.turns.length ? c.turns.map(x => `<div class="turn">
+      <div class="row"><span class="tag">${esc(x.intent)}</span>${x.speaker_label ? `<span class="tag">Speaker ${x.speaker_label}${x.speaker_source ? " · " + esc(x.speaker_source) : ""}</span>` : ""}${x.found === true ? `<span class="tag good">✓ found</span>` : x.found === false ? `<span class="tag warn">✕ not found</span>` : ""}${x.error ? `<span class="tag bad">! error</span>` : ""}</div>
+      <div class="q" dir="auto">${esc(x.user_text || "(nothing heard)")}</div>
+      <div class="a" dir="auto">${esc(x.answer_text || "")}</div>
+      ${x.sources.length ? `<div class="muted">Sources: ${x.sources.map(s => esc(s.title || "chunk " + s.chunk_id) + (s.category ? " (" + esc(s.category) + ")" : "")).join(" · ")}</div>` : ""}
+      ${x.error ? `<div class="muted">${esc(x.error)}</div>` : ""}
+      <div class="muted">ms: ${t(x.timings_ms) || "–"}</div></div>`).join("") : `<p class="muted">No turns (the visitor did not ask anything).</p>`}`;
+}
+
+el("askSend").onclick = async () => {
+  const question = el("askText").value.trim(); if (!question) return;
+  el("askState").textContent = "Asking…"; el("askSend").disabled = true;
+  try {
+    const r = await api("/api/admin/ask", { method: "POST", body: JSON.stringify({ question }) });
+    el("askResult").innerHTML = `<h3>Answer ${r.found ? `<span class="tag good">✓ found</span>` : `<span class="tag warn">✕ not found</span>`} ${r.error ? `<span class="tag bad">! ${esc(r.error)}</span>` : ""}</h3>
+      <p dir="auto" style="font-size:17px">${esc(r.answer)}</p>
+      ${r.invented_numbers.length ? `<p><span class="tag bad">! numbers not in the passages: ${esc(r.invented_numbers.join(", "))}</span> The robot would say instead: <span dir="auto">${esc(r.spoken)}</span></p>` : ""}
+      <p class="muted">model ${esc(r.model || "–")} · ${Object.entries(r.timings_ms).map(([k, v]) => `${k} ${v}`).join(" · ")}</p>
+      <h3>Retrieved passages (${r.passages.length}) — only approved content is searched</h3>
+      ${r.passages.map(p => `<div class="passage ${p.used ? "used" : ""}"><div class="row"><b>[${p.n}]</b> ${p.used ? `<span class="tag good">✓ used in the answer</span>` : ""}<span class="tag">score ${p.score}</span><span class="tag">${p.in_fts ? "text" : ""}${p.in_fts && p.in_vector ? " + " : ""}${p.in_vector ? "vector" : ""}</span>${p.category ? `<span class="tag">${esc(p.category)}</span>` : ""}</div>
+        <div dir="auto"><b>${esc(p.source_title || "")}</b> <span class="muted" style="word-break:break-all">${esc(dec(p.source_url))}</span></div><pre dir="auto">${esc(p.text)}</pre></div>`).join("") || `<p class="muted">Nothing was retrieved.</p>`}`;
+    el("askState").textContent = "";
+  } catch (e) { el("askState").textContent = e.message; }
+  finally { el("askSend").disabled = false; }
+};
+
+async function loadEvaluation() {
+  const d = await api("/api/admin/evaluation");
+  el("view-evaluation").innerHTML = `<div class="card"><h2>Golden-set evaluation runs</h2>
+    <p class="muted">Read from backend/data/golden/results/*.json (written by the <code>evaluate</code> command). Target: ≥ 90 % passed and 0 numbers that are not in the sources.</p>
+    ${d.runs.length ? `<table class="data"><tr><th>Run</th><th>Model</th><th class="num">Passed</th><th class="num">%</th><th class="barcell">Pass rate</th><th class="num">Numbers not in sources</th><th class="num">Median ms</th><th class="num">p90 ms</th></tr>
+      ${d.runs.map((r, i) => `<tr class="click" data-i="${i}"><td>${esc(r.started || r.file)}</td><td>${esc(r.model || "–")}</td><td class="num">${r.passed}/${r.total}</td><td class="num">${Math.round(100 * (r.accuracy || 0))}%</td><td>${bar(r.passed, r.total)}</td><td class="num">${fmt(r.invented_numbers_total)}</td><td class="num">${fmt(r.latency_median_ms)}</td><td class="num">${fmt(r.latency_p90_ms)}</td></tr>`).join("")}</table>
+      <div id="evalFailed"></div>` : `<p>No evaluation runs found.</p>`}</div>`;
+  const show = i => { const r = d.runs[i]; el("evalFailed").innerHTML = `<h3>Failed questions — ${esc(r.started || r.file)} (${r.failed.length})</h3>` + (r.failed.length ? `<table class="data"><tr><th>Id</th><th>Question</th><th>Answer</th><th>Why it failed</th></tr>${r.failed.map(f => `<tr><td>${esc(f.id)}<div class="muted">${esc(f.kind)} · ${esc(f.lang)}</div></td><td dir="auto">${esc(f.question)}</td><td dir="auto">${esc(f.answer)}</td><td>${f.reasons.map(esc).join("<br>")}</td></tr>`).join("")}</table>` : `<p>All questions passed.</p>`); };
+  el("view-evaluation").querySelectorAll("tr.click").forEach(tr => tr.onclick = () => show(+tr.dataset.i));
+  if (d.runs.length) show(0);
+}
+
+async function loadCoverage() {
+  const d = await api("/api/admin/coverage");
+  const max = rows => Math.max(1, ...rows.map(r => r.approved));
+  const rows = (items, name, m) => items.map(r => `<tr><td dir="auto">${name(r)}</td><td class="num">${r.approved}</td><td class="num">${r.pending}</td><td class="num">${r.stale}</td><td class="num">${r.rejected}</td><td>${bar(r.approved, m)}</td></tr>`).join("");
+  const head = first => `<tr><th>${first}</th><th class="num">Approved</th><th class="num">Pending</th><th class="num">Stale</th><th class="num">Rejected</th><th class="barcell">Approved chunks</th></tr>`;
+  el("view-coverage").innerHTML = `<div class="grid">
+    <div class="card" style="grid-column:1/-1"><h2>Review status</h2>
+      <p><b>Sources</b> ${STATUSES.map(k => pill(k, d.by_status.sources[k])).join(" ")} &nbsp; <b>Chunks</b> ${STATUSES.map(k => pill(k, d.by_status.chunks[k])).join(" ")}</p>
+      <p class="muted">The robot only uses <b>approved</b> chunks. Pending and stale content waits for your review in “Review queue”.</p></div>
+    <div class="card"><h2>Chunks by program</h2><table class="data">${head("Program")}${rows(d.chunks_by_program, r => esc(r.name_en) + `<div class="muted" dir="auto">${esc(r.name_ar)}</div>`, max(d.chunks_by_program))}</table></div>
+    <div class="card"><h2>Chunks by category</h2><table class="data">${head("Category")}${rows(d.chunks_by_category, r => esc(r.category), max(d.chunks_by_category))}</table></div></div>`;
+}
+
+const VIEWS = { overview: loadOverview, gaps: loadGaps, conversations: loadConversations, evaluation: loadEvaluation, coverage: loadCoverage, ask: async () => {} };
 
 document.getElementById("connect").onclick = () => {
   token = document.getElementById("token").value.trim();

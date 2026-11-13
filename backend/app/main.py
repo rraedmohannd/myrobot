@@ -6,7 +6,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 
 from app import __version__
-from app.api.rest import admin, chat, health, voice
+from app.api.rest import admin, analytics, chat, health, voice
 from app.api.rest.voice import STATIC_DIR
 from app.api.ws import robot
 from app.core.config import get_settings
@@ -34,6 +34,7 @@ def create_app() -> FastAPI:
     app.include_router(health.router)
     app.include_router(admin.router)
     app.include_router(admin.page_router)
+    app.include_router(analytics.router)
     app.include_router(chat.router)
     app.include_router(voice.router)
     app.include_router(robot.router)

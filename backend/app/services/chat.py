@@ -316,6 +316,8 @@ async def answer_events(
                 used_chunk_ids=[s.chunk_id for s in result.sources] or None,
                 retrieval_ms=timings.get("retrieval_ms"),
                 llm_ms=timings.get("llm_ms"),
+                llm_first_ms=timings.get("llm_first_ms"),
+                found=result.found if result.error is None else None,
                 total_ms=timings["total_ms"],
                 error=result.error,
             )

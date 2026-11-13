@@ -73,6 +73,9 @@ class Settings(BaseSettings):
     rag_candidates: int = 20  # candidates from each search before fusion
     chat_history_turns: int = 3  # previous turns of the same session sent as context
 
+    # "Today" in the admin analytics is a day in this time zone (the database stores UTC).
+    local_timezone: str = "Asia/Amman"
+
     # Token for the admin API/page (sent as X-Admin-Token). Empty = admin API disabled.
     admin_token: SecretStr | None = None
 

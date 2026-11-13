@@ -348,6 +348,7 @@ class DialogueManager:
         })  # fmt: skip
         timings = TurnTimings(stt_ms=stt_ms)
         answer_text, used_ids, error = None, None, None
+        found: bool | None = None  # only question turns have it
 
         if intent == "done":
             await self._log_turn(text, lang, intent, PHRASES["goodbye"][self.lang], timings, None, None)
@@ -389,10 +390,11 @@ class DialogueManager:
             timings.retrieval_ms = result.timings.get("retrieval_ms")
             timings.llm_ms = result.timings.get("llm_ms")
             timings.llm_first_ms = result.timings.get("llm_first_ms")
+            found = result.found if not error else None
             self.last_answer = answer_text
         timings.total_ms = timings.tts_ms
         await self.send({"type": "turn.timings", **vars(timings)})
-        await self._log_turn(text, lang, intent, answer_text, timings, used_ids, error)
+        await self._log_turn(text, lang, intent, answer_text, timings, used_ids, error, found=found)
         await self._say("follow_up", "listening")
         await self._set_state("FOLLOW_UP")
 
@@ -480,7 +482,8 @@ class DialogueManager:
 
     async def _log_turn(self, text: str, lang: str, intent: str, answer: str | None,
                         t: TurnTimings, used_ids: list[int] | None, error: str | None,
-                        speaker: Assignment | None | str = "current") -> None:  # fmt: skip
+                        speaker: Assignment | None | str = "current",
+                        found: bool | None = None) -> None:  # fmt: skip
         sp = self.speaker if speaker == "current" else speaker
         if self.session_id is None:
             return
@@ -493,6 +496,7 @@ class DialogueManager:
                 intent=intent, answer_text=answer, used_chunk_ids=used_ids, stt_ms=t.stt_ms,
                 retrieval_ms=t.retrieval_ms, llm_ms=t.llm_ms, tts_ms=t.tts_ms,
                 total_ms=t.total_ms, error=error,
+                found=found, ack_ms=t.ack_ms, llm_first_ms=t.llm_first_ms,
                 speaker_label=sp.label if sp else None,
                 speaker_confidence=sp.confidence if sp else None,
                 speaker_source=sp.source if sp else None,
