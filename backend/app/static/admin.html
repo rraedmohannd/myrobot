@@ -70,6 +70,14 @@
   .legend { display:flex; gap:14px; flex-wrap:wrap; font-size:13px; margin:6px 0; }
   .legend i { display:inline-block; width:18px; height:0; border-top:3px solid; vertical-align:middle; margin-right:5px; }
   input[type=text], input[type=number], select { padding:5px 8px; border:1px solid var(--line); border-radius:6px; }
+  /* ---- live robot (sprint 3) ---- */
+  .state { display:inline-block; font-size:22px; font-weight:700; padding:4px 14px; border-radius:8px; background:#eee; }
+  .state.FAULT { background:#f8dcdc; color:var(--bad); } .state.ROAMING, .state.RETURNING { background:#dbe9fb; color:#1c4f8f; }
+  .state.CONVERSATION, .state.ENGAGED { background:#dcf3e3; color:var(--ok); } .state.PAUSED { background:#fff1d6; color:var(--warn); }
+  .offline { background:#eee; border:2px dashed #b9b0af; color:var(--muted); font-weight:700; padding:16px; border-radius:8px; font-size:18px; text-align:center; }
+  .battery { display:inline-block; width:120px; height:12px; border:1px solid var(--line); border-radius:6px; overflow:hidden; vertical-align:middle; }
+  .battery i { display:block; height:100%; background:#2a78d6; }
+  .cmds button { font-size:16px; padding:10px 16px; }
   /* ---- explainers (sprint 2) ---- */
   .seg { border-top:1px solid var(--line); padding:10px 0; display:grid; grid-template-columns:minmax(0, 1fr) 380px; gap:12px; }
   @media (max-width: 1100px) { .seg { grid-template-columns:1fr; } }
@@ -98,6 +106,7 @@
   <button data-view="coverage">Knowledge coverage</button>
   <button data-view="explainers">Explainers</button>
   <button data-view="media">Media</button>
+  <button data-view="robot">Robot (live)</button>
   <button data-view="runs">Robot runs</button>
 </nav>
 <section class="view" id="view-overview"></section>
@@ -114,6 +123,7 @@
 </section>
 <section class="view" id="view-evaluation"></section>
 <section class="view" id="view-coverage"></section>
+<section class="view" id="view-robot"></section>
 <section class="view" id="view-runs"></section>
 <section class="view" id="view-explainers"></section>
 <section class="view" id="view-media">
@@ -465,16 +475,74 @@ async function openRun(id) {
     <h3>Events</h3>
     ${r.events.length ? `<table class="data"><tr><th class="num">Time (s)</th><th>Event</th><th>Details</th></tr>${r.events.map(e => `<tr><td class="num">${(e.t_ms / 1000).toFixed(1)}</td><td>${esc(e.kind)}</td><td class="muted">${esc(Object.entries(e.data || {}).map(([k, v]) => k + "=" + v).join(" · "))}</td></tr>`).join("")}</table>` : `<p class="muted">No events.</p>`}
     <h3>Return trials (physical measurement with a tape)</h3>
-    ${r.trials.length ? `<table class="data"><tr><th>#</th><th class="num">Error (m)</th><th class="num">Heading error (°)</th><th>Result</th><th>Notes</th></tr>${r.trials.map(t => `<tr><td>${t.id}</td><td class="num">${t.measured_err_m}</td><td class="num">${t.measured_heading_err_deg ?? "–"}</td><td>${t.success ? `<span class="tag good">✓ success</span>` : `<span class="tag bad">✕ failed</span>`}</td><td>${esc(t.notes || "")}</td></tr>`).join("")}</table>` : `<p class="muted">None recorded for this run.</p>`}
+    ${r.trials.length ? `<table class="data"><tr><th>#</th><th class="num">Error (m)</th><th class="num">Heading error (°)</th><th>Result</th><th>Notes</th></tr>${r.trials.map(t => `<tr><td>${t.id}</td><td class="num">${t.measured_err_m ?? "–"}</td><td class="num">${t.measured_heading_err_deg ?? "–"}</td><td>${t.status === "pending" ? `<span class="tag warn">waiting for the tape measurement</span>` : t.success ? `<span class="tag good">✓ success</span>` : `<span class="tag bad">✕ failed</span>`}</td><td>${esc(t.notes || "")}</td></tr>`).join("")}</table>` : `<p class="muted">None recorded for this run.</p>`}
     ${r.can_add_return_trial ? `<div class="row"><input type="number" id="rtErr" step="0.01" min="0" placeholder="distance from start mark (m)" style="width:220px"><input type="number" id="rtHead" step="1" placeholder="heading error (°), optional" style="width:200px"><select id="rtOk"><option value="true">success</option><option value="false">failed</option></select><input type="text" id="rtNotes" placeholder="notes (floor, route, who measured)" style="flex:1"><button class="ok" id="rtSave">Save measurement</button></div>`
       : `<p class="muted">Return trials cannot be entered for a simulated run: they are physical measurements.</p>`}`;
   if (r.can_add_return_trial) el("rtSave").onclick = async () => {
     const body = { measured_err_m: parseFloat(el("rtErr").value), success: el("rtOk").value === "true", notes: el("rtNotes").value || null };
     if (el("rtHead").value !== "") body.measured_heading_err_deg = parseFloat(el("rtHead").value);
     if (Number.isNaN(body.measured_err_m)) { msg("Enter the measured distance in metres", true); return; }
-    try { await api(`/api/admin/runs/${id}/return-trials`, { method: "POST", body: JSON.stringify(body) }); msg("Saved"); await loadRuns(); await openRun(id); }
+    const waiting = r.trials.find(t => t.status === "pending");   // opened by an accepted return-to-start request
+    try { await api(waiting ? `/api/admin/return-trials/${waiting.id}` : `/api/admin/runs/${id}/return-trials`, { method: waiting ? "PUT" : "POST", body: JSON.stringify(body) }); msg("Saved"); await loadRuns(); await openRun(id); }
     catch (e) { msg(e.message, true); }
   };
+}
+
+// ---------------- live robot (sprint 3 S2) ----------------
+// Commands are REQUESTS: the robot answers with an ack and may refuse. The page shows the ack
+// and then whatever state the robot itself reports; it never assumes a command was carried out.
+let robotTimer = null, robotBusy = false, robotLastAck = "";
+const CMD_LABELS = { start_roaming: "Start roaming", pause: "Pause", resume: "Resume", return_to_start: "Return to start" };
+function robotTrail(points) {
+  if (!points || points.length < 2) return `<p class="muted">No movement reported yet.</p>`;
+  const xs = points.map(p => p[0]), ys = points.map(p => p[1]), pad = 0.3;
+  const x0 = Math.min(0, ...xs) - pad, x1 = Math.max(0, ...xs) + pad, y0 = Math.min(0, ...ys) - pad, y1 = Math.max(0, ...ys) + pad;
+  const W = 420, k = W / (x1 - x0), H = Math.max(60, Math.round((y1 - y0) * k));
+  const X = x => ((x - x0) * k).toFixed(1), Y = y => ((y1 - y) * k).toFixed(1), last = points[points.length - 1];
+  return `<svg class="plot" style="max-width:${W}px" viewBox="0 0 ${W} ${H}" role="img" aria-label="Live trajectory"><path d="${points.map((p, i) => (i ? "L" : "M") + X(p[0]) + " " + Y(p[1])).join(" ")}" fill="none" stroke="${OUT}" stroke-width="2.5" stroke-linejoin="round"/>
+    <circle cx="${X(0)}" cy="${Y(0)}" r="6" fill="#0b0b0b"><title>Start (0, 0)</title></circle><circle cx="${X(last[0])}" cy="${Y(last[1])}" r="6" fill="${RET}" stroke="#fff" stroke-width="2"><title>Reported position now</title></circle></svg>
+    <div class="legend"><span>● start</span><span style="color:${RET}">● reported position now (odometry estimate)</span><span>${points.length} points</span></div>`;
+}
+async function loadRobot() {
+  let d;
+  try { d = await api("/api/admin/robot"); } catch (e) { el("view-robot").innerHTML = `<div class="card"><p>${esc(e.message)}</p></div>`; return; }
+  const r = d.robot, s = r ? r.status : null;
+  const sensors = s ? Object.entries(s.sensors || {}) : [];
+  el("view-robot").innerHTML = `<div class="grid">
+    <div class="card"><h2>Robot — live status</h2>
+      ${r ? `${r.is_simulated ? `<div class="banner">⚠ SIMULATED — not a physical robot. This is the software simulator (<code>simulate-robot</code>); nothing here is a measurement.</div>` : ""}
+        <p><span class="state ${esc(s.state)}">${esc(s.state)}</span> &nbsp; <b>${esc(r.robot_id || "robot")}</b> <span class="muted">· protocol ${r.protocol_version} · connected ${r.connected_s} s · last status ${r.status_age_s} s ago${s.mode ? " · mode " + esc(s.mode) : ""}${r.run_id ? " · run " + r.run_id : ""}</span></p>
+        <table class="data">
+          <tr><th>Battery</th><td>${s.battery_v == null ? "not reported" : s.battery_v.toFixed(2) + " V"}${s.battery_pct == null ? "" : ` &nbsp; <span class="battery"><i style="width:${Math.max(0, Math.min(100, s.battery_pct))}%"></i></span> ${Math.round(s.battery_pct)} %`}</td></tr>
+          <tr><th>Faults</th><td>${(s.faults || []).length ? s.faults.map(f => `<span class="tag bad">! ${esc(f)}</span>`).join(" ") : `<span class="tag good">✓ none reported</span>`}</td></tr>
+          <tr><th>Sensors</th><td>${sensors.length ? sensors.map(([k, v]) => `<span class="tag ${v === "ok" ? "good" : v === "absent" ? "" : v === "degraded" ? "warn" : "bad"}">${v === "ok" ? "✓" : v === "absent" ? "–" : "!"} ${esc(k)}: ${esc(v)}</span>`).join(" ") : "not reported"}</td></tr>
+          <tr><th>Pose</th><td>${s.pose ? `x ${s.pose.x_m.toFixed(2)} m · y ${s.pose.y_m.toFixed(2)} m · heading ${(s.pose.theta_rad * 180 / Math.PI).toFixed(0)}°` : "not reported"}</td></tr>
+        </table>
+        <h3>Trajectory since it connected</h3>${robotTrail(r.trail)}`
+      : `<div class="offline">Robot offline<div class="muted" style="font-weight:400;margin-top:6px">No robot has sent a status in the last ${d.offline_after_s} s. Nothing can be sent. For a software stand-in: <code>docker compose exec backend python -m app.ingestion.cli simulate-robot</code></div></div>`}
+    </div>
+    <div class="card"><h2>Requests to the robot</h2>
+      <p class="muted">${esc(d.note)} A refusal (for example during a conversation or a fault) is a normal answer.</p>
+      <div class="row cmds">${Object.entries(CMD_LABELS).map(([c, label]) => `<button data-cmd="${c}" ${r && !robotBusy ? "" : "disabled"}>${label}</button>`).join("")}</div>
+      <p id="robotAck" class="muted" style="min-height:22px">${robotLastAck}</p>
+      <h3>Recent requests</h3>
+      ${d.commands.length ? `<table class="data"><tr><th>Sent</th><th>Request</th><th>Robot's answer</th></tr>${d.commands.map(c => `<tr><td>${when(c.sent_at)}</td><td>${esc(CMD_LABELS[c.cmd] || c.cmd)}${c.is_simulated ? ` <span class="tag warn">simulated robot</span>` : ""}</td><td>${c.timed_out ? `<span class="tag bad">! no answer</span> <span class="muted">${esc(c.reason || "")}</span>` : c.accepted === true ? `<span class="tag good">✓ accepted</span>` : c.accepted === false ? `<span class="tag warn">✕ refused</span> <span class="muted">${esc(c.reason || "")}</span>` : "waiting…"}${c.return_trial_id ? ` <span class="tag">return trial ${c.return_trial_id} pending</span>` : ""}</td></tr>`).join("")}</table>` : `<p class="muted">None since the backend started. Stored requests: Robot runs → events, or <code>/api/admin/robot/commands</code>.</p>`}
+      ${d.pending_return_trials.length ? `<h3>Return trials waiting for the tape measurement</h3><p class="muted">Measure on the floor, then enter the result in “Robot runs” for the run.</p><table class="data"><tr><th>Trial</th><th>Run</th><th>Opened</th></tr>${d.pending_return_trials.map(t => `<tr><td>${t.id}</td><td>${t.run_id}</td><td>${when(t.created_at)}</td></tr>`).join("")}</table>` : ""}
+    </div></div>`;
+  el("view-robot").querySelectorAll("button[data-cmd]").forEach(b => b.onclick = async () => {
+    const cmd = b.dataset.cmd;
+    if (!confirm(`Ask the robot to: ${CMD_LABELS[cmd]}?\n\nThis is a request. The robot decides whether it is safe to do it.`)) return;
+    robotBusy = true; robotLastAck = `Asked: ${esc(CMD_LABELS[cmd])} — waiting for the robot…`; loadRobot();
+    try {
+      const a = await api("/api/admin/robot/command", { method: "POST", body: JSON.stringify({ cmd }) });
+      robotLastAck = a.timed_out ? `<span class="tag bad">! ${esc(CMD_LABELS[cmd])}: no answer from the robot</span> ${esc(a.reason || "")}` : a.accepted ? `<span class="tag good">✓ ${esc(CMD_LABELS[cmd])}: accepted by the robot</span>` : `<span class="tag warn">✕ ${esc(CMD_LABELS[cmd])}: refused</span> ${esc(a.reason || "")}`;
+    } catch (e) { robotLastAck = `<span class="tag bad">! not sent</span> ${esc(e.message)}`; }
+    robotBusy = false; loadRobot();
+  });
+}
+function robotPolling() {
+  clearInterval(robotTimer);
+  if (view === "robot") robotTimer = setInterval(() => { if (view !== "robot") { clearInterval(robotTimer); return; } if (!robotBusy && !document.hidden) loadRobot(); }, 1000);
 }
 
 // ---------------- explainers and interest matching (sprint 2) ----------------
@@ -564,7 +632,7 @@ async function loadExplainerList() {
   el("view-explainers").querySelectorAll("tr.click").forEach(tr => { const x = d.items.find(i => i.id === +tr.dataset.id); if (x) { tr.children[2].innerHTML = pill(x.status); tr.children[4].innerHTML = x.issues ? `<span class="tag bad">${x.issues}</span>` : "0"; } });
 }
 
-const VIEWS = { explainers: loadExplainers, runs: loadRuns, media: loadMedia, overview: loadOverview, gaps: loadGaps, conversations: loadConversations, evaluation: loadEvaluation, coverage: loadCoverage, ask: async () => {} };
+const VIEWS = { robot: async () => { await loadRobot(); robotPolling(); }, explainers: loadExplainers, runs: loadRuns, media: loadMedia, overview: loadOverview, gaps: loadGaps, conversations: loadConversations, evaluation: loadEvaluation, coverage: loadCoverage, ask: async () => {} };
 
 document.getElementById("connect").onclick = () => {
   token = document.getElementById("token").value.trim();

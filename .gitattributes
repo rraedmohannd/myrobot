@@ -1,1 +1,3 @@
 backend/app/static/vendor/** -text
+shared/protocol/*.json text eol=lf
+docs/PROTOCOL.md text eol=lf

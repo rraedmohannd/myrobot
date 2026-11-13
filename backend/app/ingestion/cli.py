@@ -20,6 +20,7 @@
     python -m app.ingestion.cli seed-interests        # PENDING interest -> program rows
     python -m app.ingestion.cli seed-demo-media       # dev only: labelled placeholder images
     python -m app.ingestion.cli simulate-run [--seed 7]   # SIMULATED robot run (never a real result)
+    python -m app.ingestion.cli simulate-robot [--seconds 120]   # SIMULATED robot client (status, commands)
 """
 
 import argparse
@@ -541,6 +542,24 @@ async def _simulate_run(seed: int, roam_seconds: float) -> None:
     print("See it at http://localhost:8000/admin -> Robot runs")
 
 
+async def _simulate_robot(url: str, seconds: float, seed: int, token: str | None) -> None:
+    """Connect a SIMULATED robot (protocol 2) to the backend: live status, telemetry when it
+    roams, and answers to the command buttons of the admin "Robot" tab."""
+    from app.telemetry.sim_robot import run_sim_robot
+
+    print("*** SIMULATED robot - not a physical robot. Its runs are stored with is_simulated = true. ***")
+    print(f"connecting to {url} for {seconds:g} s; open http://localhost:8000/admin -> Robot")
+    try:
+        report = await run_sim_robot(url, seconds, seed=seed, token=token)
+    except OSError as e:
+        print(f"could not connect: {e}")
+        return
+    print(f"done: {report.status_sent} status messages, {report.telemetry_samples} pose samples, "
+          f"runs {report.runs or 'none'}, commands {report.commands or 'none'}")  # fmt: skip
+    if report.errors:
+        print("errors:", report.errors)
+
+
 async def _main(args: argparse.Namespace) -> None:
     cfg = CrawlConfig()
     simple = {
@@ -568,6 +587,9 @@ async def _main(args: argparse.Namespace) -> None:
     if args.cmd == "simulate-run":
         await _simulate_run(args.seed, args.roam_seconds)
         await get_engine().dispose()
+        return
+    if args.cmd == "simulate-robot":
+        await _simulate_robot(args.url, args.seconds, args.seed, args.token)
         return
     if args.cmd == "latency":
         await _latency(args.n, not args.no_stream, args.effort, args.dialogue, not args.no_stream_audio)
@@ -649,6 +671,11 @@ def main() -> None:
     sim = sub.add_parser("simulate-run", help="store a SIMULATED robot run (trajectory + return-to-origin)")
     sim.add_argument("--seed", type=int, default=7, help="random seed (16 shows the breadcrumb fallback)")
     sim.add_argument("--roam-seconds", type=float, default=45.0)
+    bot = sub.add_parser("simulate-robot", help="connect a SIMULATED robot client (status + commands)")
+    bot.add_argument("--url", default="ws://localhost:8000/ws/robot")
+    bot.add_argument("--seconds", type=float, default=120.0)
+    bot.add_argument("--seed", type=int, default=7)
+    bot.add_argument("--token", default=None, help="ROBOT_TOKEN when the backend is on another machine")
     lat = sub.add_parser("latency", help="time retrieval, LLM and first TTS piece on golden questions")
     lat.add_argument("--n", type=int, default=8, help="number of golden questions (default 8)")
     lat.add_argument("--no-stream", action="store_true", help="wait for the whole LLM answer (old behaviour)")
