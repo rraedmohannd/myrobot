@@ -33,3 +33,11 @@ Milestones: **M1** 6 Dec (base moves + conversation works) · **M2** 27 Dec (ret
 - [ ] Final golden-set run and multi-speaker validation (docs/SPEAKERS.md), with the results saved in data/golden/results/.
 - [ ] 30-minute mixed-operation test.
 - [ ] Rehearsal of the demo script; fallback plan if the internet fails (text subtitles and the "service unavailable" face).
+
+## Don't forget (student's request, 2026-11-06): videos while the robot explains
+- **On the robot screen:** while the robot explains a program, lab or service, the display can play a short video (or show images), not only subtitles.
+  - Videos must be official MEU material, or recorded by the student with permission. They are stored **locally** (project rule: essential media stays local), each with its source and date.
+  - Backend: a media library in the admin (upload, link to a program/topic, review status), and an optional `card.media` in `display.update` (docs/PROTOCOL.md).
+  - Robot UI: a muted or low-volume video player, so the robot's voice stays clear and the microphone does not pick up the video.
+  - Timing: B5 (admin + media), then robot display in weeks 7–8.
+- **Demo videos of the robot explaining** (final deliverable: demonstration video), recorded for the report and the defense. Start recording short clips as soon as the robot can talk on its screen, and keep the best takes. This also covers the final-week checklist.
