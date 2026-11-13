@@ -83,6 +83,7 @@
   #attract.on { display:flex; }
   #attractBox { width:372px; height:250px; flex:none; position:relative; overflow:hidden; }
   #attractBox .xs { position:absolute; left:0; top:0; transform:scale(.6); transform-origin:0 0; }
+  #attractName { position:absolute; left:0; right:0; top:8px; text-align:center; font-size:20px; font-weight:700; color:var(--eye); z-index:1; }
   #attractSide { flex:1; min-width:0; text-align:center; }
   #attractSide b { display:block; font-size:34px; line-height:1.35; }
   #attractSide span { display:block; font-size:15px; color:var(--muted); margin-top:6px; }
@@ -160,7 +161,7 @@
     <div id="leftCol">
     <div id="textPanel">
       <div id="meta"><span id="speaker" hidden></span><span id="heard" dir="auto"></span></div>
-      <div id="attract"><div id="attractBox"></div><div id="attractSide"><b>قرّب واحكي معي 👋</b><span>Come closer and talk to me</span></div></div>
+      <div id="attract"><div id="attractBox"><div id="attractName" dir="auto"></div><div id="attractScene"></div></div><div id="attractSide"><b>قرّب واحكي معي 👋</b><span>Come closer and talk to me</span></div></div>
       <div id="subtitle" dir="auto"></div>
       <button id="start" hidden>ابدأ المحادثة<small>Start · أو اضغط مسافة (Space)</small></button>
       <div id="chips"></div>
@@ -459,7 +460,10 @@ function renderChips() {
 }
 function nextAttract() {
   if (!attract.scenes.length) return;
-  attract.ctl = ExplainerScenes.render($("attractBox"), attract.scenes[attract.i % attract.scenes.length], {words: 14});
+  const scene = attract.scenes[attract.i % attract.scenes.length];
+  attract.ctl = ExplainerScenes.render($("attractScene"), scene, {words: 14});
+  // a number alone says nothing: every scene that is not the title names its program
+  $("attractName").textContent = scene.type === "title" ? "" : (scene.program && scene.program.name) || "";
   attract.since = performance.now(); attract.i++;
 }
 function startAttract() {
@@ -469,7 +473,7 @@ function startAttract() {
 }
 function stopAttract() {
   clearInterval(attract.timer); attract.timer = null; attract.ctl = null;
-  $("attractBox").replaceChildren();
+  $("attractScene").replaceChildren(); $("attractName").textContent = "";
 }
 function setIdleExtras(idle) {
   const showAttract = idle && attract.scenes.length > 0;
