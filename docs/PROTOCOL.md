@@ -1,54 +1,86 @@
-# Robot ↔ backend protocol (v1)
+# Robot ↔ backend protocol (v2)
 
-Transport: WebSocket `ws://<laptop>:8000/ws/robot` (add `?token=...` if `ROBOT_TOKEN` is set).
+Transport: WebSocket `ws://<laptop>:8000/ws/robot` (add `?token=...` if `ROBOT_TOKEN` is set and the robot is not on the backend's own machine, see docs/DEPLOY.md).
 Every message is a JSON object with `type`. Backend messages also carry `id` (12 hex chars) and `ts` (Unix ms).
-Messages are processed in order, with one conversation at a time per connection.
-The reference client is `backend/app/static/robot-client.js`, shared by the browser pages `/voice` (test bench) and `/robot` (the robot's screen, standing in for the 7" HDMI display). The Raspberry Pi client must behave the same way.
 
-**Safety:** nothing here is needed to stop the robot. Motor stop, obstacles and command timeouts stay on the ESP32 and the robot (CLAUDE.md rule 4). If the backend stops answering heartbeats, the robot shows its "service unavailable" face and keeps working locally.
+**The contract is code:** `shared/scr_protocol/messages.py` (pydantic models) is the single source of truth. The JSON Schema files in `shared/protocol/` and the two message tables below are **generated** from it (`python -m scr_protocol.generate`), and the tests fail when they differ or when the backend sends anything that is not in the contract. The Raspberry Pi installs the same package (`pip install ./shared`).
+
+**Versions.** `hello.protocol_version` 1 and 2 are accepted. Version 1 (sprints 1 and 2: conversation, telemetry, explainers, interests) is what `/voice` speaks. Version 2 adds the live robot status and command requests; the backend sends `robot.command` only to version 2 connections. `hello.ack.protocol_version` is the version used on the connection.
+
+**Two lanes per connection.** Conversation and telemetry messages are processed in order, one at a time. `heartbeat`, `robot.status` and `robot.command.ack` are handled at once, also while the backend is preparing an answer.
+
+The reference client is `backend/app/static/robot-client.js`, shared by the browser pages `/voice` (test bench) and `/robot` (the robot's screen, standing in for the 7" HDMI display).
+
+**Safety:** nothing here is needed to stop the robot. Motor stop, obstacles and command timeouts stay on the ESP32 and the robot (CLAUDE.md rule 4). Every `robot.command` is a **request**: the robot decides locally, may refuse, and must behave safely if the backend disappears. If the backend stops answering heartbeats, the robot shows its "service unavailable" face and keeps working locally.
 
 ## Robot → backend
+<!-- BEGIN GENERATED robot-to-backend -->
 | type | fields | meaning |
 |---|---|---|
-| `hello` | `robot_id`, `fw_version`, `protocol_version`, `audio_stream?` | first message after connecting. `audio_stream: ["pcm16"]` = this client can play answer speech sent as PCM chunks (see `answer.audio.start`); without it the backend sends whole mp3 pieces only |
-| `heartbeat` | – | every 5 s; backend answers `heartbeat` (allow ≥ 15 s before declaring the backend lost, because answers can take a few seconds) |
-| `session.start` | `lang?` (`ar` default) | a visitor is engaging (face detected); backend greets |
-| `audio.chunk` | `pcm16_b64`, `sample_rate` (16000), `seq` | mono PCM16 little-endian, about 100 ms per chunk, sent only while the visitor speaks (VAD) |
-| `audio.end` | `face_track_id?`, `overlap?` | VAD detected the end of speech (`vad_silence_ms` of silence, from `hello.ack`; 700 ms by default). The camera adds the track id of the face whose lips moved (an integer that only means "the same face as before"), and `overlap: true` if two or more faces were talking in more than about 30 % of the voiced frames (docs/SPEAKERS.md). Without a camera both fields are simply absent. No image or landmark is ever sent |
-| `text.input` | `text` | typed question (testing); starts a session without a greeting if none is active |
-| `listen.timeout` | – | nobody spoke for `follow_up_timeout_s` after the robot finished talking. During the pause of an explainer this means "go on" (see below); otherwise the robot says goodbye |
-| `explainer.start` | `program` (slug), `lang?` | a program button was tapped on the screen: play that program's approved explainer. Starts a conversation without the greeting if none is active. Answer: the explainer messages below, or `error` `no_explainer` |
-| `explainer.continue` | – | the "كمّل" button during the pause after segment 3 |
-| `explainer.stop` | – | the stop button: the client has already stopped the audio and emptied its queue; the backend forgets the rest and asks "عندك سؤال ثاني؟" |
-| `interest.start` | `lang?` | the "ساعدني أختار" button: start the interest questions (`error` `no_interests` when no mapping is approved) |
-| `interest.choice` | `key` | an interest button was tapped (`key` from `interest.question.options`; `none` = no second interest) |
-| `session.end` | `reason`: `user_done` / `lost_face` / `timeout` | visitor left or the robot ended the session |
-| `run.start` | `is_simulated` (**required**, true/false), `odom_config?`, `notes?` | a robot run begins (roaming, return-to-start); backend answers `run.started`. One run per connection; a new `run.start` closes the previous run |
-| `telemetry` | `samples[]`: `{t_ms, x_m, y_m, theta_rad, v_mps?, omega_rps?, enc?, imu?, state?}` | batched pose samples (at most 1000 per message; about 10 Hz is enough for the plot). `t_ms` = ms since run start, pose in the start frame (docs/ODOMETRY.md) |
-| `event` | `t_ms`, `kind`, `data?` | `obstacle`, `return_start`, `return_blocked`, `return_done`, `return_failed`, `estop`, `comm_loss`, `slip`, … |
-| `run.end` | – | the run is finished; backend answers `run.ended` |
+| `hello` | `robot_id?`, `fw_version?`, `protocol_version?`, `audio_stream?` | First message after connecting. `protocol_version` 1 (older clients, `/voice`) and 2 are accepted; version 2 clients may receive `robot.command`. `audio_stream: ["pcm16"]` = this client can play answer speech sent as PCM chunks. |
+| `heartbeat` | – | Every 5 s. The backend answers `heartbeat` at once, also while it is preparing an answer. |
+| `session.start` | `lang?` | A visitor is engaging (face detected, or the start button). The backend greets. |
+| `audio.chunk` | `pcm16_b64`, `sample_rate?`, `seq?` | Mono PCM16 little-endian, about 100 ms per chunk, sent only while the visitor speaks (VAD). |
+| `audio.end` | `face_track_id?`, `overlap?` | VAD detected the end of speech (`vad_silence_ms` of silence, from `hello.ack`). The camera adds the track id of the face whose lips moved and `overlap: true` when two or more faces were talking (docs/SPEAKERS.md). No image or landmark is ever sent. |
+| `text.input` | `text` | A typed question (testing, or the keyboard fallback). Starts a conversation without the greeting if none is active. |
+| `listen.timeout` | – | Nobody spoke for `follow_up_timeout_s` after the robot finished talking. During the pause of an explainer this means "go on"; otherwise the robot says goodbye. |
+| `session.end` | `reason?` | The visitor left or the robot ended the conversation. |
+| `explainer.start` | `program`, `lang?` | A program button was tapped: play that program's approved explainer. Answer: the explainer messages, or `error` `no_explainer`. |
+| `explainer.continue` | – | The "continue" button during the pause after segment 3. |
+| `explainer.stop` | – | The stop button: the client already stopped the audio and emptied its queue. |
+| `interest.start` | `lang?` | The "help me choose" button: start the interest questions (`error` `no_interests` when no mapping is approved). |
+| `interest.choice` | `key` | An interest button was tapped (`key` from `interest.question.options`; `none` = no second interest). |
+| `run.start` | `is_simulated`, `odom_config?`, `notes?` | A robot run begins (roaming, return-to-start); the backend answers `run.started`. `is_simulated` is required: every run must say whether it is a simulation. |
+| `telemetry` | `samples` | Batched pose samples (at most 1000 per message; about 10 Hz is enough for the plot). |
+| `event` | `t_ms`, `kind`, `data?` | Something happened during the run: `obstacle`, `return_start`, `return_blocked`, `return_done`, `return_failed`, `estop`, `comm_loss`, `slip`, ... |
+| `run.end` | – | The run is finished; the backend answers `run.ended`. |
+| `robot.status` | `state`, `is_simulated`, `battery_v?`, `battery_pct?`, `faults?`, `sensors?`, `pose?`, `run_id?`, `mode?` | Live status, about once per second (protocol 2). `sensors` maps a sensor name (encoders, imu, ultrasonic, camera, microphone, ...) to `ok` / `degraded` / `fault` / `absent`. `is_simulated` is required: a simulator must say so, and the admin shows a SIMULATED label. The backend only displays this; it never drives the robot from it. |
+| `robot.command.ack` | `id`, `accepted`, `reason?` | The robot's answer to `robot.command` with the same `id`. `accepted: false` is a normal answer: the robot refuses while it is in a conversation, in a fault state, when the battery is low, or whenever its own safety rules say so. `reason` says why. |
+<!-- END GENERATED robot-to-backend -->
 
 ## Backend → robot
+<!-- BEGIN GENERATED backend-to-robot -->
 | type | fields | meaning |
 |---|---|---|
-| `hello.ack` | `protocol_version`, `follow_up_timeout_s`, `max_utterance_s`, `speech_rate`, `vad_silence_ms`, `audio_stream` | settings for the client. `speech_rate` (SPEECH_RATE, default 1.0) is the playback rate for all robot speech, applied with the pitch preserved; `vad_silence_ms` (VAD_SILENCE_MS) is the silence that ends an utterance; `audio_stream` says whether answers will arrive as PCM chunks |
-| `session.started` / `session.ended` | `session_id`, `reason` | conversation boundaries (stored in `sessions`) |
-| `dialogue.state` | `state`: IDLE, GREETING, LISTENING, ANSWERING, EXPLAINING, FOLLOW_UP, CLOSING | **the robot may listen only in LISTENING / FOLLOW_UP, and only after all queued audio has finished playing** |
-| `display.update` | `mode` (idle, attentive, listening, processing, answering, finished, unavailable), `subtitle`, `card?`, `speaker_label?` | screen content; `speaker_label` = the visitor being answered. `card` is described below |
-| `transcript` | `text`, `lang`, `intent`, `speaker{label, is_new, confidence, source, sims}` | what the backend heard and who said it (anonymous Speaker N; source = voice / face / voice+face / last / first) |
-| `answer.text` | `text`, `lang`, `found`, `sources[]`, `timings`, `invented_numbers` | the grounded answer as spoken (subtitles). It is sent when the model has finished, so **it can arrive after the first `answer.audio` pieces** |
-| `answer.audio` | `seq`, `last`, `text`, `mp3_b64`, `segment?` | speech, sent piece by piece **while the model is still writing** (a short first piece, then one piece per sentence); play the pieces in arrival order |
-| `answer.audio.start` / `.chunk` / `.end` | `seq`, `text`, `format` (`pcm16`), `sample_rate` (24000) / `seq`, `pcm16_b64` / `seq`, `last` | the same speech pieces as `answer.audio`, but **streamed while text-to-speech is still generating them**. Experimental and off by default (`TTS_STREAMING=false`, see DECISIONS 2026-11-13); when on, only for clients that sent `audio_stream` in `hello`, and only for fresh answers (cached phrases stay `answer.audio`). Chunks are mono PCM16 little-endian, about 100 ms each, whole samples. Start playing after about 0.2 s of audio. A started piece is always closed by `.end`, also after an error. Pieces of both kinds share one playback queue, in arrival order |
-| `turn.timings` | `stt_ms`, `retrieval_ms`, `llm_ms`, `llm_first_ms`, `ack_ms`, `tts_ms`, `total_ms` | latency for the report: `ack_ms` runs from end of speech to the first audio of any kind (cached filler or greeting); `tts_ms` = `total_ms` runs from end of speech to the first audio of the **answer**; `llm_first_ms` runs from the LLM request to the first speakable piece, `llm_ms` to the end of the LLM answer |
-| `explainer.start` | `program {slug, name}`, `lang`, `total` | an approved program explainer begins (state EXPLAINING) |
-| `explainer.segment` | `index` (1-based), `total`, `scene` | the scene of one segment. It is sent **immediately before** the `answer.audio` of that segment, which carries `segment: index`; the screen shows the scene **when that audio starts playing**, so scenes stay in sync with the speech |
-| `explainer.pause` | `next_index`, `total` | sent after segment 3 when at least two more segments follow; the next audio is "بدك أكمل ولا عندك سؤال؟" and the state becomes FOLLOW_UP |
-| `explainer.end` | `reason`: `finished` / `stopped` / `question` | the presentation is over; later audio belongs to the normal conversation |
-| `interest.question` | `step` (1 or 2), `text`, `options[] {key, label}` | "what do you like?": the screen shows the options as buttons; the visitor may also answer by voice |
-| `interest.result` | `programs[] {slug, name, line, has_explainer}`, `text` | one or two suggested programs (approved mapping only; may be empty) and what the robot says; programs with `has_explainer` are tappable |
-| `run.started` / `run.ended` | `run_id`, `is_simulated` / `run_id`, `samples`, `events` | run boundaries (stored in `robot_runs`); `run.ended` reports how many samples and events were stored |
-| `heartbeat` | – | reply to heartbeat |
-| `error` | `code`, `message` | `stt_failed`, `tts_failed`, `unknown_type`, `bad_message`, `no_run` (telemetry before `run.start`), `no_explainer`, `no_interests`, `internal` |
+| `hello.ack` | `protocol_version`, `follow_up_timeout_s`, `max_utterance_s`, `speech_rate`, `vad_silence_ms`, `audio_stream` | Settings for the client. `protocol_version` is the version the backend will speak on this connection (the lower of the client's and its own). `speech_rate` is a playback rate for all robot speech (pitch preserved); `vad_silence_ms` is the silence that ends an utterance; `audio_stream` says whether answers will arrive as PCM chunks. |
+| `heartbeat` | – | Reply to `heartbeat`. |
+| `session.started` | `session_id` | A conversation began (stored in `sessions`). |
+| `session.ended` | `session_id`, `reason` | The conversation ended. |
+| `dialogue.state` | `state` | The robot may listen only in LISTENING / FOLLOW_UP, and only after all queued audio has finished playing. |
+| `display.update` | `mode`, `subtitle?`, `card?`, `speaker_label?`, `offline?` | Screen content. `card` (title, lines, sources, media, qr) is described in docs/PROTOCOL.md; `speaker_label` = the visitor being answered; `offline` is set when a provider is unreachable: `{qr_url, programs[]}` for the "weak internet" screen. |
+| `transcript` | `text`, `lang`, `intent`, `speaker?` | What the backend heard and who said it (anonymous Speaker N). |
+| `answer.text` | `text`, `lang`, `found`, `sources`, `timings`, `invented_numbers`, `kind?`, `promotional?` | The grounded answer as spoken (subtitles). It is sent when the answer is complete, so it can arrive after the first `answer.audio` pieces. `kind` says where the answer came from: `rag` (retrieved passages + language model), `faq` (an approved FAQ, no model), `pitch` (an approved promotional talking point), `place` (approved directions) or `offline`. |
+| `answer.audio` | `seq`, `last`, `text`, `mp3_b64`, `segment?` | One piece of speech as a whole mp3; play the pieces in arrival order. `segment` is set for explainer segments (show the scene of that segment when this audio starts). |
+| `answer.audio.start` | `seq`, `text`, `format`, `sample_rate` | A speech piece that is streamed while text-to-speech is still generating it (experimental, `TTS_STREAMING`; only for clients that sent `audio_stream` in `hello`). |
+| `answer.audio.chunk` | `seq`, `pcm16_b64` | Mono PCM16 little-endian, about 100 ms, whole samples. |
+| `answer.audio.end` | `seq`, `last` | End of a streamed piece (always sent after `answer.audio.start`, also after an error). |
+| `turn.timings` | `stt_ms?`, `retrieval_ms?`, `llm_ms?`, `llm_first_ms?`, `ack_ms?`, `tts_ms?`, `total_ms?` | Latency of the turn for the report: `ack_ms` = end of speech to the first audio of any kind (filler); `tts_ms` = `total_ms` = end of speech to the first audio of the answer; `llm_first_ms` = LLM request to the first speakable piece. |
+| `explainer.start` | `program`, `lang`, `total` | An approved program explainer begins (state EXPLAINING). |
+| `explainer.segment` | `index`, `total`, `scene` | The scene of one segment, sent immediately before the `answer.audio` of that segment (`segment: index`); show it when that audio starts. Scene types are in docs/PROTOCOL.md. |
+| `explainer.pause` | `next_index`, `total` | Sent after segment 3 when at least two more follow; the next audio asks whether to go on and the state becomes FOLLOW_UP. |
+| `explainer.end` | `reason` | The presentation is over; later audio belongs to the normal conversation. |
+| `interest.question` | `step`, `text`, `options` | "What do you like?": the screen shows the options as buttons; the visitor may also answer by voice. |
+| `interest.result` | `programs`, `text` | One or two suggested programs (approved mapping only; may be empty) and what the robot says; programs with `has_explainer` are tappable. |
+| `run.started` | `run_id`, `is_simulated` | Answer to `run.start` (stored in `robot_runs`). |
+| `run.ended` | `run_id`, `samples`, `events` | Answer to `run.end`: how many samples and events were stored. |
+| `robot.command` | `id`, `cmd`, `args?` | A REQUEST from the admin page (protocol 2 only). `id` is the command id; the robot answers `robot.command.ack` with the same id. `args` is used by `set_mode` (`{"mode": "..."}`). The robot decides locally whether and when to obey, and it must stay safe if this message never arrives. |
+| `error` | `code`, `message` | `stt_failed`, `tts_failed`, `unknown_type`, `bad_message`, `no_run` (telemetry before `run.start`), `no_explainer`, `no_interests`, `internal`. |
+<!-- END GENERATED backend-to-robot -->
+
+### Robot status and commands (version 2)
+```
+robot  → robot.status {state, battery_v, faults, sensors, pose, is_simulated, …}   about 1 Hz
+admin  → POST /api/admin/robot/command {cmd}          (button on the admin "Robot" tab, after a confirmation)
+backend→ robot.command {id, cmd, args?}               stored as event `command`
+robot  → robot.command.ack {id, accepted, reason?}    stored as event `command_ack`
+```
+- `cmd`: `start_roaming`, `pause`, `resume`, `return_to_start`, `set_mode` (with `args.mode`).
+- **A command is a request.** The robot refuses (`accepted: false` with a `reason`) whenever its own rules say so: a conversation is in progress, a fault is active, the battery is low, an obstacle blocks the way. The backend never assumes a command was carried out; the admin page shows the ack and then the state reported by `robot.status`.
+- No ack within `ROBOT_COMMAND_TIMEOUT_S` (5 s) is shown as "no answer"; the backend then knows nothing about what the robot did.
+- No robot connected (no `robot.status` for `ROBOT_OFFLINE_AFTER_S`, 5 s): nothing is sent and the admin shows "robot offline".
+- `robot.status.is_simulated` is required. A simulator (`simulate-robot`) is shown with a **SIMULATED** label everywhere.
+- An accepted `return_to_start` on a **real** run opens a return trial in the `pending` state. Its error is typed in by hand after measuring on the floor; simulated runs never get a return trial (rule 5).
+- `robot.status.state`: IDLE, ROAMING, ENGAGED (a visitor is detected), CONVERSATION, RETURNING, FAULT, PAUSED. `sensors` maps a sensor name to `ok`, `degraded`, `fault` or `absent`.
 
 ### `display.update.card` (optional; sent with found answers)
 | field | meaning |

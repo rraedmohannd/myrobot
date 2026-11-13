@@ -96,8 +96,55 @@ class Settings(BaseSettings):
     # "Today" in the admin analytics is a day in this time zone (the database stores UTC).
     local_timezone: str = "Asia/Amman"
 
+    # --- Robot control and LAN (sprint 3) ---
+    # A robot is "offline" when no robot.status arrived for this long; an unanswered command is
+    # reported as timed out after robot_command_timeout_s.
+    robot_offline_after_s: float = 5.0
+    robot_command_timeout_s: float = 5.0
+    # Peers in these networks may connect to /ws/robot without ROBOT_TOKEN (comma-separated
+    # CIDR). Default: this machine only. Under Docker Desktop the laptop's own browser does NOT
+    # count as local (it arrives through Docker's network), see docs/DEPLOY.md.
+    robot_local_nets: str = "127.0.0.1/32,::1/128"
+    # Address other devices use to reach this backend, e.g. http://192.168.1.20:8000 (for the QR
+    # on the admin page). Empty = the address the admin page itself was opened with.
+    public_base_url: str = ""
+
+    # --- FAQs (sprint 3): an approved FAQ answers before retrieval when the question matches ---
+    faq_match_threshold: float = Field(default=0.90, ge=0.5, le=1.0)  # cosine similarity
+
+    # --- Resilience (sprint 3): every provider call has a time limit, retries and a breaker ---
+    provider_timeout_embedding_s: float = 6.0
+    provider_timeout_stt_s: float = 12.0
+    provider_timeout_llm_first_s: float = 10.0  # until the first text of a streamed answer
+    provider_timeout_llm_s: float = 25.0  # whole answer
+    provider_timeout_tts_s: float = 12.0
+    provider_retries: int = Field(default=1, ge=0, le=3)  # extra attempts after a failure
+    provider_retry_backoff_s: float = 0.4  # doubled on each further attempt
+    breaker_failures: int = Field(default=3, ge=1)  # failures in a row that open the breaker
+    breaker_open_s: float = 30.0  # how long calls fail at once before one trial call is allowed
+    # Official faculty page shown as a QR when the internet is weak. Empty = the address of the
+    # approved faculty page in the sources table.
+    faculty_page_url: str = ""
+
+    # --- Privacy and admin login (sprint 3) ---
+    conversation_retention_days: int = Field(default=30, ge=1)
+    admin_session_hours: int = Field(default=12, ge=1)
+
     # Token for the admin API/page (sent as X-Admin-Token). Empty = admin API disabled.
     admin_token: SecretStr | None = None
+
+    @property
+    def robot_local_net_list(self) -> list:  # list[IPv4Network | IPv6Network]
+        import ipaddress
+
+        nets = []
+        for item in self.robot_local_nets.split(","):
+            if item.strip():
+                try:
+                    nets.append(ipaddress.ip_network(item.strip(), strict=False))
+                except ValueError:
+                    continue  # a typo must not open the door: the entry is ignored
+        return nets
 
     @property
     def cors_origin_list(self) -> list[str]:

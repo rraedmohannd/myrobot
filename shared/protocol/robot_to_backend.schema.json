@@ -1,0 +1,829 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "smart-campus-robot/protocol/v2/robot_to_backend.schema.json",
+  "title": "Smart Campus Robot protocol v2: robot to backend",
+  "$defs": {
+    "AudioChunk": {
+      "description": "Mono PCM16 little-endian, about 100 ms per chunk, sent only while the visitor speaks\n(VAD).",
+      "properties": {
+        "type": {
+          "const": "audio.chunk",
+          "default": "audio.chunk",
+          "title": "Type",
+          "type": "string"
+        },
+        "pcm16_b64": {
+          "title": "Pcm16 B64",
+          "type": "string"
+        },
+        "sample_rate": {
+          "default": 16000,
+          "title": "Sample Rate",
+          "type": "integer"
+        },
+        "seq": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Seq"
+        }
+      },
+      "required": [
+        "pcm16_b64"
+      ],
+      "title": "AudioChunk",
+      "type": "object"
+    },
+    "AudioEnd": {
+      "description": "VAD detected the end of speech (`vad_silence_ms` of silence, from `hello.ack`). The\ncamera adds the track id of the face whose lips moved and `overlap: true` when two or more\nfaces were talking (docs/SPEAKERS.md). No image or landmark is ever sent.",
+      "properties": {
+        "type": {
+          "const": "audio.end",
+          "default": "audio.end",
+          "title": "Type",
+          "type": "string"
+        },
+        "face_track_id": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Face Track Id"
+        },
+        "overlap": {
+          "anyOf": [
+            {
+              "type": "boolean"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Overlap"
+        }
+      },
+      "title": "AudioEnd",
+      "type": "object"
+    },
+    "ExplainerContinue": {
+      "description": "The \"continue\" button during the pause after segment 3.",
+      "properties": {
+        "type": {
+          "const": "explainer.continue",
+          "default": "explainer.continue",
+          "title": "Type",
+          "type": "string"
+        }
+      },
+      "title": "ExplainerContinue",
+      "type": "object"
+    },
+    "ExplainerStartRequest": {
+      "description": "A program button was tapped: play that program's approved explainer. Answer: the\nexplainer messages, or `error` `no_explainer`.",
+      "properties": {
+        "type": {
+          "const": "explainer.start",
+          "default": "explainer.start",
+          "title": "Type",
+          "type": "string"
+        },
+        "program": {
+          "description": "program slug",
+          "title": "Program",
+          "type": "string"
+        },
+        "lang": {
+          "anyOf": [
+            {
+              "enum": [
+                "ar",
+                "en"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Lang"
+        }
+      },
+      "required": [
+        "program"
+      ],
+      "title": "ExplainerStartRequest",
+      "type": "object"
+    },
+    "ExplainerStop": {
+      "description": "The stop button: the client already stopped the audio and emptied its queue.",
+      "properties": {
+        "type": {
+          "const": "explainer.stop",
+          "default": "explainer.stop",
+          "title": "Type",
+          "type": "string"
+        }
+      },
+      "title": "ExplainerStop",
+      "type": "object"
+    },
+    "Heartbeat": {
+      "description": "Every 5 s. The backend answers `heartbeat` at once, also while it is preparing an\nanswer.",
+      "properties": {
+        "type": {
+          "const": "heartbeat",
+          "default": "heartbeat",
+          "title": "Type",
+          "type": "string"
+        }
+      },
+      "title": "Heartbeat",
+      "type": "object"
+    },
+    "Hello": {
+      "description": "First message after connecting. `protocol_version` 1 (older clients, `/voice`) and 2 are\naccepted; version 2 clients may receive `robot.command`. `audio_stream: [\"pcm16\"]` = this\nclient can play answer speech sent as PCM chunks.",
+      "properties": {
+        "type": {
+          "const": "hello",
+          "default": "hello",
+          "title": "Type",
+          "type": "string"
+        },
+        "robot_id": {
+          "anyOf": [
+            {
+              "maxLength": 64,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Robot Id"
+        },
+        "fw_version": {
+          "anyOf": [
+            {
+              "maxLength": 64,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Fw Version"
+        },
+        "protocol_version": {
+          "default": 1,
+          "title": "Protocol Version",
+          "type": "integer"
+        },
+        "audio_stream": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Audio Stream",
+          "type": "array"
+        }
+      },
+      "title": "Hello",
+      "type": "object"
+    },
+    "InterestChoice": {
+      "description": "An interest button was tapped (`key` from `interest.question.options`; `none` = no second\ninterest).",
+      "properties": {
+        "type": {
+          "const": "interest.choice",
+          "default": "interest.choice",
+          "title": "Type",
+          "type": "string"
+        },
+        "key": {
+          "title": "Key",
+          "type": "string"
+        }
+      },
+      "required": [
+        "key"
+      ],
+      "title": "InterestChoice",
+      "type": "object"
+    },
+    "InterestStart": {
+      "description": "The \"help me choose\" button: start the interest questions (`error` `no_interests` when no\nmapping is approved).",
+      "properties": {
+        "type": {
+          "const": "interest.start",
+          "default": "interest.start",
+          "title": "Type",
+          "type": "string"
+        },
+        "lang": {
+          "anyOf": [
+            {
+              "enum": [
+                "ar",
+                "en"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Lang"
+        }
+      },
+      "title": "InterestStart",
+      "type": "object"
+    },
+    "ListenTimeout": {
+      "description": "Nobody spoke for `follow_up_timeout_s` after the robot finished talking. During the pause\nof an explainer this means \"go on\"; otherwise the robot says goodbye.",
+      "properties": {
+        "type": {
+          "const": "listen.timeout",
+          "default": "listen.timeout",
+          "title": "Type",
+          "type": "string"
+        }
+      },
+      "title": "ListenTimeout",
+      "type": "object"
+    },
+    "Pose": {
+      "description": "Pose estimate in the start frame of the current run.",
+      "properties": {
+        "x_m": {
+          "title": "X M",
+          "type": "number"
+        },
+        "y_m": {
+          "title": "Y M",
+          "type": "number"
+        },
+        "theta_rad": {
+          "title": "Theta Rad",
+          "type": "number"
+        }
+      },
+      "required": [
+        "x_m",
+        "y_m",
+        "theta_rad"
+      ],
+      "title": "Pose",
+      "type": "object"
+    },
+    "PoseSampleMessage": {
+      "description": "One pose sample: `t_ms` since run start, pose in the start frame (docs/ODOMETRY.md).",
+      "properties": {
+        "t_ms": {
+          "minimum": 0,
+          "title": "T Ms",
+          "type": "integer"
+        },
+        "x_m": {
+          "title": "X M",
+          "type": "number"
+        },
+        "y_m": {
+          "title": "Y M",
+          "type": "number"
+        },
+        "theta_rad": {
+          "title": "Theta Rad",
+          "type": "number"
+        },
+        "v_mps": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "V Mps"
+        },
+        "omega_rps": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Omega Rps"
+        },
+        "enc": {
+          "anyOf": [
+            {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Enc"
+        },
+        "imu": {
+          "anyOf": [
+            {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Imu"
+        },
+        "state": {
+          "anyOf": [
+            {
+              "maxLength": 32,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "State"
+        }
+      },
+      "required": [
+        "t_ms",
+        "x_m",
+        "y_m",
+        "theta_rad"
+      ],
+      "title": "PoseSampleMessage",
+      "type": "object"
+    },
+    "RobotCommandAck": {
+      "description": "The robot's answer to `robot.command` with the same `id`. `accepted: false` is a normal\nanswer: the robot refuses while it is in a conversation, in a fault state, when the battery\nis low, or whenever its own safety rules say so. `reason` says why.",
+      "properties": {
+        "type": {
+          "const": "robot.command.ack",
+          "default": "robot.command.ack",
+          "title": "Type",
+          "type": "string"
+        },
+        "id": {
+          "maxLength": 64,
+          "minLength": 1,
+          "title": "Id",
+          "type": "string"
+        },
+        "accepted": {
+          "title": "Accepted",
+          "type": "boolean"
+        },
+        "reason": {
+          "anyOf": [
+            {
+              "maxLength": 200,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Reason"
+        }
+      },
+      "required": [
+        "id",
+        "accepted"
+      ],
+      "title": "RobotCommandAck",
+      "type": "object"
+    },
+    "RobotStatus": {
+      "description": "Live status, about once per second (protocol 2). `sensors` maps a sensor name (encoders,\nimu, ultrasonic, camera, microphone, ...) to `ok` / `degraded` / `fault` / `absent`.\n`is_simulated` is required: a simulator must say so, and the admin shows a SIMULATED label.\nThe backend only displays this; it never drives the robot from it.",
+      "properties": {
+        "type": {
+          "const": "robot.status",
+          "default": "robot.status",
+          "title": "Type",
+          "type": "string"
+        },
+        "state": {
+          "enum": [
+            "IDLE",
+            "ROAMING",
+            "ENGAGED",
+            "CONVERSATION",
+            "RETURNING",
+            "FAULT",
+            "PAUSED"
+          ],
+          "title": "State",
+          "type": "string"
+        },
+        "is_simulated": {
+          "title": "Is Simulated",
+          "type": "boolean"
+        },
+        "battery_v": {
+          "anyOf": [
+            {
+              "maximum": 60,
+              "minimum": 0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Battery V"
+        },
+        "battery_pct": {
+          "anyOf": [
+            {
+              "maximum": 100,
+              "minimum": 0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Battery Pct"
+        },
+        "faults": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Faults",
+          "type": "array"
+        },
+        "sensors": {
+          "additionalProperties": {
+            "enum": [
+              "ok",
+              "degraded",
+              "fault",
+              "absent"
+            ],
+            "type": "string"
+          },
+          "title": "Sensors",
+          "type": "object"
+        },
+        "pose": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Pose"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "run_id": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Run Id"
+        },
+        "mode": {
+          "anyOf": [
+            {
+              "maxLength": 32,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Mode"
+        }
+      },
+      "required": [
+        "state",
+        "is_simulated"
+      ],
+      "title": "RobotStatus",
+      "type": "object"
+    },
+    "RunEnd": {
+      "description": "The run is finished; the backend answers `run.ended`.",
+      "properties": {
+        "type": {
+          "const": "run.end",
+          "default": "run.end",
+          "title": "Type",
+          "type": "string"
+        }
+      },
+      "title": "RunEnd",
+      "type": "object"
+    },
+    "RunEvent": {
+      "description": "Something happened during the run: `obstacle`, `return_start`, `return_blocked`,\n`return_done`, `return_failed`, `estop`, `comm_loss`, `slip`, ...",
+      "properties": {
+        "type": {
+          "const": "event",
+          "default": "event",
+          "title": "Type",
+          "type": "string"
+        },
+        "t_ms": {
+          "minimum": 0,
+          "title": "T Ms",
+          "type": "integer"
+        },
+        "kind": {
+          "maxLength": 32,
+          "minLength": 1,
+          "title": "Kind",
+          "type": "string"
+        },
+        "data": {
+          "anyOf": [
+            {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Data"
+        }
+      },
+      "required": [
+        "t_ms",
+        "kind"
+      ],
+      "title": "RunEvent",
+      "type": "object"
+    },
+    "RunStart": {
+      "description": "A robot run begins (roaming, return-to-start); the backend answers `run.started`.\n`is_simulated` is required: every run must say whether it is a simulation.",
+      "properties": {
+        "type": {
+          "const": "run.start",
+          "default": "run.start",
+          "title": "Type",
+          "type": "string"
+        },
+        "is_simulated": {
+          "title": "Is Simulated",
+          "type": "boolean"
+        },
+        "odom_config": {
+          "anyOf": [
+            {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Odom Config"
+        },
+        "notes": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Notes"
+        }
+      },
+      "required": [
+        "is_simulated"
+      ],
+      "title": "RunStart",
+      "type": "object"
+    },
+    "SessionEnd": {
+      "description": "The visitor left or the robot ended the conversation.",
+      "properties": {
+        "type": {
+          "const": "session.end",
+          "default": "session.end",
+          "title": "Type",
+          "type": "string"
+        },
+        "reason": {
+          "anyOf": [
+            {
+              "enum": [
+                "user_done",
+                "lost_face",
+                "timeout"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Reason"
+        }
+      },
+      "title": "SessionEnd",
+      "type": "object"
+    },
+    "SessionStart": {
+      "description": "A visitor is engaging (face detected, or the start button). The backend greets.",
+      "properties": {
+        "type": {
+          "const": "session.start",
+          "default": "session.start",
+          "title": "Type",
+          "type": "string"
+        },
+        "lang": {
+          "anyOf": [
+            {
+              "enum": [
+                "ar",
+                "en"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Lang"
+        }
+      },
+      "title": "SessionStart",
+      "type": "object"
+    },
+    "Telemetry": {
+      "description": "Batched pose samples (at most 1000 per message; about 10 Hz is enough for the plot).",
+      "properties": {
+        "type": {
+          "const": "telemetry",
+          "default": "telemetry",
+          "title": "Type",
+          "type": "string"
+        },
+        "samples": {
+          "items": {
+            "$ref": "#/$defs/PoseSampleMessage"
+          },
+          "title": "Samples",
+          "type": "array"
+        }
+      },
+      "required": [
+        "samples"
+      ],
+      "title": "Telemetry",
+      "type": "object"
+    },
+    "TextInput": {
+      "description": "A typed question (testing, or the keyboard fallback). Starts a conversation without the\ngreeting if none is active.",
+      "properties": {
+        "type": {
+          "const": "text.input",
+          "default": "text.input",
+          "title": "Type",
+          "type": "string"
+        },
+        "text": {
+          "title": "Text",
+          "type": "string"
+        }
+      },
+      "required": [
+        "text"
+      ],
+      "title": "TextInput",
+      "type": "object"
+    }
+  },
+  "discriminator": {
+    "mapping": {
+      "audio.chunk": "#/$defs/AudioChunk",
+      "audio.end": "#/$defs/AudioEnd",
+      "event": "#/$defs/RunEvent",
+      "explainer.continue": "#/$defs/ExplainerContinue",
+      "explainer.start": "#/$defs/ExplainerStartRequest",
+      "explainer.stop": "#/$defs/ExplainerStop",
+      "heartbeat": "#/$defs/Heartbeat",
+      "hello": "#/$defs/Hello",
+      "interest.choice": "#/$defs/InterestChoice",
+      "interest.start": "#/$defs/InterestStart",
+      "listen.timeout": "#/$defs/ListenTimeout",
+      "robot.command.ack": "#/$defs/RobotCommandAck",
+      "robot.status": "#/$defs/RobotStatus",
+      "run.end": "#/$defs/RunEnd",
+      "run.start": "#/$defs/RunStart",
+      "session.end": "#/$defs/SessionEnd",
+      "session.start": "#/$defs/SessionStart",
+      "telemetry": "#/$defs/Telemetry",
+      "text.input": "#/$defs/TextInput"
+    },
+    "propertyName": "type"
+  },
+  "oneOf": [
+    {
+      "$ref": "#/$defs/Hello"
+    },
+    {
+      "$ref": "#/$defs/Heartbeat"
+    },
+    {
+      "$ref": "#/$defs/SessionStart"
+    },
+    {
+      "$ref": "#/$defs/AudioChunk"
+    },
+    {
+      "$ref": "#/$defs/AudioEnd"
+    },
+    {
+      "$ref": "#/$defs/TextInput"
+    },
+    {
+      "$ref": "#/$defs/ListenTimeout"
+    },
+    {
+      "$ref": "#/$defs/SessionEnd"
+    },
+    {
+      "$ref": "#/$defs/ExplainerStartRequest"
+    },
+    {
+      "$ref": "#/$defs/ExplainerContinue"
+    },
+    {
+      "$ref": "#/$defs/ExplainerStop"
+    },
+    {
+      "$ref": "#/$defs/InterestStart"
+    },
+    {
+      "$ref": "#/$defs/InterestChoice"
+    },
+    {
+      "$ref": "#/$defs/RunStart"
+    },
+    {
+      "$ref": "#/$defs/Telemetry"
+    },
+    {
+      "$ref": "#/$defs/RunEvent"
+    },
+    {
+      "$ref": "#/$defs/RunEnd"
+    },
+    {
+      "$ref": "#/$defs/RobotStatus"
+    },
+    {
+      "$ref": "#/$defs/RobotCommandAck"
+    }
+  ]
+}

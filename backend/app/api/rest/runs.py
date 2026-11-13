@@ -34,6 +34,7 @@ def _trial(t: ReturnTrial) -> dict[str, Any]:
         "id": t.id, "run_id": t.run_id, "measured_err_m": t.measured_err_m,
         "measured_heading_err_deg": t.measured_heading_err_deg, "success": t.success,
         "odom_end_x": t.odom_end_x, "odom_end_y": t.odom_end_y, "notes": t.notes,
+        "status": t.status, "command_id": t.command_id,
     }  # fmt: skip
 
 
@@ -121,7 +122,7 @@ async def return_trial_stats(session: SessionDep) -> dict[str, Any]:
         await session.scalars(
             select(ReturnTrial)
             .join(RobotRun, RobotRun.id == ReturnTrial.run_id)
-            .where(RobotRun.is_simulated.is_(False))
+            .where(RobotRun.is_simulated.is_(False), ReturnTrial.status == "measured")
             .order_by(ReturnTrial.id)
         )
     ).all()

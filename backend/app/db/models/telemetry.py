@@ -8,6 +8,7 @@ from datetime import datetime
 from sqlalchemy import (
     BigInteger,
     Boolean,
+    CheckConstraint,
     DateTime,
     Float,
     ForeignKey,
@@ -19,7 +20,7 @@ from sqlalchemy import (
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, mapped_column
 
-from app.db.base import Base, created_at_column
+from app.db.base import Base, created_at_column, in_values
 
 
 class RobotRun(Base):
@@ -51,22 +52,29 @@ class PoseSample(Base):
 
 
 class Event(Base):
-    """kind examples: obstacle, return_start, return_done, return_failed, estop, comm_loss."""
+    """kind examples: obstacle, return_start, return_done, return_failed, estop, comm_loss, and
+    `command` / `command_ack` for requests sent from the admin page."""
 
     __tablename__ = "events"
     __table_args__ = (Index("ix_events_run_t", "run_id", "t_ms"),)
 
     id: Mapped[int] = mapped_column(BigInteger, primary_key=True)
-    run_id: Mapped[int] = mapped_column(ForeignKey("robot_runs.id", ondelete="CASCADE"))
+    # NULL for events outside a run: `command` / `command_ack` sent while no run is open.
+    run_id: Mapped[int | None] = mapped_column(ForeignKey("robot_runs.id", ondelete="CASCADE"))
     t_ms: Mapped[int] = mapped_column(BigInteger)
     kind: Mapped[str] = mapped_column(String(32))
     data: Mapped[dict | None] = mapped_column(JSONB)
+    created_at: Mapped[datetime] = created_at_column()
+
+
+RETURN_TRIAL_STATUSES = ("pending", "measured")
 
 
 class ReturnTrial(Base):
     """Return-to-origin trial; measured_* values are taken with a tape on the floor."""
 
     __tablename__ = "return_trials"
+    __table_args__ = (CheckConstraint(in_values("status", RETURN_TRIAL_STATUSES), name="status"),)
 
     id: Mapped[int] = mapped_column(primary_key=True)
     run_id: Mapped[int] = mapped_column(ForeignKey("robot_runs.id", ondelete="CASCADE"))
@@ -76,3 +84,8 @@ class ReturnTrial(Base):
     measured_heading_err_deg: Mapped[float | None] = mapped_column(Float)
     success: Mapped[bool | None] = mapped_column(Boolean)
     notes: Mapped[str | None] = mapped_column(Text)
+    # pending = opened by an accepted return_to_start command, waiting for the tape measurement;
+    # measured = the physical result was typed in. Statistics only use measured trials.
+    status: Mapped[str] = mapped_column(String(16), server_default=text("'measured'"))
+    command_id: Mapped[str | None] = mapped_column(String(64))
+    created_at: Mapped[datetime] = created_at_column()

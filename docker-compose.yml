@@ -28,6 +28,9 @@ services:
       - "8000:8000"
     volumes:
       - ./backend:/app # live code: edits on the laptop are seen by the container
+      - ./shared:/shared # robot <-> backend protocol package (also installed on the Pi)
+      - ./reports:/reports # figures and CSVs written by `export-report` (git-ignored)
+      - ./docs:/docs # docs/PROTOCOL.md tables are generated from the protocol package
     depends_on:
       db:
         condition: service_healthy

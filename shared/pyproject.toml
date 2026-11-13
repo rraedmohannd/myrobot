@@ -1,0 +1,18 @@
+[project]
+name = "smart-campus-protocol"
+version = "2.0.0"
+description = "Robot <-> backend WebSocket message contract of the MEU reception robot (protocol version 2)"
+requires-python = ">=3.11"
+dependencies = [
+    "pydantic>=2.9,<3.0",
+]
+
+[build-system]
+requires = ["setuptools>=70"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+include = ["scr_protocol*"]
+
+[tool.setuptools.package-data]
+scr_protocol = ["py.typed"]

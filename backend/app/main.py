@@ -8,7 +8,7 @@ from fastapi.staticfiles import StaticFiles
 from starlette.responses import Response
 
 from app import __version__
-from app.api.rest import admin, analytics, chat, explainers, health, media, runs, voice
+from app.api.rest import admin, analytics, chat, explainers, health, media, robot as robot_api, runs, voice
 from app.api.rest.voice import STATIC_DIR
 from app.api.ws import robot
 from app.core.config import get_settings
@@ -50,6 +50,7 @@ def create_app() -> FastAPI:
     app.include_router(media.router)
     app.include_router(media.public_router)
     app.include_router(runs.router)
+    app.include_router(robot_api.router)
     app.include_router(explainers.router)
     app.include_router(explainers.public_router)
     app.include_router(chat.router)

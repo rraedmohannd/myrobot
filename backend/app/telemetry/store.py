@@ -110,7 +110,7 @@ async def add_return_trial(session: AsyncSession, run_id: int, trial: ReturnTria
             "This run is SIMULATED. Return trials are physical tape measurements and can only "
             "be entered for real runs.",
         )
-    row = ReturnTrial(run_id=run_id, **trial.model_dump())
+    row = ReturnTrial(run_id=run_id, status="measured", **trial.model_dump())
     session.add(row)
     await session.commit()
     await session.refresh(row)
@@ -123,7 +123,9 @@ class TelemetryRecorder:
     TYPES = ("run.start", "telemetry", "event", "run.end")
 
     def __init__(self, send: Any, sessionmaker: async_sessionmaker[AsyncSession]) -> None:
-        self.send = send
+        from app.api.ws.contract import checked
+
+        self.send = checked(send)
         self.sessionmaker = sessionmaker
         self.run_id: int | None = None
 

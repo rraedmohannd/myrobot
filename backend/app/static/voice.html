@@ -74,7 +74,8 @@ const FACES = { idle:"🙂", attentive:"😃", listening:"👂", processing:"�
 const HINTS = { speak:"احكي هلأ…", hearing:"عم بسمعك…", thinking:"عم بفكّر…", robot:"الروبوت عم يحكي…", "":"" };
 const $ = id => document.getElementById(id);
 let turnNo = 0;
-const client = new RobotClient({ robotId:"laptop-browser", fwVersion:"voice-page-2", sensitivity: () => parseFloat($("sens").value) });
+const client = new RobotClient({ robotId:"laptop-browser", fwVersion:"voice-page-2", protocolVersion: 1,   // kept on version 1 on purpose: the backend must keep accepting old clients
+  sensitivity: () => parseFloat($("sens").value) });
 
 function log(who, text) {
   const d = document.createElement("div"); d.dir = "auto";

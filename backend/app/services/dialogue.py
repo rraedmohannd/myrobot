@@ -21,6 +21,7 @@ from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from typing import Any
 
+from scr_protocol import PROTOCOL_VERSION, negotiate_version
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
@@ -47,7 +48,6 @@ from app.services.speech import (
     split_for_speech,
 )
 
-PROTOCOL_VERSION = 1
 
 PHRASES: dict[str, dict[str, str]] = {
     "greeting": {
@@ -234,9 +234,15 @@ class DialogueManager:
     media_turn: int = 0
     robot_run_id: int | None = None  # set by /ws/robot while a robot run is being recorded
     audio_stream: bool = False  # the client said in `hello` that it can play PCM chunks
+    protocol_version: int = 1  # negotiated in `hello` (the backend speaks up to PROTOCOL_VERSION)
     explainer: ExplainerRun | None = None  # paused or running program presentation
     interest: InterestFlow | None = None  # running "what do you like?" questions
     _warm_up: asyncio.Task[None] | None = None
+
+    def __post_init__(self) -> None:
+        from app.api.ws.contract import checked
+
+        self.send = checked(self.send)  # in tests: every outgoing message must be in the contract
 
     # ---------- plumbing ----------
     async def _set_state(self, state: str) -> None:
@@ -297,8 +303,10 @@ class DialogueManager:
         if kind == "hello":
             formats = msg.get("audio_stream")
             self.audio_stream = isinstance(formats, list) and "pcm16" in formats
+            # an old client (version 1, e.g. /voice) keeps working; it just gets no robot.command
+            self.protocol_version = negotiate_version(msg.get("protocol_version"))
             await self.send({
-                "type": "hello.ack", "protocol_version": PROTOCOL_VERSION,
+                "type": "hello.ack", "protocol_version": self.protocol_version,
                 "follow_up_timeout_s": get_settings().follow_up_timeout_s,
                 "max_utterance_s": get_settings().max_utterance_s,
                 "speech_rate": get_settings().speech_rate,
@@ -665,7 +673,15 @@ class DialogueManager:
         """A program button was tapped on the screen."""
         await self._ensure_session(lang)
         self.interest = None
+        if lang in ("ar", "en"):
+            self.lang = lang  # the button says which language it offered
         playable = await self._playable(slug)
+        if playable is None:  # a tap should not fail because the last question was in English
+            other = "en" if self.lang == "ar" else "ar"
+            async with self.sessionmaker() as db:
+                playable = await ex.load_playable(db, slug, other)
+            if playable is not None:
+                self.lang = other
         if playable is None:  # the screen only offers approved explainers; this is a stale button
             self.explainer = None
             await self.send({"type": "error", "code": "no_explainer",

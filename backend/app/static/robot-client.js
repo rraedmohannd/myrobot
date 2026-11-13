@@ -32,6 +32,7 @@
         sensitivity: () => 3,     // VAD threshold = noise floor x this
         audioEndExtra: () => ({}),// extra fields for audio.end (face_track_id, overlap)
         tagAudio: () => null,     // value attached to each queued audio piece (e.g. display mode)
+        protocolVersion: 2,       // shared/scr_protocol; version 1 clients are still accepted
         audioStream: true,        // accept answer speech as PCM chunks (answer.audio.start/chunk/end)
       }, options || {});
       this.handlers = {};
@@ -68,7 +69,7 @@
         ws.onopen = () => {
           this.connecting = null; this.lastSeen = performance.now();
           this.emit("conn", "open");
-          this.send({type: "hello", robot_id: this.o.robotId, fw_version: this.o.fwVersion, protocol_version: 1,
+          this.send({type: "hello", robot_id: this.o.robotId, fw_version: this.o.fwVersion, protocol_version: this.o.protocolVersion,
                      audio_stream: this.o.audioStream ? ["pcm16"] : []});
           this._startHeartbeat();
           resolve(true);

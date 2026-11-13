@@ -10,3 +10,5 @@ dist/
 backend/debug_page.html
 backend/data/tts_cache/
 backend/data/media/
+reports/
+backups/

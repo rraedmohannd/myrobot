@@ -1,0 +1,1672 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "smart-campus-robot/protocol/v2/backend_to_robot.schema.json",
+  "title": "Smart Campus Robot protocol v2: backend to robot",
+  "$defs": {
+    "AnswerAudio": {
+      "additionalProperties": false,
+      "description": "One piece of speech as a whole mp3; play the pieces in arrival order. `segment` is set for\nexplainer segments (show the scene of that segment when this audio starts).",
+      "properties": {
+        "id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "message id, 12 hex chars (added on send)",
+          "title": "Id"
+        },
+        "ts": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Unix time in ms (added on send)",
+          "title": "Ts"
+        },
+        "type": {
+          "const": "answer.audio",
+          "default": "answer.audio",
+          "title": "Type",
+          "type": "string"
+        },
+        "seq": {
+          "title": "Seq",
+          "type": "integer"
+        },
+        "last": {
+          "title": "Last",
+          "type": "boolean"
+        },
+        "text": {
+          "title": "Text",
+          "type": "string"
+        },
+        "mp3_b64": {
+          "title": "Mp3 B64",
+          "type": "string"
+        },
+        "segment": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Segment"
+        }
+      },
+      "required": [
+        "seq",
+        "last",
+        "text",
+        "mp3_b64"
+      ],
+      "title": "AnswerAudio",
+      "type": "object"
+    },
+    "AnswerAudioChunk": {
+      "additionalProperties": false,
+      "description": "Mono PCM16 little-endian, about 100 ms, whole samples.",
+      "properties": {
+        "id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "message id, 12 hex chars (added on send)",
+          "title": "Id"
+        },
+        "ts": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Unix time in ms (added on send)",
+          "title": "Ts"
+        },
+        "type": {
+          "const": "answer.audio.chunk",
+          "default": "answer.audio.chunk",
+          "title": "Type",
+          "type": "string"
+        },
+        "seq": {
+          "title": "Seq",
+          "type": "integer"
+        },
+        "pcm16_b64": {
+          "title": "Pcm16 B64",
+          "type": "string"
+        }
+      },
+      "required": [
+        "seq",
+        "pcm16_b64"
+      ],
+      "title": "AnswerAudioChunk",
+      "type": "object"
+    },
+    "AnswerAudioEnd": {
+      "additionalProperties": false,
+      "description": "End of a streamed piece (always sent after `answer.audio.start`, also after an error).",
+      "properties": {
+        "id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "message id, 12 hex chars (added on send)",
+          "title": "Id"
+        },
+        "ts": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Unix time in ms (added on send)",
+          "title": "Ts"
+        },
+        "type": {
+          "const": "answer.audio.end",
+          "default": "answer.audio.end",
+          "title": "Type",
+          "type": "string"
+        },
+        "seq": {
+          "title": "Seq",
+          "type": "integer"
+        },
+        "last": {
+          "title": "Last",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "seq",
+        "last"
+      ],
+      "title": "AnswerAudioEnd",
+      "type": "object"
+    },
+    "AnswerAudioStart": {
+      "additionalProperties": false,
+      "description": "A speech piece that is streamed while text-to-speech is still generating it\n(experimental, `TTS_STREAMING`; only for clients that sent `audio_stream` in `hello`).",
+      "properties": {
+        "id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "message id, 12 hex chars (added on send)",
+          "title": "Id"
+        },
+        "ts": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Unix time in ms (added on send)",
+          "title": "Ts"
+        },
+        "type": {
+          "const": "answer.audio.start",
+          "default": "answer.audio.start",
+          "title": "Type",
+          "type": "string"
+        },
+        "seq": {
+          "title": "Seq",
+          "type": "integer"
+        },
+        "text": {
+          "title": "Text",
+          "type": "string"
+        },
+        "format": {
+          "const": "pcm16",
+          "title": "Format",
+          "type": "string"
+        },
+        "sample_rate": {
+          "title": "Sample Rate",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "seq",
+        "text",
+        "format",
+        "sample_rate"
+      ],
+      "title": "AnswerAudioStart",
+      "type": "object"
+    },
+    "AnswerSource": {
+      "additionalProperties": false,
+      "properties": {
+        "n": {
+          "title": "N",
+          "type": "integer"
+        },
+        "title": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Title"
+        },
+        "url": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Url"
+        }
+      },
+      "required": [
+        "n"
+      ],
+      "title": "AnswerSource",
+      "type": "object"
+    },
+    "AnswerText": {
+      "additionalProperties": false,
+      "description": "The grounded answer as spoken (subtitles). It is sent when the answer is complete, so it\ncan arrive after the first `answer.audio` pieces. `kind` says where the answer came from:\n`rag` (retrieved passages + language model), `faq` (an approved FAQ, no model), `pitch` (an\napproved promotional talking point), `place` (approved directions) or `offline`.",
+      "properties": {
+        "id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "message id, 12 hex chars (added on send)",
+          "title": "Id"
+        },
+        "ts": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Unix time in ms (added on send)",
+          "title": "Ts"
+        },
+        "type": {
+          "const": "answer.text",
+          "default": "answer.text",
+          "title": "Type",
+          "type": "string"
+        },
+        "text": {
+          "title": "Text",
+          "type": "string"
+        },
+        "lang": {
+          "title": "Lang",
+          "type": "string"
+        },
+        "found": {
+          "title": "Found",
+          "type": "boolean"
+        },
+        "sources": {
+          "items": {
+            "$ref": "#/$defs/AnswerSource"
+          },
+          "title": "Sources",
+          "type": "array"
+        },
+        "timings": {
+          "additionalProperties": {
+            "type": "integer"
+          },
+          "title": "Timings",
+          "type": "object"
+        },
+        "invented_numbers": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Invented Numbers",
+          "type": "array"
+        },
+        "kind": {
+          "default": "rag",
+          "title": "Kind",
+          "type": "string"
+        },
+        "promotional": {
+          "default": false,
+          "title": "Promotional",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "text",
+        "lang",
+        "found",
+        "sources",
+        "timings",
+        "invented_numbers"
+      ],
+      "title": "AnswerText",
+      "type": "object"
+    },
+    "DialogueState": {
+      "additionalProperties": false,
+      "description": "The robot may listen only in LISTENING / FOLLOW_UP, and only after all queued audio has\nfinished playing.",
+      "properties": {
+        "id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "message id, 12 hex chars (added on send)",
+          "title": "Id"
+        },
+        "ts": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Unix time in ms (added on send)",
+          "title": "Ts"
+        },
+        "type": {
+          "const": "dialogue.state",
+          "default": "dialogue.state",
+          "title": "Type",
+          "type": "string"
+        },
+        "state": {
+          "enum": [
+            "IDLE",
+            "GREETING",
+            "LISTENING",
+            "ANSWERING",
+            "EXPLAINING",
+            "FOLLOW_UP",
+            "CLOSING"
+          ],
+          "title": "State",
+          "type": "string"
+        }
+      },
+      "required": [
+        "state"
+      ],
+      "title": "DialogueState",
+      "type": "object"
+    },
+    "DisplayUpdate": {
+      "additionalProperties": false,
+      "description": "Screen content. `card` (title, lines, sources, media, qr) is described in\ndocs/PROTOCOL.md; `speaker_label` = the visitor being answered; `offline` is set when a\nprovider is unreachable: `{qr_url, programs[]}` for the \"weak internet\" screen.",
+      "properties": {
+        "id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "message id, 12 hex chars (added on send)",
+          "title": "Id"
+        },
+        "ts": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Unix time in ms (added on send)",
+          "title": "Ts"
+        },
+        "type": {
+          "const": "display.update",
+          "default": "display.update",
+          "title": "Type",
+          "type": "string"
+        },
+        "mode": {
+          "enum": [
+            "idle",
+            "attentive",
+            "listening",
+            "processing",
+            "answering",
+            "finished",
+            "unavailable"
+          ],
+          "title": "Mode",
+          "type": "string"
+        },
+        "subtitle": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Subtitle"
+        },
+        "card": {
+          "anyOf": [
+            {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Card"
+        },
+        "speaker_label": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Speaker Label"
+        },
+        "offline": {
+          "anyOf": [
+            {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Offline"
+        }
+      },
+      "required": [
+        "mode"
+      ],
+      "title": "DisplayUpdate",
+      "type": "object"
+    },
+    "ErrorMessage": {
+      "additionalProperties": false,
+      "description": "`stt_failed`, `tts_failed`, `unknown_type`, `bad_message`, `no_run` (telemetry before\n`run.start`), `no_explainer`, `no_interests`, `internal`.",
+      "properties": {
+        "id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "message id, 12 hex chars (added on send)",
+          "title": "Id"
+        },
+        "ts": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Unix time in ms (added on send)",
+          "title": "Ts"
+        },
+        "type": {
+          "const": "error",
+          "default": "error",
+          "title": "Type",
+          "type": "string"
+        },
+        "code": {
+          "title": "Code",
+          "type": "string"
+        },
+        "message": {
+          "title": "Message",
+          "type": "string"
+        }
+      },
+      "required": [
+        "code",
+        "message"
+      ],
+      "title": "ErrorMessage",
+      "type": "object"
+    },
+    "ExplainerEnd": {
+      "additionalProperties": false,
+      "description": "The presentation is over; later audio belongs to the normal conversation.",
+      "properties": {
+        "id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "message id, 12 hex chars (added on send)",
+          "title": "Id"
+        },
+        "ts": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Unix time in ms (added on send)",
+          "title": "Ts"
+        },
+        "type": {
+          "const": "explainer.end",
+          "default": "explainer.end",
+          "title": "Type",
+          "type": "string"
+        },
+        "reason": {
+          "enum": [
+            "finished",
+            "stopped",
+            "question"
+          ],
+          "title": "Reason",
+          "type": "string"
+        }
+      },
+      "required": [
+        "reason"
+      ],
+      "title": "ExplainerEnd",
+      "type": "object"
+    },
+    "ExplainerPause": {
+      "additionalProperties": false,
+      "description": "Sent after segment 3 when at least two more follow; the next audio asks whether to go on\nand the state becomes FOLLOW_UP.",
+      "properties": {
+        "id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "message id, 12 hex chars (added on send)",
+          "title": "Id"
+        },
+        "ts": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Unix time in ms (added on send)",
+          "title": "Ts"
+        },
+        "type": {
+          "const": "explainer.pause",
+          "default": "explainer.pause",
+          "title": "Type",
+          "type": "string"
+        },
+        "next_index": {
+          "title": "Next Index",
+          "type": "integer"
+        },
+        "total": {
+          "title": "Total",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "next_index",
+        "total"
+      ],
+      "title": "ExplainerPause",
+      "type": "object"
+    },
+    "ExplainerSegment": {
+      "additionalProperties": false,
+      "description": "The scene of one segment, sent immediately before the `answer.audio` of that segment\n(`segment: index`); show it when that audio starts. Scene types are in docs/PROTOCOL.md.",
+      "properties": {
+        "id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "message id, 12 hex chars (added on send)",
+          "title": "Id"
+        },
+        "ts": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Unix time in ms (added on send)",
+          "title": "Ts"
+        },
+        "type": {
+          "const": "explainer.segment",
+          "default": "explainer.segment",
+          "title": "Type",
+          "type": "string"
+        },
+        "index": {
+          "title": "Index",
+          "type": "integer"
+        },
+        "total": {
+          "title": "Total",
+          "type": "integer"
+        },
+        "scene": {
+          "additionalProperties": true,
+          "title": "Scene",
+          "type": "object"
+        }
+      },
+      "required": [
+        "index",
+        "total",
+        "scene"
+      ],
+      "title": "ExplainerSegment",
+      "type": "object"
+    },
+    "ExplainerStart": {
+      "additionalProperties": false,
+      "description": "An approved program explainer begins (state EXPLAINING).",
+      "properties": {
+        "id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "message id, 12 hex chars (added on send)",
+          "title": "Id"
+        },
+        "ts": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Unix time in ms (added on send)",
+          "title": "Ts"
+        },
+        "type": {
+          "const": "explainer.start",
+          "default": "explainer.start",
+          "title": "Type",
+          "type": "string"
+        },
+        "program": {
+          "$ref": "#/$defs/ProgramRef"
+        },
+        "lang": {
+          "title": "Lang",
+          "type": "string"
+        },
+        "total": {
+          "title": "Total",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "program",
+        "lang",
+        "total"
+      ],
+      "title": "ExplainerStart",
+      "type": "object"
+    },
+    "HeartbeatReply": {
+      "additionalProperties": false,
+      "description": "Reply to `heartbeat`.",
+      "properties": {
+        "id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "message id, 12 hex chars (added on send)",
+          "title": "Id"
+        },
+        "ts": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Unix time in ms (added on send)",
+          "title": "Ts"
+        },
+        "type": {
+          "const": "heartbeat",
+          "default": "heartbeat",
+          "title": "Type",
+          "type": "string"
+        }
+      },
+      "title": "HeartbeatReply",
+      "type": "object"
+    },
+    "HelloAck": {
+      "additionalProperties": false,
+      "description": "Settings for the client. `protocol_version` is the version the backend will speak on this\nconnection (the lower of the client's and its own). `speech_rate` is a playback rate for all\nrobot speech (pitch preserved); `vad_silence_ms` is the silence that ends an utterance;\n`audio_stream` says whether answers will arrive as PCM chunks.",
+      "properties": {
+        "id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "message id, 12 hex chars (added on send)",
+          "title": "Id"
+        },
+        "ts": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Unix time in ms (added on send)",
+          "title": "Ts"
+        },
+        "type": {
+          "const": "hello.ack",
+          "default": "hello.ack",
+          "title": "Type",
+          "type": "string"
+        },
+        "protocol_version": {
+          "title": "Protocol Version",
+          "type": "integer"
+        },
+        "follow_up_timeout_s": {
+          "title": "Follow Up Timeout S",
+          "type": "integer"
+        },
+        "max_utterance_s": {
+          "title": "Max Utterance S",
+          "type": "integer"
+        },
+        "speech_rate": {
+          "title": "Speech Rate",
+          "type": "number"
+        },
+        "vad_silence_ms": {
+          "title": "Vad Silence Ms",
+          "type": "integer"
+        },
+        "audio_stream": {
+          "title": "Audio Stream",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "protocol_version",
+        "follow_up_timeout_s",
+        "max_utterance_s",
+        "speech_rate",
+        "vad_silence_ms",
+        "audio_stream"
+      ],
+      "title": "HelloAck",
+      "type": "object"
+    },
+    "InterestQuestion": {
+      "additionalProperties": false,
+      "description": "\"What do you like?\": the screen shows the options as buttons; the visitor may also answer\nby voice.",
+      "properties": {
+        "id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "message id, 12 hex chars (added on send)",
+          "title": "Id"
+        },
+        "ts": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Unix time in ms (added on send)",
+          "title": "Ts"
+        },
+        "type": {
+          "const": "interest.question",
+          "default": "interest.question",
+          "title": "Type",
+          "type": "string"
+        },
+        "step": {
+          "title": "Step",
+          "type": "integer"
+        },
+        "text": {
+          "title": "Text",
+          "type": "string"
+        },
+        "options": {
+          "items": {
+            "$ref": "#/$defs/Option"
+          },
+          "title": "Options",
+          "type": "array"
+        }
+      },
+      "required": [
+        "step",
+        "text",
+        "options"
+      ],
+      "title": "InterestQuestion",
+      "type": "object"
+    },
+    "InterestResult": {
+      "additionalProperties": false,
+      "description": "One or two suggested programs (approved mapping only; may be empty) and what the robot\nsays; programs with `has_explainer` are tappable.",
+      "properties": {
+        "id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "message id, 12 hex chars (added on send)",
+          "title": "Id"
+        },
+        "ts": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Unix time in ms (added on send)",
+          "title": "Ts"
+        },
+        "type": {
+          "const": "interest.result",
+          "default": "interest.result",
+          "title": "Type",
+          "type": "string"
+        },
+        "programs": {
+          "items": {
+            "$ref": "#/$defs/SuggestedProgram"
+          },
+          "title": "Programs",
+          "type": "array"
+        },
+        "text": {
+          "title": "Text",
+          "type": "string"
+        }
+      },
+      "required": [
+        "programs",
+        "text"
+      ],
+      "title": "InterestResult",
+      "type": "object"
+    },
+    "Option": {
+      "additionalProperties": false,
+      "properties": {
+        "key": {
+          "title": "Key",
+          "type": "string"
+        },
+        "label": {
+          "title": "Label",
+          "type": "string"
+        }
+      },
+      "required": [
+        "key",
+        "label"
+      ],
+      "title": "Option",
+      "type": "object"
+    },
+    "ProgramRef": {
+      "additionalProperties": false,
+      "properties": {
+        "slug": {
+          "title": "Slug",
+          "type": "string"
+        },
+        "name": {
+          "title": "Name",
+          "type": "string"
+        }
+      },
+      "required": [
+        "slug",
+        "name"
+      ],
+      "title": "ProgramRef",
+      "type": "object"
+    },
+    "RobotCommand": {
+      "additionalProperties": false,
+      "description": "A REQUEST from the admin page (protocol 2 only). `id` is the command id; the robot\nanswers `robot.command.ack` with the same id. `args` is used by `set_mode`\n(`{\"mode\": \"...\"}`). The robot decides locally whether and when to obey, and it must stay\nsafe if this message never arrives.",
+      "properties": {
+        "id": {
+          "maxLength": 64,
+          "minLength": 1,
+          "title": "Id",
+          "type": "string"
+        },
+        "ts": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Unix time in ms (added on send)",
+          "title": "Ts"
+        },
+        "type": {
+          "const": "robot.command",
+          "default": "robot.command",
+          "title": "Type",
+          "type": "string"
+        },
+        "cmd": {
+          "enum": [
+            "start_roaming",
+            "pause",
+            "resume",
+            "return_to_start",
+            "set_mode"
+          ],
+          "title": "Cmd",
+          "type": "string"
+        },
+        "args": {
+          "anyOf": [
+            {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Args"
+        }
+      },
+      "required": [
+        "id",
+        "cmd"
+      ],
+      "title": "RobotCommand",
+      "type": "object"
+    },
+    "RunEnded": {
+      "additionalProperties": false,
+      "description": "Answer to `run.end`: how many samples and events were stored.",
+      "properties": {
+        "id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "message id, 12 hex chars (added on send)",
+          "title": "Id"
+        },
+        "ts": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Unix time in ms (added on send)",
+          "title": "Ts"
+        },
+        "type": {
+          "const": "run.ended",
+          "default": "run.ended",
+          "title": "Type",
+          "type": "string"
+        },
+        "run_id": {
+          "title": "Run Id",
+          "type": "integer"
+        },
+        "samples": {
+          "title": "Samples",
+          "type": "integer"
+        },
+        "events": {
+          "title": "Events",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "run_id",
+        "samples",
+        "events"
+      ],
+      "title": "RunEnded",
+      "type": "object"
+    },
+    "RunStarted": {
+      "additionalProperties": false,
+      "description": "Answer to `run.start` (stored in `robot_runs`).",
+      "properties": {
+        "id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "message id, 12 hex chars (added on send)",
+          "title": "Id"
+        },
+        "ts": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Unix time in ms (added on send)",
+          "title": "Ts"
+        },
+        "type": {
+          "const": "run.started",
+          "default": "run.started",
+          "title": "Type",
+          "type": "string"
+        },
+        "run_id": {
+          "title": "Run Id",
+          "type": "integer"
+        },
+        "is_simulated": {
+          "title": "Is Simulated",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "run_id",
+        "is_simulated"
+      ],
+      "title": "RunStarted",
+      "type": "object"
+    },
+    "SessionEnded": {
+      "additionalProperties": false,
+      "description": "The conversation ended.",
+      "properties": {
+        "id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "message id, 12 hex chars (added on send)",
+          "title": "Id"
+        },
+        "ts": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Unix time in ms (added on send)",
+          "title": "Ts"
+        },
+        "type": {
+          "const": "session.ended",
+          "default": "session.ended",
+          "title": "Type",
+          "type": "string"
+        },
+        "session_id": {
+          "title": "Session Id",
+          "type": "integer"
+        },
+        "reason": {
+          "title": "Reason",
+          "type": "string"
+        }
+      },
+      "required": [
+        "session_id",
+        "reason"
+      ],
+      "title": "SessionEnded",
+      "type": "object"
+    },
+    "SessionStarted": {
+      "additionalProperties": false,
+      "description": "A conversation began (stored in `sessions`).",
+      "properties": {
+        "id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "message id, 12 hex chars (added on send)",
+          "title": "Id"
+        },
+        "ts": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Unix time in ms (added on send)",
+          "title": "Ts"
+        },
+        "type": {
+          "const": "session.started",
+          "default": "session.started",
+          "title": "Type",
+          "type": "string"
+        },
+        "session_id": {
+          "title": "Session Id",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "session_id"
+      ],
+      "title": "SessionStarted",
+      "type": "object"
+    },
+    "SuggestedProgram": {
+      "additionalProperties": false,
+      "properties": {
+        "slug": {
+          "title": "Slug",
+          "type": "string"
+        },
+        "name": {
+          "title": "Name",
+          "type": "string"
+        },
+        "line": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Line"
+        },
+        "has_explainer": {
+          "title": "Has Explainer",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "slug",
+        "name",
+        "has_explainer"
+      ],
+      "title": "SuggestedProgram",
+      "type": "object"
+    },
+    "Transcript": {
+      "additionalProperties": false,
+      "description": "What the backend heard and who said it (anonymous Speaker N).",
+      "properties": {
+        "id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "message id, 12 hex chars (added on send)",
+          "title": "Id"
+        },
+        "ts": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Unix time in ms (added on send)",
+          "title": "Ts"
+        },
+        "type": {
+          "const": "transcript",
+          "default": "transcript",
+          "title": "Type",
+          "type": "string"
+        },
+        "text": {
+          "title": "Text",
+          "type": "string"
+        },
+        "lang": {
+          "title": "Lang",
+          "type": "string"
+        },
+        "intent": {
+          "title": "Intent",
+          "type": "string"
+        },
+        "speaker": {
+          "anyOf": [
+            {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Speaker"
+        }
+      },
+      "required": [
+        "text",
+        "lang",
+        "intent"
+      ],
+      "title": "Transcript",
+      "type": "object"
+    },
+    "TurnTimings": {
+      "additionalProperties": false,
+      "description": "Latency of the turn for the report: `ack_ms` = end of speech to the first audio of any\nkind (filler); `tts_ms` = `total_ms` = end of speech to the first audio of the answer;\n`llm_first_ms` = LLM request to the first speakable piece.",
+      "properties": {
+        "id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "message id, 12 hex chars (added on send)",
+          "title": "Id"
+        },
+        "ts": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Unix time in ms (added on send)",
+          "title": "Ts"
+        },
+        "type": {
+          "const": "turn.timings",
+          "default": "turn.timings",
+          "title": "Type",
+          "type": "string"
+        },
+        "stt_ms": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Stt Ms"
+        },
+        "retrieval_ms": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Retrieval Ms"
+        },
+        "llm_ms": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Llm Ms"
+        },
+        "llm_first_ms": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Llm First Ms"
+        },
+        "ack_ms": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Ack Ms"
+        },
+        "tts_ms": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Tts Ms"
+        },
+        "total_ms": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Total Ms"
+        }
+      },
+      "title": "TurnTimings",
+      "type": "object"
+    }
+  },
+  "discriminator": {
+    "mapping": {
+      "answer.audio": "#/$defs/AnswerAudio",
+      "answer.audio.chunk": "#/$defs/AnswerAudioChunk",
+      "answer.audio.end": "#/$defs/AnswerAudioEnd",
+      "answer.audio.start": "#/$defs/AnswerAudioStart",
+      "answer.text": "#/$defs/AnswerText",
+      "dialogue.state": "#/$defs/DialogueState",
+      "display.update": "#/$defs/DisplayUpdate",
+      "error": "#/$defs/ErrorMessage",
+      "explainer.end": "#/$defs/ExplainerEnd",
+      "explainer.pause": "#/$defs/ExplainerPause",
+      "explainer.segment": "#/$defs/ExplainerSegment",
+      "explainer.start": "#/$defs/ExplainerStart",
+      "heartbeat": "#/$defs/HeartbeatReply",
+      "hello.ack": "#/$defs/HelloAck",
+      "interest.question": "#/$defs/InterestQuestion",
+      "interest.result": "#/$defs/InterestResult",
+      "robot.command": "#/$defs/RobotCommand",
+      "run.ended": "#/$defs/RunEnded",
+      "run.started": "#/$defs/RunStarted",
+      "session.ended": "#/$defs/SessionEnded",
+      "session.started": "#/$defs/SessionStarted",
+      "transcript": "#/$defs/Transcript",
+      "turn.timings": "#/$defs/TurnTimings"
+    },
+    "propertyName": "type"
+  },
+  "oneOf": [
+    {
+      "$ref": "#/$defs/HelloAck"
+    },
+    {
+      "$ref": "#/$defs/HeartbeatReply"
+    },
+    {
+      "$ref": "#/$defs/SessionStarted"
+    },
+    {
+      "$ref": "#/$defs/SessionEnded"
+    },
+    {
+      "$ref": "#/$defs/DialogueState"
+    },
+    {
+      "$ref": "#/$defs/DisplayUpdate"
+    },
+    {
+      "$ref": "#/$defs/Transcript"
+    },
+    {
+      "$ref": "#/$defs/AnswerText"
+    },
+    {
+      "$ref": "#/$defs/AnswerAudio"
+    },
+    {
+      "$ref": "#/$defs/AnswerAudioStart"
+    },
+    {
+      "$ref": "#/$defs/AnswerAudioChunk"
+    },
+    {
+      "$ref": "#/$defs/AnswerAudioEnd"
+    },
+    {
+      "$ref": "#/$defs/TurnTimings"
+    },
+    {
+      "$ref": "#/$defs/ExplainerStart"
+    },
+    {
+      "$ref": "#/$defs/ExplainerSegment"
+    },
+    {
+      "$ref": "#/$defs/ExplainerPause"
+    },
+    {
+      "$ref": "#/$defs/ExplainerEnd"
+    },
+    {
+      "$ref": "#/$defs/InterestQuestion"
+    },
+    {
+      "$ref": "#/$defs/InterestResult"
+    },
+    {
+      "$ref": "#/$defs/RunStarted"
+    },
+    {
+      "$ref": "#/$defs/RunEnded"
+    },
+    {
+      "$ref": "#/$defs/RobotCommand"
+    },
+    {
+      "$ref": "#/$defs/ErrorMessage"
+    }
+  ]
+}
