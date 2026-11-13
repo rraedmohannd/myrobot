@@ -97,7 +97,8 @@
   /* ---------- camera preview (M7) ---------- */
   #cam { position:absolute; right:10px; bottom:10px; width:152px; height:114px; border-radius:10px; overflow:hidden; border:1px solid var(--line); background:#000; display:none; }
   #cam.on { display:block; }
-  #cam video, #cam canvas { position:absolute; inset:0; width:100%; height:100%; object-fit:cover; transform:scaleX(-1); }
+  #cam video, #cam canvas { position:absolute; inset:0; width:100%; height:100%; object-fit:cover; }
+  #cam video { transform:scaleX(-1); }   /* mirror view; the boxes are drawn already mirrored */
   #camNote { position:absolute; left:10px; bottom:10px; font-size:11px; color:#5d7383; direction:rtl; max-width:190px; }
 </style>
 </head>
@@ -151,14 +152,15 @@
           <path id="mouth" d="M154 290 Q200 322 246 290 Q200 322 154 290 Z" fill="var(--mouth-in)" stroke="var(--eye)" stroke-width="10" stroke-linejoin="round" stroke-linecap="round"/>
         </g>
       </svg>
-      <div id="cam"><video id="camVideo" playsinline muted></video><canvas id="camCanvas"></canvas></div>
+      <div id="cam"><video id="camVideo" playsinline muted></video><canvas id="camCanvas" width="304" height="228"></canvas></div>
       <div id="camNote"></div>
     </div>
   </div>
-  <div id="keys">Space: start · T: type · Esc: end · F: fullscreen</div>
+  <div id="keys">Space: start · T: type · C: camera · Esc: end · F: fullscreen</div>
 </div>
 
 <script src="/static/robot-client.js"></script>
+<script src="/static/speaker-camera.js"></script>
 <script>
 "use strict";
 const $ = id => document.getElementById(id);
@@ -183,6 +185,22 @@ const client = new RobotClient({
   token: params.get("token"), tagAudio: () => serverMode,
   audioEndExtra: () => (window.speakerCamera ? window.speakerCamera.audioEndFields() : {}),
 });
+
+// ---------- camera: who is speaking (docs/SPEAKERS.md) ----------
+// Off by default. Turn it on with the C key or /robot?camera=1. Options:
+//   ?face_start=1[&face_start_ms=1500]  a face looking at the camera starts the conversation
+//   ?mouth_thr=0.025                    mouth-activity threshold (calibrate with real people)
+// Frames never leave the browser: only face_track_id and overlap go out with audio.end.
+let cameraWanted = params.get("camera") === "1" || params.get("face_start") === "1";
+const camera = new SpeakerCamera({
+  client, video: $("camVideo"), canvas: $("camCanvas"), box: $("cam"),
+  activityMin: parseFloat(params.get("mouth_thr")) || 0.025,
+  faceStart: params.get("face_start") === "1", faceStartMs: parseInt(params.get("face_start_ms"), 10) || 1500,
+  // Browsers only allow sound after the visitor touched the page once; before that the button is needed.
+  onFaceStart: () => { if (!navigator.userActivation || navigator.userActivation.hasBeenActive) start(); },
+  onStatus: text => { $("camNote").textContent = text; },
+});
+window.speakerCamera = camera;
 
 // ---------- rendering ----------
 function fit() {
@@ -303,7 +321,7 @@ async function start() {
     try { await client.initAudio(); micOk = true; }
     catch (e) { micOk = false; console.warn("microphone unavailable", e); }
     await client.ensureContext();
-    if (window.speakerCamera) window.speakerCamera.start();
+    if (cameraWanted) camera.start();
     await client.startSession("ar");
   } finally { setTimeout(() => { starting = false; }, 1500); }
 }
@@ -325,12 +343,14 @@ addEventListener("keydown", e => {
   if (e.target === $("typed") || e.ctrlKey || e.altKey || e.metaKey) return;
   if (e.code === "Space") { e.preventDefault(); start(); }
   else if (e.code === "KeyT") { e.preventDefault(); toggleTyping(); }
+  else if (e.code === "KeyC") { cameraWanted = !camera.running; camera.toggle(); }
   else if (e.code === "Escape") { if (inSession) client.endSession("user_done"); }
   else if (e.code === "KeyF") { if (document.fullscreenElement) document.exitFullscreen(); else document.documentElement.requestFullscreen().catch(() => {}); }
 });
 
 render();
 client.connect();
+if (params.get("face_start") === "1") camera.start();   // the camera must watch before a conversation exists
 </script>
 </body>
 </html>

@@ -108,3 +108,18 @@ Task file: `docs/DEMO_SPRINT.md`. Branch: `demo-sprint` (created from `master` a
 - **Admin → Robot runs**: list, trajectory plot (outbound blue, return orange, start and end markers, events, and for simulations the room and the dashed simulated true path), a big "SIMULATED — not a physical result" banner, an entry form for **physical** return-trial measurements (only on real runs; the API answers 409 for simulated runs), and return-trial statistics ("No physical return trials have been recorded yet").
 - No ESP32 pins or firmware were written (rule 8), and no return trial was created.
 - Tests: **127 passed** (15 new in `tests/test_telemetry.py`: kinematics, simulator, storage, simulated runs cannot get return trials).
+- Commit: `df7f3ef` (17:10). Elapsed: 39 min. Not pushed (no remote).
+
+## M7 (stretch) — Camera: who is speaking (browser prototype) — built, NOT validated with people
+- `/robot?camera=1` (or the `C` key): webcam → MediaPipe Face Landmarker → IoU tracking with stable ids → mouth-opening ratio → mouth activity. While the VAD hears speech, the most active face is the speaker; `audio.end` carries `face_track_id`, and `overlap: true` when two or more faces talk in more than 30 % of the frames. Small preview with boxes; the active speaker's box is green. Optional `?face_start=1`: a face looking at the camera for 1.5 s starts the conversation.
+- **The camera is off by default**, so the demo of M1–M5 does not depend on it.
+- MediaPipe files (`@mediapipe/tasks-vision` 1.2.3 and the float16 face landmarker model, 18.5 MB together) are vendored in `backend/app/static/vendor/mediapipe/` with the Apache-2.0 licence and a README (sources, versions, SHA-256). These are library files downloaded from npm / Google storage; no photo or video was downloaded.
+- Privacy: frames stay in the browser; only a track id and a flag are sent.
+- **Manual test notes and results**
+  - What I could check without people:
+    - `node backend/tests/js/speaker_logic_test.mjs` → "all checks passed" (tracking ids, active speaker, single quiet face, overlap above and below 30 %, looking timer). It uses synthetic landmark data.
+    - Headless Edge with a synthetic camera stream: the model and wasm load from `/static/vendor` (no external request), the loop runs at 320×240, 0 faces found (correct: the synthetic picture has no face), `audio.end` then carries `{overlap: false}` and no track id.
+  - **1 person: NOT DONE.** **2 people: NOT DONE.** I have no camera with people in front of it, and I did not download any face video. So there is no evidence yet that real faces are detected well, that the mouth threshold (0.025) is right, or that overlap is detected.
+  - Please run the two checks in `docs/SPEAKERS.md` → Validation, item 4, and write the counts here.
+- Risk if switched on untested: a wrong threshold could send `overlap: true` and make the robot say "واحد واحد" instead of answering. That is why it is off by default.
+- Tests: **129 passed** (2 new: the camera files are served locally; `audio.end` with `face_track_id` / `overlap`).

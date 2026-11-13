@@ -3,9 +3,9 @@
 Requires `alembic upgrade head` to have been run on the database in DATABASE_URL.
 """
 
-import pytest
 from alembic.autogenerate import compare_metadata
 from alembic.migration import MigrationContext
+import pytest
 from sqlalchemy import text
 from sqlalchemy.exc import IntegrityError
 

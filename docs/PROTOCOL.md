@@ -14,7 +14,7 @@ The reference client is `backend/app/static/robot-client.js`, shared by the brow
 | `heartbeat` | – | every 5 s; backend answers `heartbeat` (allow ≥ 15 s before declaring the backend lost, because answers can take a few seconds) |
 | `session.start` | `lang?` (`ar` default) | a visitor is engaging (face detected); backend greets |
 | `audio.chunk` | `pcm16_b64`, `sample_rate` (16000), `seq` | mono PCM16 little-endian, about 100 ms per chunk, sent only while the visitor speaks (VAD) |
-| `audio.end` | `face_track_id?`, `overlap?` | VAD detected the end of speech (about 0.9 s of silence). The camera adds the track id of the face whose lips moved, and `overlap: true` if two or more people spoke at once (docs/SPEAKERS.md) |
+| `audio.end` | `face_track_id?`, `overlap?` | VAD detected the end of speech (about 0.9 s of silence). The camera adds the track id of the face whose lips moved (an integer that only means "the same face as before"), and `overlap: true` if two or more faces were talking in more than about 30 % of the voiced frames (docs/SPEAKERS.md). Without a camera both fields are simply absent. No image or landmark is ever sent |
 | `text.input` | `text` | typed question (testing); starts a session without a greeting if none is active |
 | `listen.timeout` | – | nobody spoke for `follow_up_timeout_s` after the robot finished talking |
 | `session.end` | `reason`: `user_done` / `lost_face` / `timeout` | visitor left or the robot ended the session |

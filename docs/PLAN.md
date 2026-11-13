@@ -10,9 +10,9 @@ Milestones: **M1** 6 Dec (base moves + conversation works) · **M2** 27 Dec (ret
 | B2 | Crawler, review queue, curated knowledge (6 programs incl. Biomedical Engineering, official 2025/2026 plans; Student Handbook) | ✅ done 2026-11-06 |
 | B3 | Hybrid retrieval, /api/chat, golden set | ✅ 35/35 on 2026-11-06. Golden set is now 49: **37/49 on 2026-11-13**, 0 invented numbers; 11 failures wait for the student's review of the Student Handbook and the Biomedical Engineering plan (still `pending`), 1 for the stale faculty-overview page |
 | B4 | Voice: STT/TTS, dialogue manager, /ws/robot, /voice page | 🟡 works end to end. Streaming answers + reasoning effort low (2026-11-13): question text → first answer audio, median 5.3 s → 3.5 s (STT not included); about 4.7–5.2 s from end of speech (estimate). Target about 4 s not reached; TTS is now the largest stage |
-| B4+ | Multi-speaker Level 2 (voice + camera), docs/SPEAKERS.md | 🟡 voice part done; camera part next |
+| B4+ | Multi-speaker Level 2 (voice + camera), docs/SPEAKERS.md | 🟡 voice part done; camera part: browser prototype built on 2026-11-13 (`/robot?camera=1`, off by default), **not yet tried with real people**; validation and the Pi version (YuNet, pan servo) are next |
 | B5 | Admin complete, analytics, telemetry + trajectory view, return-trial stats | 🟡 analytics, knowledge gaps, conversations, ask-the-robot, evaluation, coverage and media tabs done (2026-11-13, static page). Telemetry messages, trajectory view and return-trial entry/stats exist and are exercised with **simulated** runs only. Still open: real telemetry from the robot, React panel and login |
-| Demo | Demo sprint 2026-11-13 (docs/DEMO_SPRINT.md): `/robot` screen page, streaming, admin analytics, media, demo script | ✅ M0–M6 done (M6 = simulated robot runs); see docs/DEMO.md and docs/DEMO_SPRINT_LOG.md |
+| Demo | Demo sprint 2026-11-13 (docs/DEMO_SPRINT.md): `/robot` screen page, streaming, admin analytics, media, demo script | ✅ M0–M6 done (M6 = simulated robot runs); M7 camera prototype built but not validated with people; see docs/DEMO.md and docs/DEMO_SPRINT_LOG.md |
 
 ## Robot and hardware (from the Follow-Up Protocol plan)
 | Weeks | Work |

@@ -37,6 +37,17 @@ camera pan servo → active speaker's face                                      
 - The pan servo turns the camera toward the active speaker. The screen shows who is being answered.
 - Optional hardware: a USB microphone array with direction-of-arrival (DOA) would add a third cue. Its availability in Jordan still needs to be checked; it is not required.
 
+#### Browser prototype (2026-11-13, demo sprint M7) — built, **not yet validated with people**
+- Page: `http://localhost:8000/robot?camera=1` (or press `C` on `/robot`). The camera is **off by default**, so the normal demo does not depend on it.
+- Code: `backend/app/static/speaker-camera.js`. MediaPipe Face Landmarker (wasm + model) is vendored in `static/vendor/mediapipe/` with its Apache-2.0 licence; nothing is loaded from the internet.
+- Tracking: greedy IoU matching (≥ 0.25) gives each face a track id; a face that disappears for more than 1 s gets a new id when it returns.
+- Mouth opening ratio = inner-lip distance ÷ mouth width (landmarks 13, 14, 78, 308). Mouth activity = standard deviation of the ratio over the last 0.5 s. A face is "talking" in a frame when its activity is ≥ 0.025 (`?mouth_thr=`; **this threshold is a first guess and must be calibrated on real faces**).
+- While the VAD says someone is speaking: the face with the most "talking" frames is the active speaker → `audio.end.face_track_id`. Two or more talking faces in more than 30 % of the frames → `overlap: true`. With exactly one face in view and no clear lip motion, that face is used.
+- Preview: small camera picture with a box per face; the active speaker's box is green and thick.
+- Optional session start: `?face_start=1` (and `&face_start_ms=1500`): a face that looks at the camera for 1.5 s sends `session.start`. Browsers need one click or key press on the page before sound may play, so the first conversation after loading still needs the button. It re-arms only after the camera saw nobody for 2 s.
+- Privacy: frames, landmarks and boxes never leave the browser; only `face_track_id` (a small counter) and `overlap` are sent.
+- What was checked: the pure logic (tracking, active speaker, overlap, looking timer) with `node backend/tests/js/speaker_logic_test.mjs`, and the page in a headless browser with a synthetic camera (model loads locally, loop runs, no external requests). **Not checked: real faces.** The validation steps below are still to do.
+
 ### Conversation behaviour
 - Each speaker gets their own short history (their last turns), so "وكم ساعة؟" refers to *their* previous question.
 - When a new person (Speaker 2+) asks a question, a cached greeting plays at once ("أهلين فيك كمان!"), which also covers part of the answer latency.
@@ -46,4 +57,7 @@ camera pan servo → active speaker's face                                      
 1. **Voice labelling:** 3 people, 5 questions each, in random order. Measure the % of utterances given the right speaker number (target to be agreed with the supervisor, proposed ≥ 85 %).
 2. **Active speaker with camera:** 2–3 people in front of the camera taking turns. Measure the % of utterances where the correct face is chosen, and the time until the camera points at them.
 3. **Overlap:** two people speaking at once in 10 trials. Count how often the robot asks for one speaker at a time.
-4. Report conditions honestly: room noise, distance (about 0.5–1.5 m), lighting, and the microphone used.
+4. Browser prototype, manual check (do this first, results into docs/DEMO_SPRINT_LOG.md):
+   - One person: open `/robot?camera=1`, start, ask 5 questions. Expected: one box, it turns green while you speak, the transcript in `/admin` → Conversations shows source `face` or `voice+face`, and "متحدث 1" every time. While you are silent and only nod or smile, the box should not turn green (if it does, raise `mouth_thr`; if it never turns green while you talk, lower it).
+   - Two people side by side (0.5–1.5 m): take turns, 5 questions each. Expected: the green box follows the speaker and the badge switches between "متحدث 1" and "متحدث 2". Then both talk at once 5 times: expected "لو سمحتوا واحد واحد…". Count correct / total for each.
+5. Report conditions honestly: room noise, distance (about 0.5–1.5 m), lighting, and the microphone used.

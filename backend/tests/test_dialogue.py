@@ -214,3 +214,33 @@ async def test_robot_and_voice_pages_and_shared_client(client) -> None:
         assert "https://" not in page and "http://" not in page.replace("http://www.w3.org", "")
     js = await client.get("/static/robot-client.js")
     assert js.status_code == 200 and "class RobotClient" in js.text
+
+
+async def test_camera_prototype_files_are_local(client) -> None:
+    """The face model and its runtime are served from /static (no CDN), with their licence."""
+    robot = (await client.get("/robot")).text
+    assert "/static/speaker-camera.js" in robot
+    js = (await client.get("/static/speaker-camera.js")).text
+    assert "class SpeakerCamera" in js and "/static/vendor/mediapipe" in js
+    assert "https://" not in js and "http://" not in js
+    for name in ("vision_bundle.mjs", "vision_wasm_internal.js", "LICENSE", "README.md"):
+        assert (await client.get(f"/static/vendor/mediapipe/{name}")).status_code == 200, name
+    for name, minimum in (("vision_wasm_internal.wasm", 1_000_000), ("face_landmarker.task", 1_000_000)):
+        r = await client.get(f"/static/vendor/mediapipe/{name}")
+        assert r.status_code == 200 and len(r.content) > minimum, name
+
+
+async def test_audio_end_passes_face_track_and_overlap(db_session) -> None:
+    """What the camera sends: a track id links a face to a speaker; overlap asks for one at a time."""
+    await _seed(db_session)
+    dm, sent, tts = _manager(db_session, [f"{UNIQUE}؟"])
+    await dm.handle({"type": "session.start"})
+    await dm.handle({"type": "audio.chunk", "pcm16_b64": SPEECH, "sample_rate": 16000})
+    await dm.handle({"type": "audio.end", "face_track_id": 3, "overlap": False})
+    transcript = next(m for m in sent if m["type"] == "transcript")
+    assert transcript["speaker"]["label"] == 1 and "face" in transcript["speaker"]["source"]
+
+    await dm.handle({"type": "audio.chunk", "pcm16_b64": SPEECH, "sample_rate": 16000})
+    await dm.handle({"type": "audio.end", "face_track_id": 3, "overlap": True})
+    assert said(tts).endswith(PHRASES["one_at_a_time"]["ar"])
+    assert len([m for m in sent if m["type"] == "answer.text"]) == 1  # the mixed audio is not answered

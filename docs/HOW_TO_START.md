@@ -77,6 +77,8 @@ docker compose exec backend python -m app.ingestion.cli seed-demo-media   # labe
 ```
 Real images and videos: http://localhost:8000/admin → Media → upload, link to a program, approve.
 
+Camera prototype ("who is speaking", off by default): http://localhost:8000/robot?camera=1 or press `C` on the robot page. Add `&face_start=1` to start a conversation when a face looks at the camera for 1.5 s. Not validated with people yet; see docs/SPEAKERS.md for the manual check. Logic test (on the laptop, needs Node): `node backend/tests/js/speaker_logic_test.mjs`.
+
 Several visitors: each utterance is labelled "متحدث 1/2/3" in the /voice log (anonymous, forgotten when the conversation ends). See docs/SPEAKERS.md.
 
 ## Robot runs (trajectory view) — simulation only for now
