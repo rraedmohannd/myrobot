@@ -46,6 +46,32 @@ class FakeLLM:
         return LLMResult(data=json.loads(json.dumps(data)), model=self.model, ms=1)
 
 
+class FakeStreamingLLM(FakeLLM):
+    """Streams its JSON reply in small chunks (like OpenAI streaming), then the parsed result.
+
+    `log` records "llm:done" when the whole reply has been produced, so a test can check that
+    speech started earlier."""
+
+    model = "fake-streaming-llm"
+
+    def __init__(self, reply: dict | None = None, chunk: int = 7, log: list | None = None) -> None:
+        super().__init__(reply)
+        self.chunk = chunk
+        self.log = log if log is not None else []
+
+    async def stream_json(self, instructions: str, user_input: str):  # noqa: ANN201
+        import asyncio
+
+        result = await self.complete_json(instructions, user_input)
+        raw = json.dumps(result.data, ensure_ascii=False)
+        for i in range(0, len(raw), self.chunk):
+            yield raw[i : i + self.chunk]
+            for _ in range(5):  # let the speech tasks run, as they would between network chunks
+                await asyncio.sleep(0)
+        self.log.append("llm:done")
+        yield result
+
+
 class FakeSTT:
     """Returns the queued transcripts in order (one per utterance)."""
 
@@ -68,11 +94,13 @@ class FakeTTS:
     model = "fake-tts"
     voice = "fake"
 
-    def __init__(self) -> None:
+    def __init__(self, log: list | None = None) -> None:
         self.spoken: list[str] = []
+        self.log = log if log is not None else []
 
     async def synthesize(self, text: str, voice: str | None = None, cache: bool = False) -> bytes:
         self.spoken.append(text)
+        self.log.append(f"tts:{text}")
         return b"ID3" + text.encode()
 
 

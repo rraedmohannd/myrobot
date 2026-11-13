@@ -32,7 +32,12 @@ class Settings(BaseSettings):
     # to see what the key can use, then set LLM_MODEL / EMBEDDING_MODEL in .env.
     llm_model: str = "gpt-6-luna"
     llm_max_output_tokens: int = 1500  # includes reasoning tokens on reasoning models
-    llm_reasoning_effort: str | None = None  # e.g. "low" for reasoning models; empty = not sent
+    # "low" since 2026-11-13: 10/10 on the bench questions and a faster first sentence
+    # (docs/DECISIONS.md). Empty = not sent (the model's own default).
+    llm_reasoning_effort: str | None = "low"
+    # Speak the answer sentence by sentence while the model is still writing (demo sprint M2).
+    # false = wait for the whole answer first (the behaviour before 2026-11-13).
+    llm_streaming: bool = True
     embedding_model: str = "text-embedding-3-small"
     embedding_dim: int = 1536  # must match the vector(1536) column (migration 0003)
 

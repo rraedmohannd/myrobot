@@ -23,7 +23,7 @@ from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 from app.core.config import get_settings
 from app.db.models import Program, Session, Turn
 from app.ingestion.lang import detect_lang
-from app.services.chat import UNAVAILABLE, ChatResult, answer_question
+from app.services.chat import UNAVAILABLE, ChatResult, answer_events
 from app.services.display import build_card, dominant_program
 from app.services.providers import LLM, Embedder, ProviderError
 from app.services.speakers import (
@@ -136,7 +136,8 @@ Send = Callable[[dict[str, Any]], Awaitable[None]]
 class TurnTimings:
     stt_ms: int | None = None
     retrieval_ms: int | None = None
-    llm_ms: int | None = None
+    llm_ms: int | None = None  # whole LLM call
+    llm_first_ms: int | None = None  # LLM start -> first speakable piece (streaming)
     ack_ms: int | None = None  # end of speech -> first audio of any kind (filler / greeting)
     tts_ms: int | None = None  # end of speech -> first audio chunk of the ANSWER
     total_ms: int | None = None  # = tts_ms (answer latency, reported honestly apart from fillers)
@@ -160,6 +161,7 @@ class DialogueManager:
     tracker: SpeakerTracker | None = None
     speaker: Assignment | None = None  # who spoke the utterance being handled
     filler_turn: int = 0
+    _warm_up: asyncio.Task[None] | None = None
 
     # ---------- plumbing ----------
     async def _set_state(self, state: str) -> None:
@@ -251,11 +253,20 @@ class DialogueManager:
             settings.speaker_threshold, settings.max_speakers,
             new_threshold=settings.speaker_new_threshold,
         )  # fmt: skip
+        # Open the provider connection while the greeting plays, so the first question is not
+        # slowed down by the TLS handshake (one tiny embedding request; failures do not matter).
+        self._warm_up = asyncio.create_task(self._warm())
         if greet:
             await self._set_state("GREETING")
             await self._say("greeting", "attentive")
         await self._set_state("LISTENING")
         await self._display("listening")
+
+    async def _warm(self) -> None:
+        try:
+            await self.embedder.embed(["مرحبا"])
+        except Exception:  # noqa: BLE001, S110 - only a warm-up
+            pass
 
     async def close_session(self, reason: str, phrase_key: str | None) -> None:
         if self.session_id is None:
@@ -372,31 +383,87 @@ class DialogueManager:
                 await self._speak(PHRASES[key][self.lang], cache=True)
                 timings.ack_ms = int((time.perf_counter() - started) * 1000)
             await self._display("processing", speaker_label=label)
-            async with self.sessionmaker() as db:
-                result = await answer_question(
-                    db, self.embedder, self.llm, text, session_id=self.session_id, log=False,
-                    speaker_label=label,
-                )  # fmt: skip
-            answer_text, error = result.answer, result.error
+            result, timings.tts_ms = await self._answer(text, label, started)
+            answer_text, error = result.spoken or result.answer, result.error
             used_ids = [s.chunk_id for s in result.sources] or None
             timings.retrieval_ms = result.timings.get("retrieval_ms")
             timings.llm_ms = result.timings.get("llm_ms")
-            await self.send({
-                "type": "answer.text", "text": answer_text, "lang": result.lang, "found": result.found,
-                "sources": [{"n": s.n, "title": s.title, "url": s.url} for s in result.sources],
-                "timings": result.timings, "invented_numbers": result.invented_numbers,
-            })  # fmt: skip
-            card = await self._card(result) if result.found and not error else None
-            await self._display("unavailable" if error else "answering", answer_text, card=card,
-                                speaker_label=label)  # fmt: skip
-            first = await self._speak(answer_text, started=started)
-            timings.tts_ms = first
+            timings.llm_first_ms = result.timings.get("llm_first_ms")
             self.last_answer = answer_text
         timings.total_ms = timings.tts_ms
         await self.send({"type": "turn.timings", **vars(timings)})
         await self._log_turn(text, lang, intent, answer_text, timings, used_ids, error)
         await self._say("follow_up", "listening")
         await self._set_state("FOLLOW_UP")
+
+    async def _answer(self, text: str, label: int | None, started: float) -> tuple[ChatResult, int | None]:
+        """Answer a question and speak it piece by piece while the LLM is still writing.
+
+        Each piece was already checked for invented numbers (services/chat.py) and goes to
+        text-to-speech at once; the audio is sent in order. Returns the result and the ms from
+        the end of speech to the first audio of the answer.
+        """
+        queue: asyncio.Queue[tuple[str, asyncio.Task[bytes]] | None] = asyncio.Queue()
+        tasks: list[asyncio.Task[bytes]] = []
+        first_ms: list[int] = []
+
+        async def sender() -> None:
+            seq, item = 0, await queue.get()
+            while item is not None:
+                piece, task = item
+                try:
+                    mp3 = await task
+                except ProviderError as e:
+                    await self.send({"type": "error", "code": "tts_failed", "message": str(e)})
+                    return
+                following = await queue.get()  # the next piece, or None: this one is the last
+                await self.send({
+                    "type": "answer.audio", "seq": seq, "last": following is None,
+                    "text": piece, "mp3_b64": base64.b64encode(mp3).decode(),
+                })  # fmt: skip
+                if not first_ms:
+                    first_ms.append(int((time.perf_counter() - started) * 1000))
+                seq, item = seq + 1, following
+
+        sending = asyncio.create_task(sender())
+        result: ChatResult | None = None
+        try:
+            async with self.sessionmaker() as db:
+                async for event in answer_events(
+                    db, self.embedder, self.llm, text, session_id=self.session_id, log=False,
+                    speaker_label=label,
+                ):  # fmt: skip
+                    if event.kind == "piece":
+                        if not tasks:
+                            await self._display("answering", speaker_label=label)
+                        tasks.append(asyncio.create_task(
+                            self.tts.synthesize(event.text, cache=event.replacement)
+                        ))  # fmt: skip
+                        queue.put_nowait((event.text, tasks[-1]))
+                    elif event.kind == "result":
+                        result = event.result
+            assert result is not None  # answer_events always ends with the result
+            answer_text = result.spoken or result.answer
+            await self.send({
+                "type": "answer.text", "text": answer_text, "lang": result.lang, "found": result.found,
+                "sources": [{"n": s.n, "title": s.title, "url": s.url} for s in result.sources],
+                "timings": result.timings, "invented_numbers": result.invented_numbers,
+            })  # fmt: skip
+            card = await self._card(result) if result.found and not result.error else None
+            await self._display("unavailable" if result.error else "answering", answer_text,
+                                card=card, speaker_label=label)  # fmt: skip
+        finally:
+            queue.put_nowait(None)
+            await sending
+            for task in tasks:
+                if not task.done():
+                    task.cancel()
+                elif not task.cancelled():
+                    task.exception()  # a failed piece after the first failure: already reported
+        first = first_ms[0] if first_ms else None
+        if result.error:  # the service-unavailable line (cached)
+            first = await self._speak(result.answer, cache=True, started=started) or first
+        return result, first
 
     async def _card(self, result: ChatResult) -> dict[str, Any] | None:
         """Screen card for a found answer: built only from the answer text and its sources."""
@@ -407,7 +474,9 @@ class DialogueManager:
                 program = await db.get(Program, program_id)
             if program is not None:
                 program_name = program.name_ar if result.lang == "ar" else program.name_en
-        return build_card(result.answer, [s.title for s in result.sources], result.lang, program_name)
+        return build_card(
+            result.spoken or result.answer, [s.title for s in result.sources], result.lang, program_name
+        )
 
     async def _log_turn(self, text: str, lang: str, intent: str, answer: str | None,
                         t: TurnTimings, used_ids: list[int] | None, error: str | None,

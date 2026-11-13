@@ -27,9 +27,9 @@ The reference client is `backend/app/static/robot-client.js`, shared by the brow
 | `dialogue.state` | `state`: IDLE, GREETING, LISTENING, ANSWERING, FOLLOW_UP, CLOSING | **the robot may listen only in LISTENING / FOLLOW_UP, and only after all queued audio has finished playing** |
 | `display.update` | `mode` (idle, attentive, listening, processing, answering, finished, unavailable), `subtitle`, `card?`, `speaker_label?` | screen content; `speaker_label` = the visitor being answered. `card` is described below |
 | `transcript` | `text`, `lang`, `intent`, `speaker{label, is_new, confidence, source, sims}` | what the backend heard and who said it (anonymous Speaker N; source = voice / face / voice+face / last / first) |
-| `answer.text` | `text`, `lang`, `found`, `sources[]`, `timings`, `invented_numbers` | the grounded answer (subtitles) |
-| `answer.audio` | `seq`, `last`, `text`, `mp3_b64` | speech, sent sentence by sentence (the first sentence is sent first so playback can start early) |
-| `turn.timings` | `stt_ms`, `retrieval_ms`, `llm_ms`, `ack_ms`, `tts_ms`, `total_ms` | latency for the report: `ack_ms` runs from end of speech to the first audio of any kind (cached filler or greeting); `tts_ms` = `total_ms` runs from end of speech to the first audio of the **answer** |
+| `answer.text` | `text`, `lang`, `found`, `sources[]`, `timings`, `invented_numbers` | the grounded answer as spoken (subtitles). It is sent when the model has finished, so **it can arrive after the first `answer.audio` pieces** |
+| `answer.audio` | `seq`, `last`, `text`, `mp3_b64` | speech, sent piece by piece **while the model is still writing** (a short first piece, then one piece per sentence); play the pieces in arrival order |
+| `turn.timings` | `stt_ms`, `retrieval_ms`, `llm_ms`, `llm_first_ms`, `ack_ms`, `tts_ms`, `total_ms` | latency for the report: `ack_ms` runs from end of speech to the first audio of any kind (cached filler or greeting); `tts_ms` = `total_ms` runs from end of speech to the first audio of the **answer**; `llm_first_ms` runs from the LLM request to the first speakable piece, `llm_ms` to the end of the LLM answer |
 | `heartbeat` | – | reply to heartbeat |
 | `error` | `code`, `message` | `stt_failed`, `tts_failed`, `unknown_type`, `bad_message`, `internal` |
 
@@ -57,4 +57,6 @@ session.start → greeting audio → LISTENING
   new visitor (Speaker 2+)         → "أهلين فيك كمان!" then the answer, using that visitor's own history
   overlap (camera)                 → "لو سمحتوا واحد واحد…" and no answer
 ```
+Streaming and safety (2026-11-13): every speech piece is checked before text-to-speech. A piece that contains a number that is not in the retrieved passages is never spoken or shown; the robot says once "ما عندي الرقم الدقيق لهاي المعلومة، بنصحك تسأل دائرة القبول والتسجيل." instead, and `answer.text.invented_numbers` lists the dropped numbers. `LLM_STREAMING=false` returns to "whole answer first".
+
 Turn-taking: the robot mutes its microphone while it is speaking or thinking, and interruption is not supported yet (a future option with echo cancellation).

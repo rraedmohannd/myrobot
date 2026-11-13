@@ -11,6 +11,7 @@
     python -m app.ingestion.cli evaluate              # golden set -> data/golden/results/
     python -m app.ingestion.cli tts-samples           # one mp3 per voice (accent test)
     python -m app.ingestion.cli bench                 # LLM/STT model latency + correctness
+    python -m app.ingestion.cli latency [--n 8]       # retrieval -> LLM -> first TTS piece timings
 """
 
 import argparse
@@ -179,10 +180,40 @@ async def _tts_samples() -> None:
     print(f"Listen to backend/data/voice_samples/*.mp3 and set TTS_VOICE=<best> in .env")
 
 
+# 10 golden questions answered from APPROVED sources. On 2026-11-13 "faculty-programs-ar" and
+# "meu-founded-ar" were replaced: their sources were stale / pending review, so they could not
+# pass whatever the model did. `latency` uses the first N (all answerable).
 BENCH_IDS = (
-    "ise-hours-ar", "faculty-programs-ar", "ise-careers-ar", "ise-accredit-ar", "arch-years-ar",
-    "interior-training-ar", "ise-fee-ar", "ise-careers-en", "ise-vs-se-ar", "meu-founded-ar",
+    "ise-hours-ar", "arch-hours-ar", "ise-careers-ar", "ise-accredit-ar", "arch-years-ar",
+    "interior-training-ar", "ise-careers-en", "ise-vs-se-ar", "ise-fee-ar", "ree-labs-ar",
 )  # fmt: skip
+
+
+async def _latency(n: int, stream: bool, effort: str | None) -> None:
+    """Median/p90 per stage and time to the first answer audio, on the real pipeline."""
+    from app.services.evaluate import load_questions
+    from app.services.latency import format_report, measure, write_results
+    from app.services.providers import OpenAILLM, get_embedder
+    from app.services.speech import OpenAITTS
+
+    by_id = {q["id"]: q for q in load_questions()}
+    questions = [by_id[i] for i in BENCH_IDS if i in by_id][:n]
+    llm = OpenAILLM()
+    if effort:
+        llm.reasoning_effort = effort
+    tts = OpenAITTS()
+    async with get_sessionmaker()() as session:
+        rows = await measure(session, get_embedder(), llm, tts, questions, stream)
+    label = (
+        f"{llm.model}, effort={llm.reasoning_effort or 'default'}, "
+        f"{'streaming' if stream else 'no streaming'}, TTS {tts.model}/{tts.voice}"
+    )
+    print(format_report(rows, label))
+    path = write_results(rows, {
+        "model": llm.model, "reasoning_effort": llm.reasoning_effort, "streaming": stream,
+        "tts_model": tts.model, "tts_voice": tts.voice,
+    })  # fmt: skip
+    print(f"\nSaved: backend/{path.relative_to(path.parents[2])}")
 
 
 async def _bench(models: list[str], effort: str | None, stt_models: list[str]) -> None:
@@ -255,6 +286,10 @@ async def _main(args: argparse.Namespace) -> None:
         await _bench(args.models, args.effort, args.stt)
         await get_engine().dispose()
         return
+    if args.cmd == "latency":
+        await _latency(args.n, not args.no_stream, args.effort)
+        await get_engine().dispose()
+        return
     if args.cmd == "ask":
         await _ask(" ".join(args.question))
         await get_engine().dispose()
@@ -318,6 +353,10 @@ def main() -> None:
     b.add_argument("--models", nargs="+", default=["gpt-6-luna", "gpt-4.1-mini", "gpt-5.4-nano", "gpt-5.4-mini"])
     b.add_argument("--effort", default=None, help="reasoning effort for reasoning models, e.g. low / minimal")
     b.add_argument("--stt", nargs="*", default=["gpt-transcribe", "gpt-4o-transcribe", "gpt-4o-mini-transcribe"])
+    lat = sub.add_parser("latency", help="time retrieval, LLM and first TTS piece on golden questions")
+    lat.add_argument("--n", type=int, default=8, help="number of golden questions (default 8)")
+    lat.add_argument("--no-stream", action="store_true", help="wait for the whole LLM answer (old behaviour)")
+    lat.add_argument("--effort", default=None, help="reasoning effort override, e.g. low")
     asyncio.run(_main(p.parse_args()))
 
 

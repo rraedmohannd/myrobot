@@ -59,6 +59,7 @@ Only approved content will ever be used by the robot.
 docker compose exec backend python -m app.ingestion.cli check-openai             # key + models OK?
 docker compose exec backend python -m app.ingestion.cli ask "كم ساعة هندسة الأنظمة الذكية؟"
 docker compose exec backend python -m app.ingestion.cli evaluate                 # 49 golden questions
+docker compose exec backend python -m app.ingestion.cli latency                  # timings: search, LLM, first speech piece (8 questions, costs a little)
 ```
 API: POST http://localhost:8000/api/chat  {"message": "..."}  (try it at http://localhost:8000/docs)
 
