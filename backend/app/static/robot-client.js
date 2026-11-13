@@ -32,10 +32,13 @@
         sensitivity: () => 3,     // VAD threshold = noise floor x this
         audioEndExtra: () => ({}),// extra fields for audio.end (face_track_id, overlap)
         tagAudio: () => null,     // value attached to each queued audio piece (e.g. display mode)
+        audioStream: true,        // accept answer speech as PCM chunks (answer.audio.start/chunk/end)
       }, options || {});
       this.handlers = {};
       this.ws = null; this.ctx = null; this.node = null; this.stream = null; this.analyser = null;
       this.state = "IDLE"; this.followUpTimeout = 10; this.maxUtterance = 20;
+      this.speechRate = 1; this.silenceFramesEnd = 30;   // both come from hello.ack (SPEECH_RATE, VAD_SILENCE_MS)
+      this.audio = null; this.current = null; this.openStream = null;
       this.playing = false; this.queue = []; this.listenTimer = null;
       this.inSpeech = false; this.speechFrames = 0; this.silenceFrames = 0; this.voicedFrames = 0;
       this.preRoll = []; this.pending = []; this.frameBuf = new Float32Array(0);
@@ -65,7 +68,8 @@
         ws.onopen = () => {
           this.connecting = null; this.lastSeen = performance.now();
           this.emit("conn", "open");
-          this.send({type: "hello", robot_id: this.o.robotId, fw_version: this.o.fwVersion, protocol_version: 1});
+          this.send({type: "hello", robot_id: this.o.robotId, fw_version: this.o.fwVersion, protocol_version: 1,
+                     audio_stream: this.o.audioStream ? ["pcm16"] : []});
           this._startHeartbeat();
           resolve(true);
         };
@@ -82,6 +86,7 @@
       clearInterval(this.heartbeatTimer); clearTimeout(this.listenTimer);
       // The backend closes the conversation when the socket drops, so the client starts clean too.
       this.state = "IDLE"; this._resetVad();
+      if (this.openStream) { this.openStream.ended = true; if (this.openStream.feed) this.openStream.feed(); this.openStream = null; }
       this.emit("conn", why); this.emit("state", this.state); this.emit("hint", "");
       if (this.o.autoReconnect) {
         clearTimeout(this.reconnectTimer);
@@ -101,12 +106,34 @@
     // ---------- backend messages ----------
     _onMessage(m) {
       switch (m.type) {
-        case "hello.ack": this.followUpTimeout = m.follow_up_timeout_s; this.maxUtterance = m.max_utterance_s; break;
+        case "hello.ack":
+          this.followUpTimeout = m.follow_up_timeout_s; this.maxUtterance = m.max_utterance_s;
+          if (m.speech_rate > 0) this.speechRate = m.speech_rate;
+          if (m.vad_silence_ms > 0) this.silenceFramesEnd = Math.max(5, Math.round(m.vad_silence_ms / FRAME_MS));
+          break;
         case "dialogue.state": this.state = m.state; this.emit("state", this.state); this._maybeListen(); break;
         case "answer.audio": {
           const bytes = Uint8Array.from(atob(m.mp3_b64), c => c.charCodeAt(0));
-          this.queue.push({bytes, text: m.text, seq: m.seq, last: m.last, tag: this.o.tagAudio()});
+          this.queue.push({bytes, text: m.text, seq: m.seq, last: m.last, tag: this.o.tagAudio(), segment: m.segment, kind: m.kind});
           this._playNext(); break;
+        }
+        case "answer.audio.start": {
+          const item = {stream: true, text: m.text, seq: m.seq, last: false, tag: this.o.tagAudio(),
+                        sampleRate: m.sample_rate || 24000, pending: [], ended: false, stopped: false, feed: null};
+          this.openStream = item; this.queue.push(item); this._playNext(); break;
+        }
+        case "answer.audio.chunk": {
+          const item = this.openStream;
+          if (item && item.seq === m.seq && !item.stopped) {
+            item.pending.push(Uint8Array.from(atob(m.pcm16_b64), c => c.charCodeAt(0)));
+            if (item.feed) item.feed();
+          }
+          break;
+        }
+        case "answer.audio.end": {
+          const item = this.openStream;
+          if (item && item.seq === m.seq) { item.ended = true; item.last = m.last; this.openStream = null; if (item.feed) item.feed(); }
+          break;
         }
         case "session.ended": clearTimeout(this.listenTimer); break;
       }
@@ -114,35 +141,115 @@
     }
 
     // ---------- playback queue ----------
+    // Two kinds of items: a whole mp3 file (`answer.audio`: cached phrases, explainer segments)
+    // and a PCM stream (`answer.audio.start/chunk/end`: fresh answers, played while the backend
+    // is still receiving them from text-to-speech).
     _playNext() {
       if (this.playing || this.queue.length === 0) return;
       this.playing = true; this._resetVad();
       const item = this.queue.shift();
-      const url = URL.createObjectURL(new Blob([item.bytes], {type: "audio/mpeg"}));
-      const a = new Audio(url);
-      this._toAnalyser(a);
+      this.current = item;
       let finished = false;
       const done = () => {
         if (finished) return;
-        finished = true; URL.revokeObjectURL(url); this.playing = false;
+        finished = true; this.playing = false; this.current = null; this.audio = null;
         if (this.queue.length) this._playNext(); else { this.emit("playidle"); this._maybeListen(); }
       };
-      a.onended = done; a.onerror = done;
+      item.finish = done;
       this.emit("play", item);
-      a.play().catch(done);
+      if (item.stream) this._playStream(item, done); else this._playFile(item, item.bytes, "audio/mpeg", done);
+    }
+
+    _playFile(item, bytes, mime, done) {
+      const url = URL.createObjectURL(new Blob([bytes], {type: mime}));
+      const a = new Audio(url);
+      // Speaking pace: the same rate on every page (and later on the Pi), with the pitch kept.
+      a.preservesPitch = true; a.defaultPlaybackRate = this.speechRate; a.playbackRate = this.speechRate;
+      this.audio = a;
+      this._toAnalyser(a);
+      const end = () => { URL.revokeObjectURL(url); done(); };
+      item.stop = () => { try { a.pause(); } catch (e) { /* already stopped */ } end(); };
+      a.onended = end; a.onerror = end;
+      a.play().catch(end);
+    }
+
+    _playStream(item, done) {
+      const ctx = this.ctx;
+      if (!ctx || ctx.state !== "running") {
+        // No running AudioContext (no user gesture yet): play the piece as one WAV when it is complete.
+        item.feed = () => {
+          if (!item.ended || item.stopped) return;
+          item.feed = null;
+          this._playFile(item, pcmToWav(item.pending, item.sampleRate), "audio/wav", done);
+        };
+        item.stop = () => { item.stopped = true; done(); };
+        item.feed();
+        return;
+      }
+      const out = this._analyserNode() || ctx.destination;
+      const nodes = [];
+      let nextTime = 0, active = 0, buffered = 0, started = false;
+      const finishIfDone = () => { if (item.ended && item.pending.length === 0 && active === 0) done(); };
+      item.stop = () => { item.stopped = true; item.pending = []; for (const n of nodes) { try { n.onended = null; n.stop(); } catch (e) { /* not started */ } } done(); };
+      item.feed = () => {
+        if (item.stopped) return;
+        // Wait for about 0.2 s of audio before starting, so the first words do not stutter.
+        if (!started) {
+          buffered = item.pending.reduce((n, c) => n + c.length, 0);
+          if (buffered < item.sampleRate * 2 * 0.2 && !item.ended) return;
+          started = true;
+        }
+        while (item.pending.length) {
+          const pcm = item.pending.shift(), n = pcm.length >> 1;
+          if (!n) continue;
+          const buf = ctx.createBuffer(1, n, item.sampleRate), ch = buf.getChannelData(0);
+          const view = new DataView(pcm.buffer, pcm.byteOffset, n * 2);
+          for (let i = 0; i < n; i++) ch[i] = view.getInt16(i * 2, true) / 32768;
+          const src = ctx.createBufferSource();
+          src.buffer = buf; src.playbackRate.value = this.speechRate;   // (a buffer source cannot keep the pitch)
+          src.connect(out);
+          const t = Math.max(ctx.currentTime + 0.02, nextTime);
+          src.start(t); nextTime = t + buf.duration / this.speechRate;
+          active++; nodes.push(src);
+          src.onended = () => { active--; finishIfDone(); };
+        }
+        finishIfDone();
+      };
+      item.feed();
+    }
+
+    /** Stop the robot's speech now and drop everything that is queued (stop button). */
+    stopPlayback() {
+      this.queue = [];
+      if (this.openStream) { this.openStream.stopped = true; }
+      if (this.current && this.current.stop) this.current.stop();
+    }
+    /** Stop only the piece that is playing; the next queued piece starts (skip button). */
+    skipCurrent() { if (this.current && this.current.stop) this.current.stop(); }
+    /** 0..1 position inside the mp3 piece that is playing (null for streams or when unknown). */
+    playProgress() {
+      const a = this.audio;
+      return a && a.duration > 0 && isFinite(a.duration) ? Math.min(1, a.currentTime / a.duration) : null;
+    }
+    /** Seconds since the current piece started (for animations that need a clock). */
+    playSeconds() { const a = this.audio; return a ? a.currentTime / (this.speechRate || 1) : null; }
+
+    _analyserNode() {
+      if (!this.ctx || this.ctx.state !== "running") return null;
+      if (!this.analyser) {
+        this.analyser = this.ctx.createAnalyser(); this.analyser.fftSize = 512;
+        this.analyser.connect(this.ctx.destination);
+        this.levelBuf = new Uint8Array(this.analyser.fftSize);
+      }
+      return this.analyser;
     }
 
     // Robot speech also goes through an analyser, so a page can move the mouth with the sound.
     _toAnalyser(audioElement) {
-      if (!this.ctx || this.ctx.state !== "running") return;   // plain <audio> playback still works
-      try {
-        if (!this.analyser) {
-          this.analyser = this.ctx.createAnalyser(); this.analyser.fftSize = 512;
-          this.analyser.connect(this.ctx.destination);
-          this.levelBuf = new Uint8Array(this.analyser.fftSize);
-        }
-        this.ctx.createMediaElementSource(audioElement).connect(this.analyser);
-      } catch (e) { /* keep the direct output */ }
+      const analyser = this._analyserNode();
+      if (!analyser) return;                                   // plain <audio> playback still works
+      try { this.ctx.createMediaElementSource(audioElement).connect(analyser); }
+      catch (e) { /* keep the direct output */ }
     }
 
     /** RMS (0..1) of the robot's own voice right now; 0 when silent or when no analyser exists. */
@@ -231,7 +338,7 @@
       this.pending.push(pcm); this.voicedFrames++;
       if (rms > thr) this.silenceFrames = 0; else this.silenceFrames++;
       if (this.pending.length >= 3) this._flush();
-      if (this.silenceFrames >= 30 || this.voicedFrames * FRAME_MS > this.maxUtterance * 1000) {   // ~0.9 s silence: done
+      if (this.silenceFrames >= this.silenceFramesEnd || this.voicedFrames * FRAME_MS > this.maxUtterance * 1000) {   // enough silence (VAD_SILENCE_MS): done
         this._flush(); this.inSpeech = false;
         this.emit("speechend");
         this.send(Object.assign({type: "audio.end"}, this.o.audioEndExtra() || {}));
@@ -253,6 +360,17 @@
     async startSession(lang) { if (await this.connect()) this.send({type: "session.start", lang: lang || "ar"}); }
     endSession(reason) { this.send({type: "session.end", reason: reason || "user_done"}); }
     async sendText(text) { if (await this.connect()) this.send({type: "text.input", text}); }
+  }
+
+  // PCM16 mono chunks -> one WAV file (fallback when WebAudio is not running).
+  function pcmToWav(chunks, sampleRate) {
+    const size = chunks.reduce((n, c) => n + c.length, 0), out = new Uint8Array(44 + size), v = new DataView(out.buffer);
+    const tag = (o, t) => { for (let i = 0; i < 4; i++) out[o + i] = t.charCodeAt(i); };
+    tag(0, "RIFF"); v.setUint32(4, 36 + size, true); tag(8, "WAVE"); tag(12, "fmt "); v.setUint32(16, 16, true);
+    v.setUint16(20, 1, true); v.setUint16(22, 1, true); v.setUint32(24, sampleRate, true); v.setUint32(28, sampleRate * 2, true);
+    v.setUint16(32, 2, true); v.setUint16(34, 16, true); tag(36, "data"); v.setUint32(40, size, true);
+    let o = 44; for (const c of chunks) { out.set(c, o); o += c.length; }
+    return out;
   }
 
   global.RobotClient = RobotClient;

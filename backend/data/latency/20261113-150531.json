@@ -1,0 +1,166 @@
+{
+  "model": "gpt-6-luna",
+  "reasoning_effort": "low",
+  "streaming": true,
+  "tts_model": "gpt-4o-mini-tts",
+  "tts_voice": "coral",
+  "summary": {
+    "retrieval_ms": {
+      "median": 228.5,
+      "p90": 626.0,
+      "n": 8
+    },
+    "llm_first_ms": {
+      "median": 1271.5,
+      "p90": 1813.0,
+      "n": 8
+    },
+    "llm_ms": {
+      "median": 2176.0,
+      "p90": 2491.0,
+      "n": 8
+    },
+    "tts_first_ms": {
+      "median": 1620.5,
+      "p90": 1869.0,
+      "n": 8
+    },
+    "first_audio_ms": {
+      "median": 3107.0,
+      "p90": 3767.0,
+      "n": 8
+    },
+    "tts_stream_mp3_ms": {
+      "median": 1056.5,
+      "p90": 1227.0,
+      "n": 8
+    },
+    "tts_stream_pcm_ms": {
+      "median": 681.5,
+      "p90": 791.0,
+      "n": 8
+    }
+  },
+  "rows": [
+    {
+      "id": "ise-hours-ar",
+      "question": "كم ساعة معتمدة بدها هندسة الأنظمة الذكية؟",
+      "first_piece": "هندسة الأنظمة الذكية بدها 162 ساعة معتمدة بالمجموع.",
+      "pieces": 1,
+      "found": true,
+      "retrieval_ms": 1163,
+      "llm_first_ms": 1813,
+      "llm_ms": 2478,
+      "tts_first_ms": 1948,
+      "first_audio_ms": 4940,
+      "tts_stream_mp3_ms": 1227,
+      "tts_stream_pcm_ms": 959,
+      "error": null
+    },
+    {
+      "id": "arch-hours-ar",
+      "question": "قديش ساعة هندسة العمارة؟",
+      "first_piece": "هندسة العمارة بدها 165 ساعة معتمدة بالمجموع.",
+      "pieces": 1,
+      "found": true,
+      "retrieval_ms": 626,
+      "llm_first_ms": 1094,
+      "llm_ms": 1718,
+      "tts_first_ms": 1828,
+      "first_audio_ms": 3550,
+      "tts_stream_mp3_ms": 1202,
+      "tts_stream_pcm_ms": 729,
+      "error": null
+    },
+    {
+      "id": "ise-careers-ar",
+      "question": "وين بيشتغلوا خريجين هندسة الأنظمة الذكية؟",
+      "first_piece": "خريجين هندسة الأنظمة الذكية بشتغلوا بمجالات",
+      "pieces": 3,
+      "found": true,
+      "retrieval_ms": 238,
+      "llm_first_ms": 1870,
+      "llm_ms": 3152,
+      "tts_first_ms": 1656,
+      "first_audio_ms": 3767,
+      "tts_stream_mp3_ms": 785,
+      "tts_stream_pcm_ms": 763,
+      "error": null
+    },
+    {
+      "id": "ise-accredit-ar",
+      "question": "هل تخصص الأنظمة الذكية معتمد من نقابة المهندسين الأردنيين؟",
+      "first_piece": "آه، التخصص معتمد من نقابة المهندسين",
+      "pieces": 2,
+      "found": true,
+      "retrieval_ms": 202,
+      "llm_first_ms": 1173,
+      "llm_ms": 1938,
+      "tts_first_ms": 1585,
+      "first_audio_ms": 2962,
+      "tts_stream_mp3_ms": 1303,
+      "tts_stream_pcm_ms": 791,
+      "error": null
+    },
+    {
+      "id": "arch-years-ar",
+      "question": "كم سنة دراسة العمارة؟",
+      "first_piece": "دراسة تخصص هندسة العمارة مدتها الاعتيادية خمس سنوات.",
+      "pieces": 1,
+      "found": true,
+      "retrieval_ms": 200,
+      "llm_first_ms": 1036,
+      "llm_ms": 1676,
+      "tts_first_ms": 1869,
+      "first_audio_ms": 3108,
+      "tts_stream_mp3_ms": 941,
+      "tts_stream_pcm_ms": 559,
+      "error": null
+    },
+    {
+      "id": "interior-training-ar",
+      "question": "التدريب الميداني بالتصميم الداخلي قديش؟",
+      "first_piece": "التدريب الميداني ٦ ساعات معتمدة،",
+      "pieces": 2,
+      "found": true,
+      "retrieval_ms": 197,
+      "llm_first_ms": 1557,
+      "llm_ms": 2491,
+      "tts_first_ms": 1213,
+      "first_audio_ms": 2970,
+      "tts_stream_mp3_ms": 1128,
+      "tts_stream_pcm_ms": 625,
+      "error": null
+    },
+    {
+      "id": "ise-careers-en",
+      "question": "Where do Intelligent Systems Engineering graduates work?",
+      "first_piece": "Graduates can work in IT,",
+      "pieces": 3,
+      "found": true,
+      "retrieval_ms": 242,
+      "llm_first_ms": 1046,
+      "llm_ms": 1954,
+      "tts_first_ms": 1392,
+      "first_audio_ms": 2682,
+      "tts_stream_mp3_ms": 965,
+      "tts_stream_pcm_ms": 613,
+      "error": null
+    },
+    {
+      "id": "ise-vs-se-ar",
+      "question": "شو الفرق بين هندسة الأنظمة الذكية وهندسة البرمجيات؟",
+      "first_piece": "هندسة الأنظمة الذكية بتجمع بين الذكاء",
+      "pieces": 3,
+      "found": true,
+      "retrieval_ms": 219,
+      "llm_first_ms": 1370,
+      "llm_ms": 2398,
+      "tts_first_ms": 1514,
+      "first_audio_ms": 3106,
+      "tts_stream_mp3_ms": 985,
+      "tts_stream_pcm_ms": 634,
+      "error": null
+    }
+  ]
+}

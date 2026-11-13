@@ -73,13 +73,14 @@ class AnswerExtractor:
 
 class SpeechPieces:
     """Cuts streamed text into speech pieces, with the same rules as `split_for_speech`:
-    the first piece is short (first sentence, cut at a comma or after ~10 words when long),
+    the first piece is short (first sentence, cut at a comma or after `first_words` words when long),
     and every later piece is a complete sentence. A piece is only released when the text after
     it has started, so numbers and words are never cut in half."""
 
-    def __init__(self) -> None:
+    def __init__(self, first_words: int = FIRST_PIECE_MAX_WORDS) -> None:
         self.buffer = ""
         self.emitted = 0
+        self.first_words = first_words
 
     def feed(self, text: str) -> list[str]:
         self.buffer += text
@@ -100,7 +101,7 @@ class SpeechPieces:
             else:
                 break
             if self.emitted == 0:
-                pieces = split_for_speech(sentence)  # may cut a long first sentence in two
+                pieces = split_for_speech(sentence, self.first_words)  # may cut a long first sentence in two
             else:
                 pieces = [sentence]
             out.extend(pieces)
@@ -117,9 +118,9 @@ class SpeechPieces:
         words = self.buffer.split()
         if self.buffer and not self.buffer[-1].isspace():
             words = words[:-1]  # the last word may still be growing
-        if len(words) <= FIRST_PIECE_MAX_WORDS + 2:
+        if len(words) <= self.first_words + 2:
             return None
-        first, rest = split_for_speech(" ".join(words) + " …")[:2]  # same cut as the full rule
+        first, rest = split_for_speech(" ".join(words) + " …", self.first_words)[:2]  # same cut as the full rule
         if len(first.split()) >= len(words):
             return None
         remaining = self.buffer.split(None, len(first.split()))

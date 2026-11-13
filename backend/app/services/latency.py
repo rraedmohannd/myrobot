@@ -23,13 +23,18 @@ from app.services.chat import answer_events
 from app.services.providers import LLM, Embedder, ProviderError
 
 RESULTS_DIR = Path(__file__).resolve().parents[2] / "data" / "latency"
-STAGES = ("retrieval_ms", "llm_first_ms", "llm_ms", "tts_first_ms", "first_audio_ms")
+STAGES = (
+    "retrieval_ms", "llm_first_ms", "llm_ms", "tts_first_ms", "first_audio_ms",
+    "tts_stream_mp3_ms", "tts_stream_pcm_ms",
+)  # fmt: skip
 STAGE_LABELS = {
     "retrieval_ms": "retrieval (embedding + search)",
     "llm_first_ms": "LLM until first speakable piece",
     "llm_ms": "LLM whole answer",
     "tts_first_ms": "TTS of the first piece",
     "first_audio_ms": "question text -> first answer audio",
+    "tts_stream_mp3_ms": "TTS first piece, streamed mp3: first chunk",
+    "tts_stream_pcm_ms": "TTS first piece, streamed pcm: first chunk",
 }
 
 
@@ -49,6 +54,10 @@ class LatencyRow:
     llm_ms: int | None = None
     tts_first_ms: int | None = None
     first_audio_ms: int | None = None
+    # Streaming trial (sprint 2): the same first piece requested with chunked transfer, in
+    # parallel with the normal request; ms from the TTS request to its first audio chunk.
+    tts_stream_mp3_ms: int | None = None
+    tts_stream_pcm_ms: int | None = None
     error: str | None = None
 
 
@@ -88,6 +97,16 @@ async def measure_one(
         done = time.perf_counter()
         return int((done - t0) * 1000), int((done - start) * 1000)
 
+    async def first_chunk(piece: str, response_format: str) -> int | None:
+        t0 = time.perf_counter()
+        try:
+            async for _ in tts.stream(piece, response_format=response_format):  # type: ignore[attr-defined]
+                return int((time.perf_counter() - t0) * 1000)
+        except ProviderError:
+            return None
+        return None
+
+    streams: list[asyncio.Task[int | None]] = []
     async for event in answer_events(session, embedder, llm, item["question"], log=False, stream=stream):
         if event.kind == "piece":
             row.pieces += 1
@@ -95,6 +114,8 @@ async def measure_one(
                 row.first_piece = event.text
                 # as a task: the LLM stream is not held back while the audio is being made
                 first_audio = asyncio.create_task(synthesize_first(event.text))
+                if hasattr(tts, "stream"):
+                    streams = [asyncio.create_task(first_chunk(event.text, f)) for f in ("mp3", "pcm")]
         elif event.kind == "result" and event.result is not None:
             r = event.result
             row.found, row.error = r.found, r.error
@@ -106,6 +127,8 @@ async def measure_one(
             row.tts_first_ms, row.first_audio_ms = await first_audio
         except ProviderError as e:
             row.error = row.error or str(e)
+    if streams:
+        row.tts_stream_mp3_ms, row.tts_stream_pcm_ms = [await t for t in streams]
     return row
 
 
@@ -119,18 +142,18 @@ async def measure(
 def format_report(rows: list[LatencyRow], label: str) -> str:
     summary = summarize(rows)
     lines = [f"Latency — {label} — {len(rows)} question(s)", ""]
-    lines.append(f"{'id':24s} {'retr':>6} {'llm1':>6} {'llm':>6} {'tts1':>6} {'audio':>6}  first piece")
+    lines.append(f"{'id':24s} {'retr':>6} {'llm1':>6} {'llm':>6} {'tts1':>6} {'audio':>6} {'s.mp3':>6} {'s.pcm':>6}  first piece")
     for r in rows:
         cells = " ".join(f"{(getattr(r, s) if getattr(r, s) is not None else '-'):>6}" for s in STAGES)
         lines.append(f"{r.id:24s} {cells}  {r.error or r.first_piece[:50]}")
     lines.append("")
-    lines.append(f"{'stage':38s} {'median':>8} {'p90':>8}   (ms)")
+    lines.append(f"{'stage':44s} {'median':>8} {'p90':>8}   (ms)")
     for stage in STAGES:
         s = summary[stage]
         if s["median"] is None:
-            lines.append(f"{STAGE_LABELS[stage]:38s} {'-':>8} {'-':>8}")
+            lines.append(f"{STAGE_LABELS[stage]:44s} {'-':>8} {'-':>8}")
         else:
-            lines.append(f"{STAGE_LABELS[stage]:38s} {s['median']:8.0f} {s['p90']:8.0f}")
+            lines.append(f"{STAGE_LABELS[stage]:44s} {s['median']:8.0f} {s['p90']:8.0f}")
     return "\n".join(lines)
 
 

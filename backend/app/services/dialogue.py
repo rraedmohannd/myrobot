@@ -33,7 +33,13 @@ from app.services.speakers import (
     SpeakerEmbedder,
     SpeakerTracker,
 )
-from app.services.speech import STT, CachedTTS, pcm16_to_wav, split_for_speech
+from app.services.speech import (
+    STREAM_SAMPLE_RATE,
+    STT,
+    CachedTTS,
+    pcm16_to_wav,
+    split_for_speech,
+)
 
 PROTOCOL_VERSION = 1
 
@@ -70,6 +76,20 @@ PHRASES: dict[str, dict[str, str]] = {
         "en": "One at a time please, so I can hear you well. Go ahead.",
     },
 }
+
+
+
+def fixed_phrase_pieces() -> list[str]:
+    """Every cached piece the robot can say (both languages), cut exactly as `_speak` cuts them.
+    `prepare-phrases` generates them ahead of time, so nothing is synthesized during a demo."""
+    from app.services.chat import NUMBER_SAFE
+
+    first_words = get_settings().tts_first_piece_words
+    texts = [t for phrase in PHRASES.values() for t in phrase.values()]
+    texts += [*UNAVAILABLE.values()]
+    pieces = [p for t in texts for p in (split_for_speech(t, first_words) or [t])]
+    return list(dict.fromkeys([*pieces, *NUMBER_SAFE.values()]))
+
 
 # ---------------- intents ----------------
 _ALEF = str.maketrans({"أ": "ا", "إ": "ا", "آ": "ا", "ة": "ه", "ى": "ي", "ـ": None})
@@ -164,6 +184,7 @@ class DialogueManager:
     filler_turn: int = 0
     media_turn: int = 0
     robot_run_id: int | None = None  # set by /ws/robot while a robot run is being recorded
+    audio_stream: bool = False  # the client said in `hello` that it can play PCM chunks
     _warm_up: asyncio.Task[None] | None = None
 
     # ---------- plumbing ----------
@@ -176,7 +197,7 @@ class DialogueManager:
 
     async def _speak(self, text: str, cache: bool = False, started: float | None = None) -> int | None:
         """Send `text` as mp3 chunks (first sentence first). Returns ms until first chunk."""
-        pieces = split_for_speech(text) or [text]
+        pieces = split_for_speech(text, get_settings().tts_first_piece_words) or [text]
         tasks = [asyncio.create_task(self.tts.synthesize(p, cache=cache)) for p in pieces]
         first_ms = None
         try:
@@ -194,6 +215,26 @@ class DialogueManager:
             await self.send({"type": "error", "code": "tts_failed", "message": str(e)})
         return first_ms
 
+    def _streaming(self) -> bool:
+        """Fresh answer pieces go out as PCM chunks: the client asked for it, the setting allows
+        it and the TTS adapter can stream. Cached phrases always stay whole mp3 files."""
+        return (
+            self.audio_stream
+            and get_settings().tts_streaming
+            and bool(getattr(self.tts, "can_stream", False))
+        )
+
+    async def _pump(self, text: str, out: "asyncio.Queue[bytes | ProviderError | None]") -> bytes:
+        """Feed one piece's PCM chunks into its queue as the provider generates them."""
+        try:
+            async for chunk in self.tts.stream_pcm(text):
+                out.put_nowait(chunk)
+        except ProviderError as e:
+            out.put_nowait(e)
+        finally:
+            out.put_nowait(None)
+        return b""
+
     async def _say(self, key: str, display_mode: str = "answering") -> None:
         text = PHRASES[key][self.lang]
         await self._display(display_mode, text)
@@ -203,10 +244,15 @@ class DialogueManager:
     async def handle(self, msg: dict[str, Any]) -> None:
         kind = msg.get("type")
         if kind == "hello":
+            formats = msg.get("audio_stream")
+            self.audio_stream = isinstance(formats, list) and "pcm16" in formats
             await self.send({
                 "type": "hello.ack", "protocol_version": PROTOCOL_VERSION,
                 "follow_up_timeout_s": get_settings().follow_up_timeout_s,
                 "max_utterance_s": get_settings().max_utterance_s,
+                "speech_rate": get_settings().speech_rate,
+                "vad_silence_ms": get_settings().vad_silence_ms,
+                "audio_stream": self._streaming(),
             })  # fmt: skip
         elif kind == "heartbeat":
             await self.send({"type": "heartbeat"})
@@ -408,14 +454,46 @@ class DialogueManager:
         text-to-speech at once; the audio is sent in order. Returns the result and the ms from
         the end of speech to the first audio of the answer.
         """
-        queue: asyncio.Queue[tuple[str, asyncio.Task[bytes]] | None] = asyncio.Queue()
+        Chunks = asyncio.Queue[bytes | ProviderError | None]
+        queue: asyncio.Queue[tuple[str, asyncio.Task[bytes], Chunks | None] | None] = asyncio.Queue()
         tasks: list[asyncio.Task[bytes]] = []
         first_ms: list[int] = []
+        streaming = self._streaming()
+
+        def mark_first() -> None:
+            if not first_ms:
+                first_ms.append(int((time.perf_counter() - started) * 1000))
+
+        async def send_stream(seq: int, piece: str, chunks: Chunks) -> ProviderError | None:
+            """One piece as PCM chunks, forwarded while the provider is still generating it."""
+            await self.send({
+                "type": "answer.audio.start", "seq": seq, "text": piece, "format": "pcm16",
+                "sample_rate": STREAM_SAMPLE_RATE,
+            })  # fmt: skip
+            while (chunk := await chunks.get()) is not None:
+                if isinstance(chunk, ProviderError):
+                    return chunk
+                await self.send({
+                    "type": "answer.audio.chunk", "seq": seq,
+                    "pcm16_b64": base64.b64encode(chunk).decode(),
+                })  # fmt: skip
+                mark_first()
+            return None
 
         async def sender() -> None:
             seq, item = 0, await queue.get()
             while item is not None:
-                piece, task = item
+                piece, task, chunks = item
+                if chunks is not None:
+                    failed = await send_stream(seq, piece, chunks)
+                    following = None if failed else await queue.get()
+                    # a started piece is always ended, so the client never waits for more audio
+                    await self.send({"type": "answer.audio.end", "seq": seq, "last": following is None})
+                    if failed:
+                        await self.send({"type": "error", "code": "tts_failed", "message": str(failed)})
+                        return
+                    seq, item = seq + 1, following
+                    continue
                 try:
                     mp3 = await task
                 except ProviderError as e:
@@ -426,8 +504,7 @@ class DialogueManager:
                     "type": "answer.audio", "seq": seq, "last": following is None,
                     "text": piece, "mp3_b64": base64.b64encode(mp3).decode(),
                 })  # fmt: skip
-                if not first_ms:
-                    first_ms.append(int((time.perf_counter() - started) * 1000))
+                mark_first()
                 seq, item = seq + 1, following
 
         sending = asyncio.create_task(sender())
@@ -441,10 +518,15 @@ class DialogueManager:
                     if event.kind == "piece":
                         if not tasks:
                             await self._display("answering", speaker_label=label)
-                        tasks.append(asyncio.create_task(
-                            self.tts.synthesize(event.text, cache=event.replacement)
-                        ))  # fmt: skip
-                        queue.put_nowait((event.text, tasks[-1]))
+                        if streaming and not event.replacement:  # the safe line is cached mp3
+                            chunks: Chunks = asyncio.Queue()
+                            tasks.append(asyncio.create_task(self._pump(event.text, chunks)))
+                            queue.put_nowait((event.text, tasks[-1], chunks))
+                        else:
+                            tasks.append(asyncio.create_task(
+                                self.tts.synthesize(event.text, cache=event.replacement)
+                            ))  # fmt: skip
+                            queue.put_nowait((event.text, tasks[-1], None))
                     elif event.kind == "result":
                         result = event.result
             assert result is not None  # answer_events always ends with the result

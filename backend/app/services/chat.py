@@ -237,7 +237,7 @@ async def answer_events(
                 if session_id is not None
                 else []
             )
-            extractor, pieces = AnswerExtractor(), SpeechPieces()
+            extractor, pieces = AnswerExtractor(), SpeechPieces(settings.tts_first_piece_words)
             llm_start = time.perf_counter()
             llm_result: LLMResult | None = None
             async for item in stream_json(
@@ -290,7 +290,7 @@ async def answer_events(
         result.answer = UNAVAILABLE[lang]
     if result.error is None and not spoken_filter.spoken:
         # nothing retrieved, or an answer the extractor could not follow: checked as a whole
-        fallback = SpeechPieces()
+        fallback = SpeechPieces(settings.tts_first_piece_words)
         for piece in fallback.feed(result.answer) + fallback.flush():
             event = spoken_filter.check(piece)
             if event is not None:

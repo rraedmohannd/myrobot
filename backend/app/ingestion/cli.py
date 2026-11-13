@@ -12,6 +12,8 @@
     python -m app.ingestion.cli tts-samples           # one mp3 per voice (accent test)
     python -m app.ingestion.cli bench                 # LLM/STT model latency + correctness
     python -m app.ingestion.cli latency [--n 8]       # retrieval -> LLM -> first TTS piece timings
+    python -m app.ingestion.cli bench --stt-only      # STT models on the same spoken sentences
+    python -m app.ingestion.cli prepare-phrases       # fixed phrases with the current voice/pace
     python -m app.ingestion.cli seed-demo-media       # dev only: labelled placeholder images
     python -m app.ingestion.cli simulate-run [--seed 7]   # SIMULATED robot run (never a real result)
 """
@@ -218,7 +220,70 @@ async def _latency(n: int, stream: bool, effort: str | None) -> None:
     print(f"\nSaved: backend/{path.relative_to(path.parents[2])}")
 
 
-async def _bench(models: list[str], effort: str | None, stt_models: list[str]) -> None:
+# Sentences for the STT comparison. They are spoken by the text-to-speech voice (there are no
+# human recordings in the repository), so the result says little about real Jordanian speakers.
+STT_SAMPLES = (
+    "كم ساعة معتمدة بدها هندسة الأنظمة الذكية؟",
+    "احكيلي عن تخصص هندسة الطاقة المتجددة.",
+    "وين بيشتغلوا خريجين التصميم الجرافيكي؟",
+    "مش عارف شو أدرس، ساعدني أختار.",
+    "شو الفرق بين هندسة العمارة والتصميم الداخلي؟",
+    "قديش الحد الأعلى للساعات اللي بقدر أسجلها بالفصل؟",
+    "Tell me about Biomedical Engineering.",
+    "How many credit hours is Interior Design?",
+)
+
+
+def _stt_words(text: str) -> list[str]:
+    from app.services.dialogue import _norm
+
+    return _norm(text).split()
+
+
+async def _bench_stt(stt_models: list[str], repeats: int = 2) -> None:
+    """The same recordings through each STT model: median time and words heard correctly."""
+    import statistics
+
+    from app.services.providers import ProviderError
+    from app.services.speech import OpenAISTT, OpenAITTS
+
+    try:
+        tts = OpenAITTS()
+        recordings = [(s, await tts.synthesize(s)) for s in STT_SAMPLES]
+    except ProviderError as e:
+        print(f"TTS failed, cannot test STT: {e}")
+        return
+    print(f"\nSTT comparison: {len(recordings)} sentences spoken by the TTS voice (synthetic speech, "
+          f"not human recordings), {repeats} pass(es) per model, the same audio for every model.")  # fmt: skip
+    rows = []
+    for m in stt_models:
+        stt = OpenAISTT()
+        stt.model = m
+        times, exact, word_hits, word_total, errors = [], 0, 0, 0, 0
+        for _ in range(repeats):
+            for sentence, mp3 in recordings:
+                try:
+                    r = await stt.transcribe(mp3, filename="bench.mp3")
+                except ProviderError as e:
+                    errors += 1
+                    print(f"  {m}: ERROR {str(e)[:100]}")
+                    continue
+                times.append(r.ms)
+                want, got = _stt_words(sentence), _stt_words(r.text)
+                exact += want == got
+                word_hits += sum(1 for w in want if w in got)
+                word_total += len(want)
+                if want != got:
+                    print(f"  {m}: heard {r.text!r} for {sentence!r}")
+        if times:
+            rows.append((m, statistics.median(times), max(times), exact, len(times), word_hits, word_total, errors))
+    print("\nSTT model                median_ms  max_ms  exact  words_heard  errors")
+    for m, med, mx, exact, n, hits, total, errors in rows:
+        print(f"{m:24s} {med:9.0f} {mx:7.0f}  {exact:>2}/{n:<3} {hits:>5}/{total:<5} {errors:>6}")
+
+
+async def _bench(models: list[str], effort: str | None, stt_models: list[str],
+                 stt_only: bool = False) -> None:  # fmt: skip
     """Compare LLM models (latency + correctness on 10 golden questions) and STT models."""
     import statistics
 
@@ -226,6 +291,9 @@ async def _bench(models: list[str], effort: str | None, stt_models: list[str]) -
     from app.services.evaluate import check, load_questions
     from app.services.providers import OpenAILLM, ProviderError, get_embedder
 
+    if stt_only:
+        await _bench_stt(stt_models)
+        return
     questions = [q for q in load_questions() if q["id"] in BENCH_IDS]
     embedder = get_embedder()
     rows = []
@@ -270,6 +338,29 @@ async def _bench(models: list[str], effort: str | None, stt_models: list[str]) -
             except ProviderError as e:
                 print(f"{m:24s} ERROR {str(e)[:100]}")
     print("\nPut the fastest model that still passes ~10/10 in .env (LLM_MODEL=..., STT_MODEL=...).")
+
+
+async def _prepare_phrases() -> None:
+    """Generate the fixed phrases (greeting, fillers, follow-up...) with the current voice, pace
+    and instructions. The cache key includes all of them, so run this after changing any."""
+    from app.services.dialogue import fixed_phrase_pieces
+    from app.services.providers import ProviderError
+    from app.services.speech import get_tts
+
+    tts = get_tts()
+    made = ready = failed = 0
+    for piece in fixed_phrase_pieces():
+        if tts.is_cached(piece):
+            ready += 1
+            continue
+        try:
+            await tts.synthesize(piece, cache=True)
+            made += 1
+        except ProviderError as e:
+            failed += 1
+            print(f"ERR {piece[:40]}: {e}")
+    print(f"fixed phrases: {made} generated, {ready} already cached, {failed} failed "
+          f"(model {tts.model}, voice {tts.voice}, speed {getattr(tts.inner, 'speed', 1.0)})")  # fmt: skip
 
 
 DEMO_MEDIA = (
@@ -349,13 +440,14 @@ async def _main(args: argparse.Namespace) -> None:
         "evaluate": _evaluate,
         "tts-samples": _tts_samples,
         "seed-demo-media": _seed_demo_media,
+        "prepare-phrases": _prepare_phrases,
     }
     if args.cmd in simple:
         await simple[args.cmd]()
         await get_engine().dispose()
         return
     if args.cmd == "bench":
-        await _bench(args.models, args.effort, args.stt)
+        await _bench(args.models, args.effort, args.stt, args.stt_only)
         await get_engine().dispose()
         return
     if args.cmd == "simulate-run":
@@ -429,7 +521,10 @@ def main() -> None:
     b.add_argument("--models", nargs="+", default=["gpt-6-luna", "gpt-4.1-mini", "gpt-5.4-nano", "gpt-5.4-mini"])
     b.add_argument("--effort", default=None, help="reasoning effort for reasoning models, e.g. low / minimal")
     b.add_argument("--stt", nargs="*", default=["gpt-transcribe", "gpt-4o-transcribe", "gpt-4o-mini-transcribe"])
+    b.add_argument("--stt-only", action="store_true",
+                   help="only compare the STT models, on several sentences spoken by the TTS voice")
     sub.add_parser("seed-demo-media", help="dev only: add labelled placeholder images as approved media")
+    sub.add_parser("prepare-phrases", help="generate the fixed phrases with the current voice and pace")
     sim = sub.add_parser("simulate-run", help="store a SIMULATED robot run (trajectory + return-to-origin)")
     sim.add_argument("--seed", type=int, default=7, help="random seed (16 shows the breadcrumb fallback)")
     sim.add_argument("--roam-seconds", type=float, default=45.0)

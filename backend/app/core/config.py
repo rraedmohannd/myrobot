@@ -54,8 +54,24 @@ class Settings(BaseSettings):
         "You are a friendly university receptionist robot. When the text is Arabic, speak it with "
         "a natural, warm Jordanian (Ammani, Levantine) accent and pronunciation, not formal "
         "Modern Standard Arabic. When the text is English, use a clear, friendly neutral accent. "
-        "Moderate pace, cheerful and welcoming."
+        "Speak at a lively, slightly fast, natural conversational pace, the way a friendly young "
+        "Jordanian talks, with only short pauses between sentences. Cheerful and welcoming."
     )
+    # Speaking pace (sprint 2). TTS_SPEED is the provider's own speed control (1.0 = normal):
+    # measured on 2026-11-13, gpt-4o-mini-tts audio gets shorter with it (docs/DECISIONS.md).
+    # SPEECH_RATE is a playback rate applied by the client (browser, later the Pi) with the pitch
+    # preserved; keep it at 1.0 while TTS_SPEED does the work, or the two multiply.
+    tts_speed: float = Field(default=1.12, ge=0.5, le=2.0)
+    speech_rate: float = Field(default=1.0, ge=0.5, le=2.0)
+    # The first spoken piece of an answer is cut after about this many words (at a comma when
+    # there is one), so its audio is ready sooner; the rest is synthesized while it plays.
+    tts_first_piece_words: int = Field(default=6, ge=3, le=20)
+    # Send answer speech as PCM chunks while the provider is still generating it (clients that
+    # ask for it in `hello`; docs/PROTOCOL.md). Measured 2026-11-13: first audio about 0.9 s
+    # earlier than waiting for the whole mp3 of the first piece. false = whole mp3 pieces only.
+    tts_streaming: bool = True
+    # Silence that ends the visitor's utterance (client VAD), sent to the client in hello.ack.
+    vad_silence_ms: int = Field(default=700, ge=300, le=2000)
     filler_enabled: bool = True  # short cached "لحظة بس…" right after a question (masks latency)
     follow_up_timeout_s: int = 10  # silence after "عندك سؤال ثاني؟" before a polite goodbye
     max_utterance_s: int = 20
