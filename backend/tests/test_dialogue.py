@@ -214,6 +214,7 @@ async def test_robot_and_voice_pages_and_shared_client(client) -> None:
         assert "https://" not in page and "http://" not in page.replace("http://www.w3.org", "")
     js = await client.get("/static/robot-client.js")
     assert js.status_code == 200 and "class RobotClient" in js.text
+    assert js.headers["cache-control"] == "no-cache"  # an updated script is never served stale
 
 
 async def test_camera_prototype_files_are_local(client) -> None:

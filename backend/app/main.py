@@ -1,9 +1,11 @@
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
+from typing import Any
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
+from starlette.responses import Response
 
 from app import __version__
 from app.api.rest import admin, analytics, chat, health, media, runs, voice
@@ -18,6 +20,16 @@ from app.db.session import get_engine
 async def lifespan(_: FastAPI) -> AsyncIterator[None]:
     yield
     await get_engine().dispose()
+
+
+class RevalidatedStaticFiles(StaticFiles):
+    """Static files that the browser re-checks on every load (cheap 304 answers), so the robot
+    screen never runs an old script after the code was updated."""
+
+    def file_response(self, *args: Any, **kwargs: Any) -> Response:
+        response = super().file_response(*args, **kwargs)
+        response.headers["Cache-Control"] = "no-cache"
+        return response
 
 
 def create_app() -> FastAPI:
@@ -42,7 +54,7 @@ def create_app() -> FastAPI:
     app.include_router(voice.router)
     app.include_router(robot.router)
     # Scripts, fonts and models for /robot and /voice are local files: no runtime CDN.
-    app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
+    app.mount("/static", RevalidatedStaticFiles(directory=STATIC_DIR), name="static")
     return app
 
 

@@ -52,7 +52,7 @@ The card never contains facts that are not in the grounded answer. Answers with 
 
 ### Client behaviour for the screen (`/robot`)
 - Display modes arrive faster than audio plays. The face follows the mode that was current when each audio piece was queued, and the subtitle shows the piece being spoken (`answer.audio.text`). When the queue is empty, the latest `mode` applies.
-- If the WebSocket closes, or no message arrives for 25 s while heartbeats are sent every 5 s, the client shows the "service unavailable" face and reconnects every 2 s. This is display only; safety never depends on it.
+- If the WebSocket closes, or no message arrives for 40 s while heartbeats are sent every 5 s (the backend answers heartbeats only between messages, so a slow answer must not look like a lost backend), the client shows the "service unavailable" face and reconnects every 2 s. This is display only; safety never depends on it.
 
 ### Telemetry rules
 - Telemetry is for recording and plotting only. The robot never waits for the backend to move or to stop (rule 4), and it keeps its own buffer if the connection drops.

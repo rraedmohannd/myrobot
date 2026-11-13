@@ -5,11 +5,18 @@ Task file: `docs/DEMO_SPRINT.md`. Branch: `demo-sprint` (created from `master` a
 **Start time: Fri 2026-11-13 16:31 (laptop clock, `date`).** Time budget: 4 hours → stop by about 20:31.
 
 ## Questions for Mohannd
-1. **No git remote is configured in this folder** (`git remote -v` is empty, and the `gh` tool is not installed), so `git push -u origin demo-sprint` cannot work. I did not create or guess a remote. All work is committed locally on `demo-sprint`. To push it yourself:
+1. **Nothing was pushed: no git remote is configured in this folder** (`git remote -v` is empty, and the `gh` tool is not installed). `git push -u origin demo-sprint` answered "'origin' does not appear to be a git repository". I did not create or guess a remote. All work is committed locally on the branch `demo-sprint` (10 commits). To push it yourself:
    `git remote add origin <your GitHub repo URL>` then `git push -u origin demo-sprint`.
    (DECISIONS says the repo was pushed to GitHub on 2026-11-06; that was probably done from another copy of the folder.)
-2. **The Student Handbook (source 346, 19 chunks) and the Biomedical Engineering plan (source 345, 13 chunks) are still `pending`.** The robot cannot use them until you approve them in `/admin`. I did not approve anything. Until then, handbook and Biomedical questions get the "I don't have this information" answer, and those golden questions fail in `evaluate`.
+2. **The Student Handbook (source 346, 19 chunks) and the Biomedical Engineering plan (source 345, 13 chunks) are still `pending`, and the faculty-overview page (source 66) is `stale`.** The robot cannot use them until you review them in `/admin`. I did not approve anything. Until then: handbook and Biomedical questions get "I don't have this information", the Arabic "which programs" answer is incomplete, the robot may say Biomedical Engineering is "not listed" (wrong), and the golden set stays at 37/49.
 3. The local branch is called `master`, while the task file says `main`. Nothing was merged or pushed to either.
+4. **Reasoning effort:** `LLM_REASONING_EFFORT` now defaults to `low` (10/10 on the bench, and 37/38 on approved content in `evaluate`). If your `.env` has its own `LLM_REASONING_EFFORT=` line, that line wins; set it to `low` or delete it. To go back: `LLM_REASONING_EFFORT=` (empty) is not enough because the default is now `low`; use `medium`.
+5. **Latency target:** about 4.7–5.2 s from end of speech to the answer (estimate) against the 4 s target. The next real gain is in TTS (about 1.8 s per piece). Do you want TTS audio streaming (a protocol change to PCM chunks, about half a day), or wait for the ElevenLabs switch in the final week?
+6. **Camera prototype:** it needs you and one more person for 10 minutes (docs/SPEAKERS.md → Validation, item 4). Until then keep it off in the demo.
+7. **Repository size:** the vendored MediaPipe files add 18.5 MB to git (asked for by the task file: local, no CDN). Tell me if you prefer to download them in the Docker build instead.
+8. **Media:** real MEU photos or videos need the university's permission. Who can give it (dean's office, media office)? The placeholders say clearly that they are samples.
+9. **Simulator numbers:** track width (0.19 m), slip and gyro noise are guesses. When the Rover 5 is on your desk, measure the track width and run the calibration of ODOMETRY.md §5, and I will replace them.
+10. Some Arabic answers address the visitor in the feminine form ("اسألي"). Should the prompt ask for a neutral or masculine default? It needs one more `evaluate` run afterwards (one run is left from today's budget, unused).
 
 ## M0 — Baseline
 - `git status` at the start: clean except the untracked `docs/DEMO_SPRINT.md` (the pending work from 2026-11-06 was already committed as d20be5d, so no "Pending work" commit was needed).
@@ -24,7 +31,7 @@ Task file: `docs/DEMO_SPRINT.md`. Branch: `demo-sprint` (created from `master` a
 - New page `http://localhost:8000/robot` (1024×600 stage, scaled to the window, label "محاكاة لشاشة الروبوت").
   - SVG/CSS face with one look per mode (idle, attentive, listening, processing, answering, finished, unavailable); it blinks; the mouth follows the robot's voice through a WebAudio analyser.
   - Large right-to-left subtitles that follow the audio piece being spoken; card (title, ≤ 3 lines, source line); "متحدث N" badge; what the robot heard.
-  - WebSocket drop or 25 s without any message → "service unavailable" face and message, reconnect every 2 s.
+  - WebSocket drop (noticed at once) or 40 s without any message → "service unavailable" face and message, reconnect every 2 s.
   - Start button or Space = `session.start`; `T` = hidden text input (microphone fallback); `Esc` = end; `F` = fullscreen. If the microphone cannot be opened, the conversation still starts and the page tells the visitor to press T.
 - Shared client `static/robot-client.js` (WebSocket, heartbeat, VAD, PCM16, audio queue, turn-taking), now used by both `/voice` and `/robot`. `/voice` keeps the same controls and log; it now also sends heartbeats.
 - Backend: `display.update.card` now carries `title`, `lines` (sentences of the answer, at most 3) and `sources`; built in `services/display.py` only from the answer and its sources; no card for `found=false`. `/static` is served locally (no CDN). `docs/PROTOCOL.md` updated.
@@ -71,7 +78,7 @@ Task file: `docs/DEMO_SPRINT.md`. Branch: `demo-sprint` (created from `master` a
 - New setting `LOCAL_TIMEZONE` (default `Asia/Amman`) decides what "today" means.
 - The admin page stays in English (it is the student's tool; the visitor-facing pages are Arabic first).
 - Checked in headless Edge against the real database through a temporary preview container with a throwaway token (I never read `.env` or the real admin token). "Ask the robot" was tested with fakes only, not with the real model.
-- Note: the overview shows one empty conversation today (id 114). It is my `/robot` smoke test from M1 (greeting only).
+- Note: my `/robot` smoke tests created two conversations in your database (ids 114 and 536). I deleted exactly those two rows at the end of the sprint, so the analytics only show your own conversations.
 - Tests: **99 passed** (16 new in `tests/test_analytics_api.py`: each endpoint with and without the token).
 - Commit: `1d98213` (16:56). Elapsed: 25 min. Not pushed (no remote).
 
@@ -123,3 +130,48 @@ Task file: `docs/DEMO_SPRINT.md`. Branch: `demo-sprint` (created from `master` a
   - Please run the two checks in `docs/SPEAKERS.md` → Validation, item 4, and write the counts here.
 - Risk if switched on untested: a wrong threshold could send `overlap: true` and make the robot say "واحد واحد" instead of answering. That is why it is off by default.
 - Tests: **129 passed** (2 new: the camera files are served locally; `audio.end` with `face_track_id` / `overlap`).
+- Commit: `8fdc4f8` (17:15). Elapsed: 44 min. Not pushed (no remote).
+
+## After M7 — final checks
+- End-to-end browser check of `/robot` against the real app and database with **fake AI providers** (a throwaway preview container; no OpenAI call): typed question → filler → answer pieces spoken in order while the fake model was still writing → the sentence with an invented number replaced by the safe line → card with media → "عندك سؤال ثاني؟" → "لا شكرا" → goodbye → idle screen with the start button. All as expected.
+- Two small hardening changes: the screen declares the backend lost after 40 s of silence instead of 25 s (a slow model call must not show the "unavailable" face; a closed socket is still noticed at once), and `/static` files are sent with `Cache-Control: no-cache`, so the browser never runs an old script after an update.
+- `.gitattributes` keeps the vendored MediaPipe files byte-exact.
+- Final `docker compose exec backend pytest -q`: **129 passed, 0 failed**.
+- Total time used: about 50 minutes of the 4 hours (start 16:31, end about 17:20). I stopped because every milestone M0–M7 was attempted; the time limit was not reached.
+- OpenAI budget used: 1 of 2 `evaluate` runs, 3 of 3 bench/latency runs. Everything else used fakes.
+
+# Summary for Mohannd
+
+## What to try first (15 minutes)
+1. `docker compose up -d`, then `docker compose exec backend alembic upgrade head`, then `docker compose exec backend pytest -q` → 129 passed.
+2. Open **http://localhost:8000/robot** in Chrome or Edge, press **Space**, and have a real spoken conversation. This is the one thing I could not do: **no real microphone conversation was run today**, on `/robot` or on `/voice`. Check that the mouth moves, the subtitles follow the voice, and the card with the sample picture appears for "كم ساعة معتمدة بدها هندسة الأنظمة الذكية؟".
+3. Open **http://localhost:8000/voice**, do the same once, and read the timings table (ack and answer are separate columns).
+4. Open **http://localhost:8000/admin**, connect with your token, and click through the tabs: Overview, Knowledge gaps, Conversations, Ask the robot, Evaluation, Knowledge coverage, Media, Robot runs.
+5. Review the three sources in the Review queue (question 2), then read `docs/DEMO.md` and rehearse it once.
+
+## What is done
+| Milestone | Result |
+|---|---|
+| M0 baseline | 66 tests passed at the start; log, PLAN section, `.gitignore` |
+| M1 robot screen | `/robot` with animated face, subtitles, card, speaker badge, unavailable state, text fallback; shared `robot-client.js` |
+| M2 faster replies | streaming answers with a per-sentence number check; median to first answer audio 5.3 s → 3.5 s (STT not included); effort low |
+| M3 admin analytics | 6 new tabs and endpoints, migration 0006 |
+| M4 media | upload / review / serve only approved, `card.media`, labelled placeholders, migration 0007 |
+| M5 demo pack | `docs/DEMO.md`, evaluation 37/49 with 0 invented numbers, docs updated |
+| M6 simulated runs | telemetry messages, odometry maths, simulator, Robot runs tab with SIMULATED banner |
+| M7 camera | browser prototype, off by default |
+
+## What is unfinished or not verified
+- **Not pushed** (question 1).
+- **No live voice test** with a microphone, and no live conversation through the WebSocket with the real OpenAI providers. The real providers were exercised by the `latency`, `bench` and `evaluate` commands only (including streaming).
+- **4 s latency target not reached** (about 4.7–5.2 s estimated from end of speech).
+- **Golden set 37/49**, below the 90 % target, because three sources wait for your review.
+- **Camera prototype not validated with people** (0 real faces tested).
+- **A real video file** was never played on the robot screen (only images).
+- **Robot runs are simulation only**; there is no physical trial and no ESP32 or Pi code.
+- Admin "Ask the robot" was tested with fakes only.
+- The React admin panel and admin login are still deferred (the admin is one static page with a token).
+- The Raspberry Pi will need an Arabic font installed; the pages use system fonts.
+
+## Questions for Mohannd
+See the list at the top of this file (10 questions). The first two matter before the demo: the missing git remote, and the three sources waiting for review.

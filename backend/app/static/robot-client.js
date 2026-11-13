@@ -26,7 +26,9 @@
         autoReconnect: false,     // /robot reconnects by itself; /voice reconnects on the next click
         reconnectMs: 2000,
         heartbeatMs: 5000,
-        lostAfterMs: 25000,       // no message for this long = backend lost (PROTOCOL.md: allow >= 15 s)
+        // No message for this long = backend lost. A slow LLM call can keep the backend quiet for
+        // a while (it answers heartbeats only between messages), so this is generous on purpose.
+        lostAfterMs: 40000,
         sensitivity: () => 3,     // VAD threshold = noise floor x this
         audioEndExtra: () => ({}),// extra fields for audio.end (face_track_id, overlap)
         tagAudio: () => null,     // value attached to each queued audio piece (e.g. display mode)
