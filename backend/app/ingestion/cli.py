@@ -12,6 +12,7 @@
     python -m app.ingestion.cli tts-samples           # one mp3 per voice (accent test)
     python -m app.ingestion.cli bench                 # LLM/STT model latency + correctness
     python -m app.ingestion.cli latency [--n 8]       # retrieval -> LLM -> first TTS piece timings
+    python -m app.ingestion.cli seed-demo-media       # dev only: labelled placeholder images
 """
 
 import argparse
@@ -270,6 +271,50 @@ async def _bench(models: list[str], effort: str | None, stt_models: list[str]) -
     print("\nPut the fastest model that still passes ~10/10 in .env (LLM_MODEL=..., STT_MODEL=...).")
 
 
+DEMO_MEDIA = (
+    ("placeholder_ise.png", "intelligent-systems-engineering"),
+    ("placeholder_ree.png", "renewable-energy-engineering"),
+)
+DEMO_MEDIA_NOTE = "generated placeholder"
+
+
+async def _seed_demo_media() -> None:
+    """Dev only: copy the generated, clearly labelled placeholder images into data/media and
+    add them as approved media, so the robot screen can be shown before real MEU media exists."""
+    from app.db.models import Media, Program
+    from app.services.media import MEDIA_DIR, store, validate
+
+    if get_settings().app_env == "production":
+        print("seed-demo-media is a development command; it does nothing in production.")
+        return
+    assets = __import__("pathlib").Path(__file__).resolve().parents[1] / "demo_media"
+    async with get_sessionmaker()() as session:
+        for filename, slug in DEMO_MEDIA:
+            program = await session.scalar(select(Program).where(Program.slug == slug))
+            if program is None:
+                print(f"skip {filename}: program '{slug}' is not in the database")
+                continue
+            existing = await session.scalar(
+                select(Media).where(Media.program_id == program.id, Media.source_note == DEMO_MEDIA_NOTE)
+            )
+            if existing is not None:
+                print(f"exists  media {existing.id} for {slug}")
+                continue
+            data = (assets / filename).read_bytes()
+            kind, mime, ext = validate(filename, data)
+            media = Media(
+                kind=kind, path=store(data, ext, MEDIA_DIR), mime=mime, size_bytes=len(data),
+                title=f"Sample media (placeholder) — {program.name_en}",
+                alt_ar="صورة تجريبية — ليست صورة حقيقية من الجامعة",
+                alt_en="Sample media — placeholder, not a real MEU photo",
+                source_note=DEMO_MEDIA_NOTE, program_id=program.id, review_status="approved",
+            )  # fmt: skip
+            session.add(media)
+            await session.commit()
+            print(f"created media {media.id} for {slug} (approved, source_note='{DEMO_MEDIA_NOTE}')")
+    print("Replace these with real MEU media in /admin → Media (upload, link to a program, approve).")
+
+
 async def _main(args: argparse.Namespace) -> None:
     cfg = CrawlConfig()
     simple = {
@@ -277,6 +322,7 @@ async def _main(args: argparse.Namespace) -> None:
         "embed": _embed,
         "evaluate": _evaluate,
         "tts-samples": _tts_samples,
+        "seed-demo-media": _seed_demo_media,
     }
     if args.cmd in simple:
         await simple[args.cmd]()
@@ -353,6 +399,7 @@ def main() -> None:
     b.add_argument("--models", nargs="+", default=["gpt-6-luna", "gpt-4.1-mini", "gpt-5.4-nano", "gpt-5.4-mini"])
     b.add_argument("--effort", default=None, help="reasoning effort for reasoning models, e.g. low / minimal")
     b.add_argument("--stt", nargs="*", default=["gpt-transcribe", "gpt-4o-transcribe", "gpt-4o-mini-transcribe"])
+    sub.add_parser("seed-demo-media", help="dev only: add labelled placeholder images as approved media")
     lat = sub.add_parser("latency", help="time retrieval, LLM and first TTS piece on golden questions")
     lat.add_argument("--n", type=int, default=8, help="number of golden questions (default 8)")
     lat.add_argument("--no-stream", action="store_true", help="wait for the whole LLM answer (old behaviour)")

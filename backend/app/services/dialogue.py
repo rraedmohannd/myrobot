@@ -25,6 +25,7 @@ from app.db.models import Program, Session, Turn
 from app.ingestion.lang import detect_lang
 from app.services.chat import UNAVAILABLE, ChatResult, answer_events
 from app.services.display import build_card, dominant_program
+from app.services.media import approved_media_for_program
 from app.services.providers import LLM, Embedder, ProviderError
 from app.services.speakers import (
     Assignment,
@@ -161,6 +162,7 @@ class DialogueManager:
     tracker: SpeakerTracker | None = None
     speaker: Assignment | None = None  # who spoke the utterance being handled
     filler_turn: int = 0
+    media_turn: int = 0
     _warm_up: asyncio.Task[None] | None = None
 
     # ---------- plumbing ----------
@@ -469,15 +471,21 @@ class DialogueManager:
 
     async def _card(self, result: ChatResult) -> dict[str, Any] | None:
         """Screen card for a found answer: built only from the answer text and its sources."""
-        program_name = None
+        program_name, media = None, None
         program_id = dominant_program(result.sources)
         if program_id is not None:
             async with self.sessionmaker() as db:
                 program = await db.get(Program, program_id)
+                # a picture or video only when the answer is clearly about ONE program that has
+                # APPROVED media; several files of a program take turns
+                media = await approved_media_for_program(db, program_id, result.lang, self.media_turn)
             if program is not None:
                 program_name = program.name_ar if result.lang == "ar" else program.name_en
+            if media is not None:
+                self.media_turn += 1
         return build_card(
-            result.spoken or result.answer, [s.title for s in result.sources], result.lang, program_name
+            result.spoken or result.answer, [s.title for s in result.sources], result.lang,
+            program_name, media,
         )
 
     async def _log_turn(self, text: str, lang: str, intent: str, answer: str | None,

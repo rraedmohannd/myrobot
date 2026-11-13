@@ -39,6 +39,9 @@ The reference client is `backend/app/static/robot-client.js`, shared by the brow
 | `title` | name of the program the answer's sources belong to, or the faculty name when they are mixed or general |
 | `lines[]` | at most 3 short lines; they are sentences of the spoken answer (cut with "…" after about 90 characters) |
 | `sources[]` | titles of the sources the answer used (this field existed before; older clients that only read `sources` keep working) |
+| `media?` | `{kind: "image" or "video", url, alt}`: one **approved** file of the media library, sent only when the answer's sources clearly belong to one program that has approved media. `url` is a path on the backend (`/media/{id}`). The screen shows the image, or plays the video **muted and looping**, next to the subtitles. Several files of a program take turns |
+
+`GET /media/{id}` serves a file only while its review status is `approved`; pending and rejected files answer 404. Files are uploaded and reviewed in `/admin` → Media and are stored locally in `backend/data/media/` (not in git).
 
 The card never contains facts that are not in the grounded answer. Answers with `found=false` and error answers have no card. Clients must ignore card fields they do not know.
 

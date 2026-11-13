@@ -8,6 +8,7 @@ computed and is cleared whenever the chunk text is edited.
 from datetime import datetime
 
 from sqlalchemy import (
+    BigInteger,
     Boolean,
     CheckConstraint,
     Computed,
@@ -30,6 +31,7 @@ EMBEDDING_DIM = 1536
 
 LANGS = ("ar", "en")
 MEDIA_KINDS = ("image", "video")
+MEDIA_REVIEW_STATUSES = ("pending", "approved", "rejected")
 
 
 def review_status_column() -> Mapped[str]:
@@ -72,8 +74,15 @@ class Faculty(Base):
 
 
 class Media(Base):
+    """Images and short videos for the robot screen. Files live in backend/data/media/ (local,
+    not in git); `path` is the file name there. Only approved media is ever served or shown."""
+
     __tablename__ = "media"
-    __table_args__ = (CheckConstraint(in_values("kind", MEDIA_KINDS), name="kind"),)
+    __table_args__ = (
+        CheckConstraint(in_values("kind", MEDIA_KINDS), name="kind"),
+        CheckConstraint(in_values("review_status", MEDIA_REVIEW_STATUSES), name="review_status"),
+        Index("ix_media_program_status", "program_id", "review_status"),
+    )
 
     id: Mapped[int] = mapped_column(primary_key=True)
     kind: Mapped[str] = mapped_column(String(8))
@@ -84,6 +93,14 @@ class Media(Base):
     program_id: Mapped[int | None] = mapped_column(
         ForeignKey("programs.id", ondelete="SET NULL")
     )
+    title: Mapped[str | None] = mapped_column(Text)
+    mime: Mapped[str | None] = mapped_column(String(64))
+    size_bytes: Mapped[int | None] = mapped_column(BigInteger)
+    # Where the file came from and who allowed its use (official MEU material, or recorded by
+    # the student with permission). Generated demo files say "generated placeholder".
+    source_note: Mapped[str | None] = mapped_column(Text)
+    review_status: Mapped[str] = review_status_column()
+    created_at: Mapped[datetime] = created_at_column()
 
 
 class Program(Base):

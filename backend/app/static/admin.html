@@ -83,6 +83,7 @@
   <button data-view="ask">Ask the robot</button>
   <button data-view="evaluation">Evaluation</button>
   <button data-view="coverage">Knowledge coverage</button>
+  <button data-view="media">Media</button>
 </nav>
 <section class="view" id="view-overview"></section>
 <section class="view" id="view-gaps"></section>
@@ -98,6 +99,21 @@
 </section>
 <section class="view" id="view-evaluation"></section>
 <section class="view" id="view-coverage"></section>
+<section class="view" id="view-media">
+  <div class="grid">
+    <div class="card">
+      <h2>Upload an image or a short video</h2>
+      <p class="muted">Only official MEU material, or material recorded by you with permission. Allowed: jpg, png, webp, mp4, webm, at most 50 MB. Files stay on this laptop (backend/data/media). A new file is <b>pending</b>: the robot shows it only after you approve it. Videos play muted on the robot screen.</p>
+      <div class="row"><input type="file" id="mFile" accept=".jpg,.jpeg,.png,.webp,.mp4,.webm"></div>
+      <div class="row" style="margin-top:6px"><input type="text" id="mTitle" placeholder="Title" style="flex:1"><select id="mProgram"></select></div>
+      <div class="row" style="margin-top:6px"><input type="text" id="mAltAr" dir="rtl" placeholder="وصف قصير بالعربي" style="flex:1"><input type="text" id="mAltEn" placeholder="Short description (English)" style="flex:1"></div>
+      <div class="row" style="margin-top:6px"><input type="text" id="mNote" placeholder="Source and permission (required), e.g. MEU media office, 2026-11-20, approved by …" style="flex:1"></div>
+      <div class="row" style="margin-top:8px"><button class="ok" id="mUpload">Upload</button><span class="muted" id="mState"></span></div>
+    </div>
+    <div class="card" id="mPreview"><p class="muted">Select a file below to preview it.</p></div>
+    <div class="card" style="grid-column:1/-1"><h2>Media library</h2><div id="mList"></div></div>
+  </div>
+</section>
 <main class="view on" id="view-review">
   <section class="card">
     <div class="stats" id="stats"></div>
@@ -320,7 +336,57 @@ async function loadCoverage() {
     <div class="card"><h2>Chunks by category</h2><table class="data">${head("Category")}${rows(d.chunks_by_category, r => esc(r.category), max(d.chunks_by_category))}</table></div></div>`;
 }
 
-const VIEWS = { overview: loadOverview, gaps: loadGaps, conversations: loadConversations, evaluation: loadEvaluation, coverage: loadCoverage, ask: async () => {} };
+// ---------------- media library (M4) ----------------
+let programs = null;
+async function loadPrograms() {
+  if (!programs) programs = (await api("/api/admin/coverage")).chunks_by_program.filter(p => p.program_id !== null);
+  return programs;
+}
+async function loadMedia() {
+  const [items, progs] = [await api("/api/admin/media"), await loadPrograms()];
+  const options = sel => `<option value="">(no program)</option>` + progs.map(p => `<option value="${p.program_id}" ${p.program_id === sel ? "selected" : ""}>${esc(p.name_en)}</option>`).join("");
+  el("mProgram").innerHTML = options(null);
+  el("mList").innerHTML = items.length ? `<table class="data"><tr><th>#</th><th>Type</th><th>Title</th><th>Program</th><th>Source and permission</th><th class="num">Size</th><th>Status</th><th></th></tr>
+    ${items.map(m => `<tr data-id="${m.id}"><td>${m.id}</td><td>${esc(m.kind)}<div class="muted">${esc(m.mime || "")}</div></td><td dir="auto">${esc(m.title || "")}<div class="muted" dir="auto">${esc(m.alt_ar || "")}</div></td>
+      <td><select data-act="program">${options(m.program_id)}</select></td><td dir="auto">${esc(m.source_note || "")}</td><td class="num">${m.size_bytes ? Math.round(m.size_bytes / 1024).toLocaleString() + " KB" : "–"}</td><td>${pill(m.review_status)}</td>
+      <td class="row"><button data-act="preview">Preview</button><button data-act="approve" class="ok">Approve</button><button data-act="reject">Reject</button><button data-act="delete" class="bad">Delete</button></td></tr>`).join("")}</table>`
+    : `<p class="muted">No media yet. Upload a file above, or run <code>seed-demo-media</code> for labelled placeholders.</p>`;
+  el("mList").querySelectorAll("tr[data-id]").forEach(tr => {
+    const id = tr.dataset.id, item = items.find(x => x.id === +id);
+    tr.querySelector("select").onchange = e => mediaAction(() => api(`/api/admin/media/${id}`, { method: "PATCH", body: JSON.stringify({ program_id: e.target.value ? +e.target.value : null }) }));
+    tr.querySelectorAll("button").forEach(b => b.onclick = () => {
+      const act = b.dataset.act;
+      if (act === "preview") return previewMedia(item);
+      if (act === "delete") { if (!confirm("Delete this file for good?")) return; return mediaAction(() => fetch(`/api/admin/media/${id}`, { method: "DELETE", headers: { "X-Admin-Token": token } })); }
+      return mediaAction(() => api(`/api/admin/media/${id}/review`, { method: "POST", body: JSON.stringify({ decision: act }) }));
+    });
+  });
+}
+async function mediaAction(fn) { try { await fn(); msg("Saved"); await loadMedia(); } catch (e) { msg(e.message, true); } }
+async function previewMedia(m) {
+  const r = await fetch(`/api/admin/media/${m.id}/file`, { headers: { "X-Admin-Token": token } });
+  if (!r.ok) { msg("The file is missing", true); return; }
+  const url = URL.createObjectURL(await r.blob());
+  el("mPreview").innerHTML = `<h2 dir="auto">${esc(m.title || "Media " + m.id)} ${pill(m.review_status)}</h2>` +
+    (m.kind === "video" ? `<video src="${url}" controls muted loop style="max-width:100%;max-height:320px"></video>` : `<img src="${url}" alt="${esc(m.alt_en || "")}" style="max-width:100%;max-height:320px">`) +
+    `<p class="muted" dir="auto">${esc(m.source_note || "")}</p>`;
+}
+el("mUpload").onclick = async () => {
+  const file = el("mFile").files[0];
+  if (!file) { el("mState").textContent = "Choose a file first."; return; }
+  const form = new FormData();
+  form.append("file", file); form.append("title", el("mTitle").value); form.append("alt_ar", el("mAltAr").value);
+  form.append("alt_en", el("mAltEn").value); form.append("source_note", el("mNote").value); form.append("program_id", el("mProgram").value);
+  el("mState").textContent = "Uploading…";
+  try {
+    const r = await fetch("/api/admin/media", { method: "POST", headers: { "X-Admin-Token": token }, body: form });
+    if (!r.ok) throw new Error((await r.json().catch(() => ({}))).detail || r.statusText);
+    el("mState").textContent = "Uploaded as pending. Preview it, then approve it."; el("mFile").value = "";
+    await loadMedia();
+  } catch (e) { el("mState").textContent = e.message; }
+};
+
+const VIEWS = { media: loadMedia, overview: loadOverview, gaps: loadGaps, conversations: loadConversations, evaluation: loadEvaluation, coverage: loadCoverage, ask: async () => {} };
 
 document.getElementById("connect").onclick = () => {
   token = document.getElementById("token").value.trim();

@@ -70,6 +70,12 @@ docker compose exec backend python -m app.ingestion.cli tts-samples    # one mp3
 ```
 Pick the best Jordanian-sounding voice → set `TTS_VOICE=...` in .env → `docker compose up -d`.
 
+Robot screen (stands in for the 7" HDMI display): http://localhost:8000/robot → "ابدأ المحادثة" or Space. `T` opens a text box if the microphone fails.
+```powershell
+docker compose exec backend python -m app.ingestion.cli seed-demo-media   # labelled placeholder images for the demo (development only)
+```
+Real images and videos: http://localhost:8000/admin → Media → upload, link to a program, approve.
+
 Several visitors: each utterance is labelled "متحدث 1/2/3" in the /voice log (anonymous, forgotten when the conversation ends). See docs/SPEAKERS.md.
 
 ## Save a version (after each phase passes its tests)

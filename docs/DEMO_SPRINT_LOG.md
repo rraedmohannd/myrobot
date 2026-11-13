@@ -73,3 +73,14 @@ Task file: `docs/DEMO_SPRINT.md`. Branch: `demo-sprint` (created from `master` a
 - Checked in headless Edge against the real database through a temporary preview container with a throwaway token (I never read `.env` or the real admin token). "Ask the robot" was tested with fakes only, not with the real model.
 - Note: the overview shows one empty conversation today (id 114). It is my `/robot` smoke test from M1 (greeting only).
 - Tests: **99 passed** (16 new in `tests/test_analytics_api.py`: each endpoint with and without the token).
+- Commit: `1d98213` (16:56). Elapsed: 25 min. Not pushed (no remote).
+
+## M4 — Images and video on the robot screen
+- Migration **0007**: `media.title`, `mime`, `size_bytes`, `source_note`, `review_status` (pending / approved / rejected, default pending), `created_at`.
+- Admin → **Media** tab: upload (multipart; jpg, png, webp, mp4, webm; at most 50 MB; the content is checked, not only the extension), `source_note` is required (where the file came from and the permission), link to a program, preview, approve / reject, delete. Files are stored under random names in `backend/data/media/` (git-ignored).
+- `GET /media/{id}` serves a file **only when approved** (404 otherwise).
+- During an answer: when the answer's sources belong to one program that has approved media, `display.update.card.media = {kind, url, alt}`; `/robot` shows the image, or the video muted and looping, in the card next to the subtitles. `docs/PROTOCOL.md` updated.
+- Demo data: two placeholder images **generated on this laptop** (rendered from a local HTML page; nothing was downloaded), clearly labelled "صورة تجريبية — Sample media / Placeholder — not a real MEU photo". `python -m app.ingestion.cli seed-demo-media` (development only) adds them as approved media with `source_note = "generated placeholder"`, linked to Intelligent Systems Engineering and Renewable Energy Engineering. I ran it once: media ids 7 and 8 exist in your database now.
+- Multipart uploads are parsed by a small built-in parser, because `python-multipart` is not in the Docker image and adding it would force an image rebuild before the demo.
+- Not tested: a real mp4/webm video on the screen (only the type check and the muted/loop attributes are covered). Please try one short clip.
+- Tests: **112 passed** (13 new in `tests/test_media.py`: upload validation, unapproved files not served, card media only when approved).
