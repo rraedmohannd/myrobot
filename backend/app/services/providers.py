@@ -205,9 +205,13 @@ class OpenAILLM:
 
 # ---------------- FastAPI dependencies (overridden in tests) ----------------
 def get_embedder() -> Embedder:
-    return OpenAIEmbedder()
+    from app.services.resilience import ResilientEmbedder  # time limit, retries, circuit breaker
+
+    return ResilientEmbedder(OpenAIEmbedder())
 
 
 def get_llm() -> LLM:
     # Only OpenAI is implemented; LLM_PROVIDER=anthropic would need an AnthropicLLM adapter here.
-    return OpenAILLM()
+    from app.services.resilience import ResilientLLM
+
+    return ResilientLLM(OpenAILLM())

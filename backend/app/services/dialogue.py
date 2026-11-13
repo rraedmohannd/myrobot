@@ -30,7 +30,7 @@ from app.db.models import Program, Session, Turn
 from app.ingestion.lang import detect_lang
 from app.services import explainers as ex
 from app.services import interests
-from app.services.chat import UNAVAILABLE, ChatResult, answer_events
+from app.services.chat import ChatResult, answer_events
 from app.services.display import build_card, dominant_program
 from app.services.media import approved_media_for_program
 from app.services.providers import LLM, Embedder, ProviderError
@@ -97,6 +97,12 @@ PHRASES: dict[str, dict[str, str]] = {
         "ar": "لسا ما عندي اقتراح جاهز لهالاهتمام. اسألني عن أي تخصص بالكلية وبحكيلك عنه.",
         "en": "I don't have a suggestion ready for that yet. Ask me about any program of the faculty.",
     },
+    # Said from the cache when a provider cannot be reached (sprint 3 S5).
+    "offline": {
+        "ar": "الإنترنت ضعيف هسا وما قدرت أجيب الجواب. صوّر الكود لصفحة الكلية، أو اكبس على تخصص لأحكيلك عنه.",
+        "en": "The internet is weak right now and I could not get the answer. Scan the code for the "
+        "faculty page, or tap a program and I will present it.",
+    },
     "one_at_a_time": {
         "ar": "لو سمحتوا واحد واحد، عشان أقدر أسمعكم منيح. تفضّلوا.",
         "en": "One at a time please, so I can hear you well. Go ahead.",
@@ -112,9 +118,27 @@ def fixed_phrase_pieces() -> list[str]:
 
     first_words = get_settings().tts_first_piece_words
     texts = [t for phrase in PHRASES.values() for t in phrase.values()]
+    from app.services.chat import UNAVAILABLE
+
     texts += [*UNAVAILABLE.values()]
     pieces = [p for t in texts for p in (split_for_speech(t, first_words) or [t])]
     return list(dict.fromkeys([*pieces, *NUMBER_SAFE.values()]))
+
+
+async def faculty_page_url(session: AsyncSession) -> str | None:
+    """Address for the offline QR: FACULTY_PAGE_URL, else the approved faculty page of the
+    sources table (an official address already in the records, never a guessed one)."""
+    from app.db.models import Source
+
+    configured = get_settings().faculty_page_url.strip()
+    if configured.startswith(("https://", "http://")):
+        return configured
+    rows = await session.scalars(
+        select(Source.url)
+        .where(Source.review_status == "approved", Source.url.like("http%"), Source.url.ilike("%/faculties/%"))
+        .order_by(Source.id)
+    )
+    return next(iter(rows), None)
 
 
 # ---------------- intents ----------------
@@ -451,9 +475,9 @@ class DialogueManager:
         except ProviderError as e:
             voice_task.cancel()
             await self.send({"type": "error", "code": "stt_failed", "message": str(e)})
-            await self._display("unavailable", UNAVAILABLE[self.lang])
-            await self._speak(UNAVAILABLE[self.lang], cache=True)
-            await self._set_state(state_before)
+            await self._offline()
+            await self._log_turn("", self.lang, "question", PHRASES["offline"][self.lang], TurnTimings(),
+                                 None, str(e), None, kind="offline")  # fmt: skip
             return
         try:
             emb = await voice_task
@@ -477,6 +501,7 @@ class DialogueManager:
         })  # fmt: skip
         timings = TurnTimings(stt_ms=stt_ms)
         answer_text, used_ids, error = None, None, None
+        answer_kind, faq_id, pitch_ids = None, None, None
         found: bool | None = None  # only question turns have it
 
         if intent != "unclear" and await self._guided_turn(text, intent, started, timings):
@@ -518,7 +543,8 @@ class DialogueManager:
             await self._display("processing", speaker_label=label)
             result, timings.tts_ms = await self._answer(text, label, started)
             answer_text, error = result.spoken or result.answer, result.error
-            used_ids = [s.chunk_id for s in result.sources] or None
+            used_ids = [s.chunk_id for s in result.sources if s.chunk_id] or None
+            answer_kind, faq_id, pitch_ids = result.kind, result.faq_id, result.pitch_ids or None
             timings.retrieval_ms = result.timings.get("retrieval_ms")
             timings.llm_ms = result.timings.get("llm_ms")
             timings.llm_first_ms = result.timings.get("llm_first_ms")
@@ -526,7 +552,10 @@ class DialogueManager:
             self.last_answer = answer_text
         timings.total_ms = timings.tts_ms
         await self.send({"type": "turn.timings", **vars(timings)})
-        await self._log_turn(text, lang, intent, answer_text, timings, used_ids, error, found=found)
+        await self._log_turn(text, lang, intent, answer_text, timings, used_ids, error, found=found,
+                             pitch_ids=pitch_ids, faq_id=faq_id, kind=answer_kind)  # fmt: skip
+        if error:  # a provider is unreachable: the "weak internet" reply was given; just listen again
+            return
         await self._say("follow_up", "listening")
         await self._set_state("FOLLOW_UP")
 
@@ -601,13 +630,13 @@ class DialogueManager:
                     if event.kind == "piece":
                         if not tasks:
                             await self._display("answering", speaker_label=label)
-                        if streaming and not event.replacement:  # the safe line is cached mp3
+                        if streaming and not (event.replacement or event.cached):  # cached speech stays mp3
                             chunks: Chunks = asyncio.Queue()
                             tasks.append(asyncio.create_task(self._pump(event.text, chunks)))
                             queue.put_nowait((event.text, tasks[-1], chunks))
                         else:
                             tasks.append(asyncio.create_task(
-                                self.tts.synthesize(event.text, cache=event.replacement)
+                                self.tts.synthesize(event.text, cache=event.replacement or event.cached)
                             ))  # fmt: skip
                             queue.put_nowait((event.text, tasks[-1], None))
                     elif event.kind == "result":
@@ -618,6 +647,7 @@ class DialogueManager:
                 "type": "answer.text", "text": answer_text, "lang": result.lang, "found": result.found,
                 "sources": [{"n": s.n, "title": s.title, "url": s.url} for s in result.sources],
                 "timings": result.timings, "invented_numbers": result.invented_numbers,
+                "kind": result.kind, "promotional": result.promotional,
             })  # fmt: skip
             card = await self._card(result) if result.found and not result.error else None
             await self._display("unavailable" if result.error else "answering", answer_text,
@@ -631,9 +661,32 @@ class DialogueManager:
                 elif not task.cancelled():
                     task.exception()  # a failed piece after the first failure: already reported
         first = first_ms[0] if first_ms else None
-        if result.error:  # the service-unavailable line (cached)
-            first = await self._speak(result.answer, cache=True, started=started) or first
+        if result.error:  # a provider is unreachable: cached phrase, QR, what still works
+            result.answer = PHRASES["offline"][self.lang]
+            first = await self._offline(started) or first
         return result, first
+
+    async def _offline(self, started: float | None = None) -> int | None:
+        """The "weak internet" reply: a fixed phrase from the cache, a QR code to the official
+        faculty page, and the approved explainers that still play without any provider. The
+        conversation then listens again. Returns the ms until the phrase's first audio."""
+        text_ = PHRASES["offline"][self.lang]
+        info: dict[str, Any] = {"qr_url": None, "programs": []}
+        try:
+            async with self.sessionmaker() as db:
+                info["qr_url"] = await faculty_page_url(db)
+                content = await ex.screen_content(db)
+            info["programs"] = [
+                {"slug": p["slug"], "name": p["name_ar"] if self.lang == "ar" else p["name_en"],
+                 "lang": self.lang if self.lang in p["langs"] else p["langs"][0]}
+                for p in content["programs"]
+            ]  # fmt: skip
+        except Exception:  # noqa: BLE001 - the fallback itself must never fail
+            pass
+        await self._display("unavailable", text_, offline=info)
+        first = await self._speak(text_, cache=True, started=started)
+        await self._set_state("LISTENING")
+        return first
 
     # ---------- guided turns: explainers and interest matching (sprint 2) ----------
     async def _ensure_session(self, lang: Any = None) -> None:
@@ -861,6 +914,12 @@ class DialogueManager:
 
     async def _card(self, result: ChatResult) -> dict[str, Any] | None:
         """Screen card for a found answer: built only from the answer text and its sources."""
+        if result.kind == "place":  # approved directions: the place name, floor and contact lines
+            card = build_card(result.spoken or result.answer, [s.title for s in result.sources],
+                              result.lang, result.title, result.media)  # fmt: skip
+            if card is not None and result.lines:
+                card["lines"] = [*card["lines"][:1], *result.lines][:3]
+            return card
         program_name, media = None, None
         program_id = dominant_program(result.sources)
         if program_id is not None:
@@ -882,7 +941,8 @@ class DialogueManager:
                         t: TurnTimings, used_ids: list[int] | None, error: str | None,
                         speaker: Assignment | None | str = "current",
                         found: bool | None = None,
-                        pitch_ids: list[int] | None = None) -> None:  # fmt: skip
+                        pitch_ids: list[int] | None = None, faq_id: int | None = None,
+                        kind: str | None = None) -> None:  # fmt: skip
         sp = self.speaker if speaker == "current" else speaker
         if self.session_id is None:
             return
@@ -896,7 +956,7 @@ class DialogueManager:
                 retrieval_ms=t.retrieval_ms, llm_ms=t.llm_ms, tts_ms=t.tts_ms,
                 total_ms=t.total_ms, error=error,
                 found=found, ack_ms=t.ack_ms, llm_first_ms=t.llm_first_ms,
-                used_pitch_ids=pitch_ids,
+                used_pitch_ids=pitch_ids, used_faq_id=faq_id, answer_kind=kind,
                 speaker_label=sp.label if sp else None,
                 speaker_confidence=sp.confidence if sp else None,
                 speaker_source=sp.source if sp else None,

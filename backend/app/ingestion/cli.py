@@ -18,6 +18,7 @@
     python -m app.ingestion.cli draft-explainers [--program slug] [--lang ar|en]   # PENDING drafts (1 LLM call each)
     python -m app.ingestion.cli prepare-explainers    # speech of the APPROVED explainers -> cache
     python -m app.ingestion.cli seed-interests        # PENDING interest -> program rows
+    python -m app.ingestion.cli draft-faqs [--program slug | --general]   # PENDING FAQs and pitches (1 LLM call each)
     python -m app.ingestion.cli seed-demo-media       # dev only: labelled placeholder images
     python -m app.ingestion.cli simulate-run [--seed 7]   # SIMULATED robot run (never a real result)
     python -m app.ingestion.cli simulate-robot [--seconds 120]   # SIMULATED robot client (status, commands)
@@ -437,6 +438,45 @@ async def _draft_explainers(slug: str | None, lang: str | None, force: bool) -> 
           "http://localhost:8000/admin -> Explainers")  # fmt: skip
 
 
+async def _draft_faqs(slug: str | None, general: bool, n: int, force: bool) -> None:
+    """One LLM call per program (FAQs + the `why` and `compare` pitches) and one for the handbook
+    rules. Everything is stored PENDING; nothing is approved here."""
+    from app.db.models import Program
+    from app.services.curated import draft_curated
+    from app.services.providers import OpenAILLM
+
+    llm = OpenAILLM()
+    llm.max_tokens = max(llm.max_tokens, 6000)
+    calls = 0
+    async with get_sessionmaker()() as session:
+        targets: list = []
+        if not general:
+            query = select(Program).order_by(Program.id)
+            if slug:
+                query = query.where(Program.slug == slug)
+            targets += (await session.scalars(query)).all()
+            if slug and not targets:
+                print(f"no program with slug {slug!r}")
+                return
+        if general or not slug:
+            targets.append(None)  # the handbook rules
+        for program in targets:
+            r = await draft_curated(session, llm, program, n_faqs=n if program else n + 2, force=force)
+            calls += r.outcome in ("drafted", "failed")
+            line = f"{r.outcome:11s} {r.target}: {r.faqs_created} FAQ(s)"
+            if r.faqs_skipped:
+                line += f", {r.faqs_skipped} already existed"
+            if r.pitches_created:
+                line += f", pitches: {', '.join(r.pitches_created)}"
+            if r.error:
+                line += f": {r.error[:160]}"
+            print(line)
+            for issue in r.issues:
+                print(f"      to fix before approval: {issue}")
+    print(f"\n{calls} LLM call(s). Drafts are PENDING: review, edit and approve them at "
+          "http://localhost:8000/admin -> FAQs & pitches")  # fmt: skip
+
+
 async def _prepare_explainers() -> None:
     """Generate and cache the speech of every APPROVED explainer (instant playback)."""
     from app.db.models import Explainer, Program
@@ -576,6 +616,10 @@ async def _main(args: argparse.Namespace) -> None:
         await simple[args.cmd]()
         await get_engine().dispose()
         return
+    if args.cmd == "draft-faqs":
+        await _draft_faqs(args.program, args.general, args.n, args.force)
+        await get_engine().dispose()
+        return
     if args.cmd == "draft-explainers":
         await _draft_explainers(args.program, args.lang, args.force)
         await get_engine().dispose()
@@ -666,6 +710,11 @@ def main() -> None:
     dx.add_argument("--program", help="program slug (default: every program)")
     dx.add_argument("--lang", choices=["ar", "en"], help="one language (default: both)")
     dx.add_argument("--force", action="store_true", help="also replace an APPROVED explainer (it becomes pending)")
+    df = sub.add_parser("draft-faqs", help="draft PENDING FAQs and pitches from approved sources")
+    df.add_argument("--program", help="program slug (default: every program, then the handbook)")
+    df.add_argument("--general", action="store_true", help="only the university-wide handbook rules")
+    df.add_argument("--n", type=int, default=6, help="FAQs per program (default 6)")
+    df.add_argument("--force", action="store_true", help="also replace existing why/compare pitches")
     sub.add_parser("prepare-explainers", help="generate and cache the speech of approved explainers")
     sub.add_parser("seed-interests", help="pending interest -> program rows from approved explainers")
     sim = sub.add_parser("simulate-run", help="store a SIMULATED robot run (trajectory + return-to-origin)")

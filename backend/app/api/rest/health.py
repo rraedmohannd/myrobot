@@ -8,6 +8,7 @@ from sqlalchemy import text
 
 from app import __version__
 from app.db.session import get_engine
+from app.services.resilience import provider_status
 
 router = APIRouter(tags=["health"])
 log = logging.getLogger(__name__)
@@ -19,6 +20,9 @@ class HealthResponse(BaseModel):
     database: str  # "ok" or "unreachable"
     pgvector: bool
     migration: str | None  # current Alembic revision, None if migrations not applied
+    # AI providers as seen by this process: breaker state, last success, recent errors. They do
+    # not change the HTTP status: the backend is "ok" without internet, it just answers less.
+    providers: dict = {}
 
 
 @router.get("/health", response_model=HealthResponse)
@@ -50,4 +54,5 @@ async def health(response: Response) -> HealthResponse:
         database=database,
         pgvector=pgvector,
         migration=migration,
+        providers=provider_status(),
     )

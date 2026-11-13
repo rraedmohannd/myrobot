@@ -70,6 +70,12 @@
   .legend { display:flex; gap:14px; flex-wrap:wrap; font-size:13px; margin:6px 0; }
   .legend i { display:inline-block; width:18px; height:0; border-top:3px solid; vertical-align:middle; margin-right:5px; }
   input[type=text], input[type=number], select { padding:5px 8px; border:1px solid var(--line); border-radius:6px; }
+  /* ---- curated answers (sprint 3) ---- */
+  .item { border-top:1px solid var(--line); padding:10px 0; }
+  .item textarea, .item input[type=text] { width:100%; border:1px solid var(--line); border-radius:6px; padding:6px 8px; margin-top:4px; }
+  .item textarea { min-height:54px; }
+  .two { display:grid; grid-template-columns:1fr 1fr; gap:8px; }
+  @media (max-width: 900px) { .two { grid-template-columns:1fr; } }
   /* ---- live robot (sprint 3) ---- */
   .state { display:inline-block; font-size:22px; font-weight:700; padding:4px 14px; border-radius:8px; background:#eee; }
   .state.FAULT { background:#f8dcdc; color:var(--bad); } .state.ROAMING, .state.RETURNING { background:#dbe9fb; color:#1c4f8f; }
@@ -105,6 +111,8 @@
   <button data-view="evaluation">Evaluation</button>
   <button data-view="coverage">Knowledge coverage</button>
   <button data-view="explainers">Explainers</button>
+  <button data-view="faqs">FAQs &amp; pitches</button>
+  <button data-view="places">Places &amp; labs</button>
   <button data-view="media">Media</button>
   <button data-view="robot">Robot (live)</button>
   <button data-view="runs">Robot runs</button>
@@ -124,6 +132,8 @@
 <section class="view" id="view-evaluation"></section>
 <section class="view" id="view-coverage"></section>
 <section class="view" id="view-robot"></section>
+<section class="view" id="view-faqs"></section>
+<section class="view" id="view-places"></section>
 <section class="view" id="view-runs"></section>
 <section class="view" id="view-explainers"></section>
 <section class="view" id="view-media">
@@ -336,6 +346,7 @@ el("askSend").onclick = async () => {
     el("askResult").innerHTML = `<h3>Answer ${r.found ? `<span class="tag good">✓ found</span>` : `<span class="tag warn">✕ not found</span>`} ${r.error ? `<span class="tag bad">! ${esc(r.error)}</span>` : ""}</h3>
       <p dir="auto" style="font-size:17px">${esc(r.answer)}</p>
       ${r.invented_numbers.length ? `<p><span class="tag bad">! numbers not in the passages: ${esc(r.invented_numbers.join(", "))}</span> The robot would say instead: <span dir="auto">${esc(r.spoken)}</span></p>` : ""}
+      <p><span class="tag">answer from: ${esc({rag: "search + language model", faq: "approved FAQ (no model)", pitch: "approved pitch (no model)", place: "approved place or lab (no model)", place_unknown: "no approved place: “ask reception”", offline: "provider unreachable"}[r.kind] || r.kind)}</span>${r.promotional ? ` <span class="tag warn">promotional</span>` : ""}${(r.sources || []).length && r.kind !== "rag" ? ` <span class="muted">${r.sources.map(s => esc(s.title || s.url)).join(" · ")}</span>` : ""}</p>
       <p class="muted">model ${esc(r.model || "–")} · ${Object.entries(r.timings_ms).map(([k, v]) => `${k} ${v}`).join(" · ")}</p>
       <h3>Retrieved passages (${r.passages.length}) — only approved content is searched</h3>
       ${r.passages.map(p => `<div class="passage ${p.used ? "used" : ""}"><div class="row"><b>[${p.n}]</b> ${p.used ? `<span class="tag good">✓ used in the answer</span>` : ""}<span class="tag">score ${p.score}</span><span class="tag">${p.in_fts ? "text" : ""}${p.in_fts && p.in_vector ? " + " : ""}${p.in_vector ? "vector" : ""}</span>${p.category ? `<span class="tag">${esc(p.category)}</span>` : ""}</div>
@@ -488,6 +499,91 @@ async function openRun(id) {
   };
 }
 
+// ---------------- FAQs and pitches (sprint 3 S3) ----------------
+let faqFilter = "pending";
+const val = (root, name) => root.querySelector(`[data-f="${name}"]`).value;
+const issueList = list => (list || []).map(i => `<div class="issue">${esc(i)}</div>`).join("");
+const reviewButtons = `<button data-act="save">Save</button><button data-act="approve" class="ok">Approve</button><button data-act="reject">Reject</button><button data-act="delete" class="bad">Delete</button>`;
+async function loadFaqs() {
+  const [d, p] = [await api("/api/admin/faqs"), await api("/api/admin/pitches")];
+  const counts = st => d.items.filter(x => x.status === st).length;
+  const shown = d.items.filter(x => faqFilter === "all" || x.status === faqFilter);
+  const progOptions = sel => `<option value="">(general: handbook rules)</option>` + d.programs.map(x => `<option value="${x.id}" ${x.id === sel ? "selected" : ""}>${esc(x.name_en)}</option>`).join("");
+  el("view-faqs").innerHTML = `<div class="grid" style="grid-template-columns:3fr 2fr">
+    <div class="card"><h2>FAQs — answered at once, before search, with no language model</h2>
+      <p class="muted">The robot uses an FAQ only when it is <b>approved</b> and the visitor asks the same question (or nearly the same: similarity ≥ ${d.match_threshold}, same program, same numbers). Approving generates the speech. Every number in an answer must be in the approved sources. Drafts: <code>docker compose exec backend python -m app.ingestion.cli draft-faqs</code>. Try a question in the “Ask the robot” tab to see which kind of answer it gets.</p>
+      <div class="tabs">${["pending", "approved", "rejected", "all"].map(st => `<button class="${st === faqFilter ? "active" : ""}" data-st="${st}">${st}${st === "all" ? "" : " (" + counts(st) + ")"}</button>`).join("")}</div>
+      ${shown.map(x => `<div class="item" data-id="${x.id}"><div class="row">${pill(x.status)}<select data-f="program_id">${progOptions(x.program ? x.program.id : null)}</select>${x.source_title ? `<span class="muted">source: ${esc(x.source_title)}</span>` : ""}</div>
+        ${issueList(x.issues)}
+        <div class="two"><div><input type="text" dir="rtl" data-f="question_ar" value="${esc(x.question_ar || "")}" placeholder="السؤال بالعربي"><textarea dir="rtl" data-f="answer_ar" placeholder="الجواب بالعربي">${esc(x.answer_ar || "")}</textarea></div>
+        <div><input type="text" data-f="question_en" value="${esc(x.question_en || "")}" placeholder="Question (English)"><textarea data-f="answer_en" placeholder="Answer (English)">${esc(x.answer_en || "")}</textarea></div></div>
+        <div class="row" style="margin-top:6px">${reviewButtons}</div></div>`).join("") || `<p class="muted">No FAQs with status “${faqFilter}”.</p>`}
+      <div class="item"><h3>Add an FAQ by hand (saved as pending)</h3><div id="faqNew"><div class="row"><select data-f="program_id">${progOptions(null)}</select></div>
+        <div class="two"><div><input type="text" dir="rtl" data-f="question_ar" placeholder="السؤال بالعربي"><textarea dir="rtl" data-f="answer_ar" placeholder="الجواب بالعربي"></textarea></div>
+        <div><input type="text" data-f="question_en" placeholder="Question (English)"><textarea data-f="answer_en" placeholder="Answer (English)"></textarea></div></div>
+        <div class="row" style="margin-top:6px"><button id="faqAdd">Add</button></div></div></div>
+    </div>
+    <div class="card"><h2>Pitches — promotional talking points</h2>
+      <p class="muted"><b>why</b>: added to the passages when a visitor asks why to choose the program. <b>compare</b>: what the robot says when asked to compare the program with one of <i>another</i> faculty or university; it must only talk about our program. No numbers outside the sources, no “better than”, no promises: approval is refused otherwise, and you judge the rest.</p>
+      ${p.items.map(x => `<div class="item" data-pid="${x.id}"><div class="row">${pill(x.status)}<b>${esc(x.kind)}</b><span>${esc(x.program ? x.program.name_en : "–")}</span><span class="tag warn">promotional</span></div>
+        ${issueList(x.issues)}
+        <textarea dir="rtl" data-f="text_ar" placeholder="النص بالعربي">${esc(x.text_ar || "")}</textarea><textarea data-f="text_en" placeholder="Text (English)">${esc(x.text_en || "")}</textarea>
+        <div class="row" style="margin-top:6px">${reviewButtons}</div></div>`).join("") || `<p class="muted">No pitches yet. <code>draft-faqs</code> drafts a “why” and a “compare” pitch per program.</p>`}
+    </div></div>`;
+  const act = async fn => { try { await fn(); msg("Saved"); await loadFaqs(); } catch (e) { msg(e.message, true); } };
+  el("view-faqs").querySelectorAll(".tabs button").forEach(b => b.onclick = () => { faqFilter = b.dataset.st; loadFaqs(); });
+  const faqBody = root => ({ program_id: val(root, "program_id") ? +val(root, "program_id") : null, question_ar: val(root, "question_ar"), question_en: val(root, "question_en"), answer_ar: val(root, "answer_ar"), answer_en: val(root, "answer_en") });
+  el("faqAdd").onclick = () => act(() => api("/api/admin/faqs", { method: "POST", body: JSON.stringify(faqBody(el("faqNew"))) }));
+  const wire = (selector, key, base, body) => el("view-faqs").querySelectorAll(selector).forEach(div => div.querySelectorAll("button").forEach(b => b.onclick = () => {
+    const id = div.dataset[key], a = b.dataset.act;
+    if (a === "delete") { if (!confirm("Delete it for good?")) return; return act(() => fetch(`${base}/${id}`, { method: "DELETE", headers: { "X-Admin-Token": token } })); }
+    // Approve and Reject first save what is typed in the boxes, so you approve what you see.
+    return act(async () => { await api(`${base}/${id}`, { method: "PATCH", body: JSON.stringify(body(div)) }); if (a !== "save") { const r = await api(`${base}/${id}/review`, { method: "POST", body: JSON.stringify({ decision: a }) }); if (r.audio_error) alert("Approved, but the speech could not be generated now: " + r.audio_error); } });
+  }));
+  wire(".item[data-id]", "id", "/api/admin/faqs", faqBody);
+  wire(".item[data-pid]", "pid", "/api/admin/pitches", div => ({ text_ar: val(div, "text_ar"), text_en: val(div, "text_en") }));
+}
+
+// ---------------- places and labs (sprint 3 S4) ----------------
+async function loadPlaces() {
+  const d = await api("/api/admin/places");
+  const opt = (items, sel, label, none) => `<option value="">${none}</option>` + items.map(x => `<option value="${x.id}" ${x.id === sel ? "selected" : ""}>${esc(label(x))}</option>`).join("");
+  const placeForm = x => `<div class="two"><input type="text" dir="rtl" data-f="name_ar" value="${esc(x.name_ar || "")}" placeholder="الاسم بالعربي (مثلاً: دائرة القبول والتسجيل)"><input type="text" data-f="name_en" value="${esc(x.name_en || "")}" placeholder="Name (English)"></div>
+    <div class="two"><input type="text" dir="auto" data-f="building" value="${esc(x.building || "")}" placeholder="Building"><input type="text" dir="auto" data-f="floor" value="${esc(x.floor || "")}" placeholder="Floor"></div>
+    <div class="two"><textarea dir="rtl" data-f="directions_ar" placeholder="كيف يوصل الزائر من مكان الروبوت (بالعربي، مثل ما الروبوت بيحكيها)">${esc(x.directions_ar || "")}</textarea><textarea data-f="directions_en" placeholder="Directions from the robot's usual position (English)">${esc(x.directions_en || "")}</textarea></div>
+    <div class="two"><input type="text" dir="auto" data-f="keywords" value="${esc(x.keywords || "")}" placeholder="Other names visitors say, comma-separated (القبول, التسجيل, registration)"><input type="text" dir="auto" data-f="related_office" value="${esc(x.related_office || "")}" placeholder="Related office (as written in the handbook contacts)"></div>
+    <div class="two"><select data-f="contact_chunk_id">${opt(d.contact_passages, x.contact_chunk_id, c => "Contacts: " + c.source, "(no contact numbers linked)")}</select><select data-f="media_id">${opt(d.media, x.media_id, m => (m.title || "media " + m.id) + " (" + m.kind + ")", "(no photo)")}</select></div>`;
+  const labForm = x => `<div class="two"><input type="text" dir="rtl" data-f="name_ar" value="${esc(x.name_ar || "")}" placeholder="اسم المختبر بالعربي"><input type="text" data-f="name_en" value="${esc(x.name_en || "")}" placeholder="Lab name (English)"></div>
+    <div class="two"><select data-f="program_id">${opt(d.programs, x.program ? x.program.id : null, p => p.name_en, "(no program)")}</select><input type="text" dir="auto" data-f="location_hint" value="${esc(x.location_hint || "")}" placeholder="Where it is, as the robot should say it"></div>
+    <div class="two"><textarea dir="rtl" data-f="description_ar" placeholder="وصف قصير (اختياري)">${esc(x.description_ar || "")}</textarea><textarea data-f="description_en" placeholder="Short description (optional)">${esc(x.description_en || "")}</textarea></div>
+    <div class="two"><input type="text" dir="auto" data-f="keywords" value="${esc(x.keywords || "")}" placeholder="Other names, comma-separated"><select data-f="media_id">${opt(d.media, x.media_id, m => (m.title || "media " + m.id) + " (" + m.kind + ")", "(no photo)")}</select></div>`;
+  el("view-places").innerHTML = `<div class="grid">
+    <div class="card"><h2>Places — “وين القبول والتسجيل؟”</h2>
+      <p class="muted">Type each place yourself: the robot <b>never invents a location</b>. It answers “where is …” only from <b>approved</b> places and labs; otherwise it says it does not know and sends the visitor to the reception. Directions are spoken exactly as you write them. Phone numbers are not typed here: link the approved handbook passage and the matching line is shown on the screen.</p>
+      ${d.places.map(x => `<div class="item" data-place="${x.id}"><div class="row">${pill(x.status)}<b dir="auto">${esc(x.name_ar)}</b></div>${issueList(x.issues)}${placeForm(x)}<div class="row" style="margin-top:6px">${reviewButtons}</div></div>`).join("") || `<p class="muted">No places yet.</p>`}
+      <div class="item" id="placeNew"><h3>Add a place (saved as pending)</h3>${placeForm({})}<div class="row" style="margin-top:6px"><button id="placeAdd">Add place</button></div></div>
+    </div>
+    <div class="card"><h2>Labs — “وين مختبر الروبوتات؟”</h2>
+      <p class="muted">A lab answers “where” only when it is approved and has a location typed in.</p>
+      ${d.labs.map(x => `<div class="item" data-lab="${x.id}"><div class="row">${pill(x.status)}<b dir="auto">${esc(x.name_ar)}</b></div>${issueList(x.issues)}${labForm(x)}<div class="row" style="margin-top:6px">${reviewButtons}</div></div>`).join("") || `<p class="muted">No labs yet.</p>`}
+      <div class="item" id="labNew"><h3>Add a lab (saved as pending)</h3>${labForm({})}<div class="row" style="margin-top:6px"><button id="labAdd">Add lab</button></div></div>
+      ${d.contact_passages.length ? `<h3>Approved contact passages you can link</h3>${d.contact_passages.map(c => `<p class="muted" dir="auto"><b>${esc(c.source)}</b>: ${esc(c.text)}…</p>`).join("")}` : ""}
+    </div></div>`;
+  const num = (root, name) => val(root, name) ? +val(root, name) : null, str = (root, name) => val(root, name) || null;
+  const placeBody = r => ({ name_ar: val(r, "name_ar"), name_en: val(r, "name_en"), building: str(r, "building"), floor: str(r, "floor"), directions_ar: str(r, "directions_ar"), directions_en: str(r, "directions_en"), keywords: str(r, "keywords"), related_office: str(r, "related_office"), contact_chunk_id: num(r, "contact_chunk_id"), media_id: num(r, "media_id") });
+  const labBody = r => ({ name_ar: val(r, "name_ar"), name_en: val(r, "name_en"), program_id: num(r, "program_id"), location_hint: str(r, "location_hint"), description_ar: str(r, "description_ar"), description_en: str(r, "description_en"), keywords: str(r, "keywords"), media_id: num(r, "media_id") });
+  const act = async fn => { try { await fn(); msg("Saved"); await loadPlaces(); } catch (e) { msg(e.message, true); } };
+  el("placeAdd").onclick = () => act(() => api("/api/admin/places", { method: "POST", body: JSON.stringify(placeBody(el("placeNew"))) }));
+  el("labAdd").onclick = () => act(() => api("/api/admin/labs", { method: "POST", body: JSON.stringify(labBody(el("labNew"))) }));
+  const wire = (selector, key, base, body) => el("view-places").querySelectorAll(selector).forEach(div => div.querySelectorAll("button").forEach(b => b.onclick = () => {
+    const id = div.dataset[key], a = b.dataset.act;
+    if (a === "delete") { if (!confirm("Delete it for good?")) return; return act(() => fetch(`${base}/${id}`, { method: "DELETE", headers: { "X-Admin-Token": token } })); }
+    return act(async () => { await api(`${base}/${id}`, { method: "PATCH", body: JSON.stringify(body(div)) }); if (a !== "save") await api(`${base}/${id}/review`, { method: "POST", body: JSON.stringify({ decision: a }) }); });
+  }));
+  wire(".item[data-place]", "place", "/api/admin/places", placeBody);
+  wire(".item[data-lab]", "lab", "/api/admin/labs", labBody);
+}
+
 // ---------------- live robot (sprint 3 S2) ----------------
 // Commands are REQUESTS: the robot answers with an ack and may refuse. The page shows the ack
 // and then whatever state the robot itself reports; it never assumes a command was carried out.
@@ -632,7 +728,7 @@ async function loadExplainerList() {
   el("view-explainers").querySelectorAll("tr.click").forEach(tr => { const x = d.items.find(i => i.id === +tr.dataset.id); if (x) { tr.children[2].innerHTML = pill(x.status); tr.children[4].innerHTML = x.issues ? `<span class="tag bad">${x.issues}</span>` : "0"; } });
 }
 
-const VIEWS = { robot: async () => { await loadRobot(); robotPolling(); }, explainers: loadExplainers, runs: loadRuns, media: loadMedia, overview: loadOverview, gaps: loadGaps, conversations: loadConversations, evaluation: loadEvaluation, coverage: loadCoverage, ask: async () => {} };
+const VIEWS = { faqs: loadFaqs, places: loadPlaces, robot: async () => { await loadRobot(); robotPolling(); }, explainers: loadExplainers, runs: loadRuns, media: loadMedia, overview: loadOverview, gaps: loadGaps, conversations: loadConversations, evaluation: loadEvaluation, coverage: loadCoverage, ask: async () => {} };
 
 document.getElementById("connect").onclick = () => {
   token = document.getElementById("token").value.trim();

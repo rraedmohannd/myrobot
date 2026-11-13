@@ -110,7 +110,10 @@ class Settings(BaseSettings):
     public_base_url: str = ""
 
     # --- FAQs (sprint 3): an approved FAQ answers before retrieval when the question matches ---
-    faq_match_threshold: float = Field(default=0.90, ge=0.5, le=1.0)  # cosine similarity
+    # Cosine similarity of the question vectors. 0.88 from a small calibration on 2026-11-13:
+    # reworded versions of the same question scored 0.90-0.99, different questions about the
+    # same program at most 0.80 (docs/DECISIONS.md).
+    faq_match_threshold: float = Field(default=0.88, ge=0.5, le=1.0)
 
     # --- Resilience (sprint 3): every provider call has a time limit, retries and a breaker ---
     provider_timeout_embedding_s: float = 6.0

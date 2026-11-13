@@ -125,7 +125,10 @@ class Program(Base):
 
 
 class Lab(Base):
+    """A laboratory, typed in by the student in the admin. Only approved labs are used."""
+
     __tablename__ = "labs"
+    __table_args__ = (review_check(),)
 
     id: Mapped[int] = mapped_column(primary_key=True)
     program_id: Mapped[int | None] = mapped_column(
@@ -138,6 +141,34 @@ class Lab(Base):
     location_hint: Mapped[str | None] = mapped_column(Text)
     media_id: Mapped[int | None] = mapped_column(ForeignKey("media.id", ondelete="SET NULL"))
     source_id: Mapped[int | None] = mapped_column(ForeignKey("sources.id", ondelete="SET NULL"))
+    # Other names visitors use for it (comma-separated), for "وين مختبر ...؟"
+    keywords: Mapped[str | None] = mapped_column(Text)
+    review_status: Mapped[str] = review_status_column()
+
+
+class Place(Base):
+    """A place visitors ask the way to (an office, a hall, a department). Every field is typed
+    in by the student: the robot never invents a location (sprint 3 S4)."""
+
+    __tablename__ = "places"
+    __table_args__ = (review_check(),)
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    name_ar: Mapped[str] = mapped_column(Text)
+    name_en: Mapped[str] = mapped_column(Text)
+    building: Mapped[str | None] = mapped_column(Text)
+    floor: Mapped[str | None] = mapped_column(String(32))
+    # How to get there from the robot's usual position, as the robot should say it.
+    directions_ar: Mapped[str | None] = mapped_column(Text)
+    directions_en: Mapped[str | None] = mapped_column(Text)
+    related_office: Mapped[str | None] = mapped_column(Text)
+    keywords: Mapped[str | None] = mapped_column(Text)  # other spoken names, comma-separated
+    # The approved handbook passage with this office's phone numbers (never retyped here).
+    contact_chunk_id: Mapped[int | None] = mapped_column(ForeignKey("chunks.id", ondelete="SET NULL"))
+    media_id: Mapped[int | None] = mapped_column(ForeignKey("media.id", ondelete="SET NULL"))
+    review_status: Mapped[str] = review_status_column()
+    created_at: Mapped[datetime] = created_at_column()
+    updated_at: Mapped[datetime] = created_at_column()
 
 
 class Chunk(Base):
@@ -195,10 +226,19 @@ class Faq(Base):
     source_id: Mapped[int | None] = mapped_column(ForeignKey("sources.id", ondelete="SET NULL"))
     priority: Mapped[int] = mapped_column(Integer, server_default=text("0"))
     review_status: Mapped[str] = review_status_column()
+    # Vectors of the two questions, for near-exact matching (sprint 3). NULL until computed;
+    # cleared when a question is edited. Never loaded by default.
+    embedding_ar: Mapped[str | None] = deferred(mapped_column(Vector(EMBEDDING_DIM), nullable=True))
+    embedding_en: Mapped[str | None] = deferred(mapped_column(Vector(EMBEDDING_DIM), nullable=True))
+    embedding_model: Mapped[str | None] = mapped_column(String(64))
+    created_at: Mapped[datetime] = created_at_column()
 
 
 class Pitch(Base):
-    """Promotional Engineering talking points. Flagged as promotional; never invented numbers."""
+    """Promotional Engineering talking points. Flagged as promotional; never invented numbers.
+
+    `topic` says what the row is for: `why` (why this program), `compare` (the answer to "X or
+    <a program of another faculty>?", which only talks about X), `interest:<key>` (sprint 2)."""
 
     __tablename__ = "pitches"
     __table_args__ = (review_check(),)

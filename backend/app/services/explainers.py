@@ -20,7 +20,7 @@ from sqlalchemy import delete, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db.models import Chunk, Explainer, ExplainerSegment, Program, Source
-from app.services.chat import numbers_in
+from app.services.numbers import numbers_in
 from app.services.media import approved_media_for_program
 from app.services.providers import LLM, ProviderError
 from app.services.speech import CachedTTS

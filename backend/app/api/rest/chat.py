@@ -36,6 +36,8 @@ class ChatResponse(BaseModel):
     timings: dict[str, int]
     invented_numbers: list[str]
     error: str | None
+    kind: str = "rag"
+    promotional: bool = False
 
 
 @router.post("/chat", response_model=ChatResponse)
@@ -56,4 +58,6 @@ async def chat(
         timings=result.timings,
         invented_numbers=result.invented_numbers,
         error=result.error,
+        kind=result.kind,
+        promotional=result.promotional,
     )

@@ -64,6 +64,8 @@ class Turn(Base):
     found: Mapped[bool | None] = mapped_column(Boolean)  # the knowledge base had the answer
     ack_ms: Mapped[int | None] = mapped_column(Integer)  # end of speech -> filler / greeting
     llm_first_ms: Mapped[int | None] = mapped_column(Integer)  # LLM start -> first spoken piece
+    # Where the answer came from: rag / faq / pitch / place / offline (NULL on older turns).
+    answer_kind: Mapped[str | None] = mapped_column(String(16))
     # Anonymous "Speaker N" within this session (no voiceprints are stored) — docs/SPEAKERS.md
     speaker_label: Mapped[int | None] = mapped_column(SmallInteger)
     speaker_confidence: Mapped[float | None] = mapped_column(Float)

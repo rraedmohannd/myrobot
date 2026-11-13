@@ -9,7 +9,6 @@ still writing, but each piece is checked for invented numbers first. A piece tha
 never spoken; the safe "ask Admission & Registration" line replaces it.
 """
 
-import re
 import time
 from collections.abc import AsyncIterator
 from dataclasses import dataclass, field
@@ -21,6 +20,9 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.config import get_settings
 from app.db.models import Session, Turn
 from app.ingestion.lang import detect_lang
+from app.services import curated as cur
+from app.services.chat_types import ChatSource
+from app.services.numbers import invented_numbers, numbers_in  # noqa: F401 (re-exported)
 from app.services.providers import LLM, Embedder, LLMResult, ProviderError, stream_json
 from app.services.rag import Passage, embed_missing, retrieve
 from app.services.streaming import AnswerExtractor, SpeechPieces
@@ -78,32 +80,6 @@ NUMBER_SAFE = {
     "Department.",
 }
 
-_ARABIC_DIGITS = str.maketrans("٠١٢٣٤٥٦٧٨٩۰۱۲۳۴۵۶۷۸۹", "01234567890123456789")
-_NUMBER = re.compile(r"\d+(?:[.,/]\d+)*")
-
-
-def numbers_in(text_: str) -> set[str]:
-    return set(_NUMBER.findall(text_.translate(_ARABIC_DIGITS)))
-
-
-def invented_numbers(answer: str, passages: list[str]) -> list[str]:
-    """Numbers said in the answer that appear in none of the passages (digit-normalised)."""
-    known: set[str] = set()
-    for p in passages:
-        known |= numbers_in(p)
-    return sorted(n for n in numbers_in(answer) if n not in known)
-
-
-@dataclass
-class ChatSource:
-    n: int
-    chunk_id: int
-    title: str | None
-    url: str
-    category: str | None
-    program_id: int | None = None
-
-
 @dataclass
 class ChatResult:
     session_id: int | None
@@ -120,6 +96,15 @@ class ChatResult:
     # (replaced once by NUMBER_SAFE). Equal to `answer` when nothing was dropped.
     spoken: str = ""
     dropped: list[str] = field(default_factory=list)
+    # Where the answer came from: rag (passages + model), faq / pitch / place (approved curated
+    # content, no model), place_unknown (the "ask reception" fallback), offline (provider down).
+    kind: str = "rag"
+    faq_id: int | None = None
+    pitch_ids: list[int] = field(default_factory=list)
+    promotional: bool = False
+    title: str | None = None  # card title of a place answer
+    lines: list[str] = field(default_factory=list)  # extra card lines of a place answer
+    media: dict | None = None  # approved photo of a place
 
 
 @dataclass
@@ -131,6 +116,7 @@ class AnswerEvent:
     text: str = ""
     replacement: bool = False
     result: ChatResult | None = None
+    cached: bool = False  # approved curated text: its speech was generated ahead of time
 
 
 def build_input(question: str, passages: list[Passage], history: list[tuple[str, str]]) -> str:
@@ -161,6 +147,17 @@ async def _history(
         query = query.where(Turn.speaker_label == speaker_label)
     rows = (await session.execute(query.order_by(Turn.idx.desc()).limit(n))).all()
     return [(q or "", a or "") for q, a in reversed(rows)]
+
+
+class _Done(Exception):  # noqa: N818 - control flow: the answer is complete, skip retrieval
+    pass
+
+
+def speech_pieces(text_: str) -> list[str]:
+    """How a complete text is cut for text-to-speech (the same cut as a streamed answer), so
+    speech generated ahead of time is found in the cache when the text is spoken."""
+    pieces = SpeechPieces(get_settings().tts_first_piece_words)
+    return pieces.feed(text_) + pieces.flush()
 
 
 class _SpokenFilter:
@@ -221,16 +218,53 @@ async def answer_events(
         sources=[], model=None, timings=timings,
     )  # fmt: skip
     spoken_filter = _SpokenFilter([], lang)
+    location_question = cur.is_location_question(question)
     try:
-        await embed_missing(session, embedder)  # keeps newly approved/edited chunks searchable
-        retrieval = await retrieve(session, embedder, question)
-        timings["embed_ms"] = retrieval.embed_ms
-        timings["retrieval_ms"] = retrieval.embed_ms + retrieval.search_ms
+        # 1. Approved curated content first: directions, an identical FAQ, a comparison pitch.
+        #    None of these needs a provider, so they also work when the internet is down.
+        curated = (
+            await cur.place_answer(session, question, lang)
+            or await cur.faq_exact(session, question, lang)
+            or await cur.comparison_answer(session, question, lang)
+        )
+        query_vec: list[float] | None = None
+        if curated is None:
+            await embed_missing(session, embedder)  # keeps newly approved/edited chunks searchable
+            t_embed = time.perf_counter()
+            [query_vec] = await embedder.embed([question])
+            timings["embed_ms"] = int((time.perf_counter() - t_embed) * 1000)
+            # 2. A FAQ that asks nearly the same thing (by meaning).
+            await cur.embed_missing_faqs(session, embedder)
+            curated = await cur.faq_near(session, question, lang, query_vec)
+        if curated is not None:
+            timings["retrieval_ms"] = int((time.perf_counter() - start) * 1000)
+            result.kind, result.answer, result.found = curated.kind, curated.text, True
+            result.sources, result.faq_id, result.pitch_ids = curated.sources, curated.faq_id, curated.pitch_ids
+            result.promotional, result.title = curated.promotional, curated.title
+            result.lines, result.media = curated.lines, curated.media
+            for piece in speech_pieces(curated.text):
+                spoken_filter.spoken.append(piece)
+                spoken_filter.approved += 1
+                yield AnswerEvent("piece", piece, cached=True)
+            raise _Done
+        # 3. Retrieval + language model. Approved "why" pitches join the passages for
+        #    "why this program" questions and comparisons inside the faculty.
+        retrieval = await retrieve(session, embedder, question, query_vec=query_vec)
+        for pitch_id, program_id, body in await cur.pitches_for_context(session, question, lang):
+            retrieval.passages.append(Passage(
+                chunk_id=0, text=body, lang=lang, category="pitch", program_id=program_id,
+                source_title=cur.PITCH_LABEL[lang], source_url=f"pitch://{pitch_id}", score=0.0,
+                in_fts=False, in_vector=False,
+            ))  # fmt: skip
+        timings["retrieval_ms"] = timings.get("embed_ms", 0) + retrieval.search_ms
         result.passages = retrieval.passages
         spoken_filter = _SpokenFilter(retrieval.passages, lang)
+        if location_question:
+            stream = False  # the "ask reception" fallback may replace the answer: decide first
 
         if not retrieval.passages:
-            result.answer = NOT_FOUND[lang]
+            result.answer = cur.PLACE_UNKNOWN[lang] if location_question else NOT_FOUND[lang]
+            result.kind = "place_unknown" if location_question else "rag"
         else:
             history = (
                 await _history(session, session_id, settings.chat_history_turns, speaker_label)
@@ -271,6 +305,12 @@ async def answer_events(
                                    url=p.source_url, category=p.category,
                                    program_id=p.program_id)  # fmt: skip
                     )
+            result.pitch_ids = [int(s.url.removeprefix("pitch://")) for s in result.sources
+                                if s.url.startswith("pitch://")]  # fmt: skip
+            result.promotional = bool(result.pitch_ids)
+            if location_question and not result.found:
+                # the sources do not say where it is, and no approved place matched
+                result.answer, result.kind = cur.PLACE_UNKNOWN[lang], "place_unknown"
             result.invented_numbers = invented_numbers(
                 result.answer, [p.text for p in retrieval.passages]
             )
@@ -285,9 +325,12 @@ async def answer_events(
                 if event is not None:
                     timings.setdefault("llm_first_ms", llm_result.ms)
                     yield event
+    except _Done:
+        pass
     except ProviderError as e:
         result.error = str(e)
         result.answer = UNAVAILABLE[lang]
+        result.kind = "offline"
     if result.error is None and not spoken_filter.spoken:
         # nothing retrieved, or an answer the extractor could not follow: checked as a whole
         fallback = SpeechPieces(settings.tts_first_piece_words)
@@ -313,7 +356,10 @@ async def answer_events(
                 user_lang=lang,
                 intent="question",
                 answer_text=result.answer,
-                used_chunk_ids=[s.chunk_id for s in result.sources] or None,
+                used_chunk_ids=[s.chunk_id for s in result.sources if s.chunk_id] or None,
+                used_faq_id=result.faq_id,
+                used_pitch_ids=result.pitch_ids or None,
+                answer_kind=result.kind,
                 retrieval_ms=timings.get("retrieval_ms"),
                 llm_ms=timings.get("llm_ms"),
                 llm_first_ms=timings.get("llm_first_ms"),

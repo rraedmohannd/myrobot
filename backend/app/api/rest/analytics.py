@@ -281,6 +281,9 @@ async def ask(
     return {
         "answer": r.answer, "spoken": r.spoken, "found": r.found, "lang": r.lang, "model": r.model,
         "error": r.error, "invented_numbers": r.invented_numbers, "dropped": r.dropped,
+        # where the answer came from: rag, faq, pitch, place, place_unknown or offline
+        "kind": r.kind, "promotional": r.promotional, "faq_id": r.faq_id, "pitch_ids": r.pitch_ids,
+        "sources": [{"title": s.title, "url": s.url} for s in r.sources],
         "timings_ms": r.timings,
         "passages": [
             {

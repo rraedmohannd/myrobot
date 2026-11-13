@@ -142,14 +142,17 @@ def select_passages(
 
 
 async def retrieve(
-    session: AsyncSession, embedder: Embedder, query: str, top_k: int | None = None
-) -> Retrieval:
+    session: AsyncSession, embedder: Embedder, query: str, top_k: int | None = None,
+    query_vec: list[float] | None = None,
+) -> Retrieval:  # fmt: skip
+    """`query_vec`: the embedding of the query when the caller already has it (no second call)."""
     settings = get_settings()
     top_k = top_k or settings.rag_top_k
     n = settings.rag_candidates
 
     t0 = time.perf_counter()
-    [query_vec] = await embedder.embed([query])
+    if query_vec is None:
+        [query_vec] = await embedder.embed([query])
     t1 = time.perf_counter()
 
     fts_ids = list((await session.scalars(FTS_SQL, {"q": query, "k": n})).all())

@@ -16,7 +16,7 @@ from app.db.types import alembic_compare_type
 EXPECTED_TABLES = {
     "sources", "faculties", "programs", "media", "labs", "chunks", "faqs", "pitches",
     "robot_runs", "pose_samples", "events", "return_trials",
-    "sessions", "turns", "admin_users", "explainers", "explainer_segments",
+    "sessions", "turns", "admin_users", "explainers", "explainer_segments", "places", "admin_sessions",
 }  # fmt: skip
 
 

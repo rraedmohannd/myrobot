@@ -220,8 +220,12 @@ class CachedTTS:
 
 # ---------------- FastAPI dependencies (overridden in tests) ----------------
 def get_stt() -> STT:
-    return OpenAISTT()
+    from app.services.resilience import ResilientSTT  # time limit, retries, circuit breaker
+
+    return ResilientSTT(OpenAISTT())
 
 
 def get_tts() -> CachedTTS:
-    return CachedTTS(OpenAITTS())
+    from app.services.resilience import ResilientTTS
+
+    return CachedTTS(ResilientTTS(OpenAITTS()))

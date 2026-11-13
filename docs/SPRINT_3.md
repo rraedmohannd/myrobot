@@ -17,10 +17,23 @@ Prepared on 2026-11-13. Run it **after sprint 2** (`docs/SPRINT_2.md`).
 
 ---
 
-## S0 — Baseline
+## S0 — Baseline and sprint 2 leftovers
 1. Create the branch.
 2. Run `pytest`.
 3. Read `SPRINT_2_LOG.md` and record the state. Note anything from sprint 2 that was left unfinished, and finish it first if it is small.
+4. **Arabic explainers in natural Jordanian dialect.**
+   - For each **Arabic** explainer that is still `pending`, draft it again: the student found the first drafts too close to formal Arabic. That is at most 6 LLM calls.
+   - Keep the same scenes and checks, and remove closing lines like "بدك تسمع أكثر؟", because the robot already asks after segment 3.
+   - **Never touch an approved explainer.** The new drafts stay `pending`.
+5. **Bug found on 2026-11-13: rejecting a source left its approved chunks in use.**
+   - **What happened.** `POST /api/admin/sources/{id}/review {"decision":"reject"}` only rejects **pending** chunks. Retrieval filters on the chunk status alone, so a rejected source whose chunks were already approved kept answering. Source 33 was "rejected" but its chunk 48 (Civil Engineering) still answered.
+   - **What was done by hand.** Chunks 45 and 48 were set to rejected through the API.
+   - **Fix.**
+     - Rejecting a source rejects **all** its chunks.
+     - Retrieval also requires the source to be approved (join `sources`).
+     - The admin shows a warning if any approved chunk belongs to a source that is not approved.
+   - **Test:** an approved chunk of a rejected source is never retrieved.
+6. **Formatting pass.** Run `ruff format` and fix the long lines in a separate commit that changes nothing else. If line length is the real issue, agree it in `pyproject.toml` (for example 110) and document it. Tests must pass before and after.
 
 ## S1 — Shared protocol contract (`shared/`)
 - Put the robot ↔ backend WebSocket messages into `shared/protocol/` as JSON Schema, with matching pydantic v2 models: everything in `docs/PROTOCOL.md`, including the sprint 1 and 2 additions.
@@ -71,6 +84,16 @@ Prepared on 2026-11-13. Run it **after sprint 2** (`docs/SPRINT_2.md`).
 - **Offline behaviour.** When a provider is down, the robot says a fixed cached phrase ("الإنترنت ضعيف هسا…"), shows a QR to the official faculty page, and offers the cached explainers and FAQs, which still work offline.
 - **Status.** `/health` and the admin show provider status and recent errors.
 - **Tests:** fake failing and slow providers → fallback within the time limit, no crash, and the dialogue returns to LISTENING.
+
+## S5b — The TTS model shuts down on 2027-01-06
+OpenAI's deprecations page lists `gpt-4o-mini-tts` (and `tts-1`, `tts-1-hd`) with shutdown on **Jan 6, 2027**. It names `gpt-realtime-2.1-mini` as the replacement. That date is before the project deadline (2027-01-24) and the defense. The student had planned ElevenLabs only for the final week, to save credits.
+- **Two new TTS adapters behind the existing `TTS` interface (rule 7), both selected by config:**
+  - `openai_realtime`: speech from `gpt-realtime-2.1-mini` through OpenAI's current API for it. Check the official docs for how to get audio from text.
+  - `elevenlabs`: the ElevenLabs text-to-speech API. It needs `ELEVENLABS_API_KEY` and `ELEVENLABS_VOICE_ID` in `.env.example` only; never touch `.env`.
+- **Keep `gpt-4o-mini-tts` as the default for now.** Do **not** switch the default, and do **not** call ElevenLabs (it costs the student's credits). Test both adapters with fakes or recorded responses only.
+- **One short real check** of `openai_realtime`: at most 5 short phrases (Arabic and English). Record the time to first audio and whether the Jordanian pace and accent instructions are followed. Write the result in the log.
+- **Fixed-phrase cache.** Switching provider must not mix old and new audio: the cache key already includes the model, voice, instructions and speed.
+- **`docs/PLAN.md`:** replace "switch to ElevenLabs in the final week" with a dated decision for the student. Either switch to `openai_realtime` before 2027-01-06 and ElevenLabs in the final week, or move ElevenLabs earlier. Ask in "Questions for Mohannd".
 
 ## S6 — Running on the LAN for the robot
 - **Docs.** `docs/DEPLOY.md` covers:

@@ -14,7 +14,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db.models import Explainer, ExplainerSegment, Pitch, Program
-from app.services.chat import numbers_in
+from app.services.numbers import numbers_in
 from app.services.explainers import GUARANTEE_WORDS, norm, program_context
 
 TOPIC_PREFIX = "interest:"
