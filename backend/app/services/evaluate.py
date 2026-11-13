@@ -24,6 +24,9 @@ _DIGITS = str.maketrans("٠١٢٣٤٥٦٧٨٩", "0123456789")
 
 
 def normalize(s: str) -> str:
+    """Arabic diacritics (shadda, fatha...) are dropped: "المضمّنة" and "المضمنة" are the same
+    word, and the model sometimes writes them."""
+    s = re.sub(r"[ً-ْٰ]", "", s)
     return re.sub(r"\s+", " ", s.translate(_ALEF).translate(_DIGITS).lower())
 
 

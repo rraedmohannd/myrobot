@@ -12,6 +12,7 @@ Milestones: **M1** 6 Dec (base moves + conversation works) · **M2** 27 Dec (ret
 | B4 | Voice: STT/TTS, dialogue manager, /ws/robot, /voice page | 🟡 works end to end. Sprint 2 (2026-11-13, evening): question text → first answer audio 4.2 s → 3.1 s in the same hour (6-word first piece, TTS speed 1.12); about 3.9–4.8 s from end of speech (estimate). Earlier: Streaming answers + reasoning effort low (2026-11-13): question text → first answer audio, median 5.3 s → 3.5 s (STT not included); about 4.7–5.2 s from end of speech (estimate). Target about 4 s not reached; TTS is now the largest stage |
 | B4+ | Multi-speaker Level 2 (voice + camera), docs/SPEAKERS.md | 🟡 voice part done; camera part: browser prototype built on 2026-11-13 (`/robot?camera=1`, off by default), **not yet tried with real people**; validation and the Pi version (YuNet, pan servo) are next |
 | B5 | Admin complete, analytics, telemetry + trajectory view, return-trial stats | 🟡 analytics, knowledge gaps, conversations, ask-the-robot, evaluation, coverage and media tabs done (2026-11-13, static page). Telemetry messages, trajectory view and return-trial entry/stats exist and are exercised with **simulated** runs only. Still open: real telemetry from the robot, React panel and login |
+| B5+ | Sprint 3, 2026-11-13 (docs/SPRINT_3.md): what the robot still needed from the backend | ✅ built and tested with fakes (docs/SPRINT_3_LOG.md): shared protocol package (version 2) with contract tests; live robot status and command requests (admin "Robot (live)" tab, exercised with a **simulated** robot only); FAQs and pitches before retrieval; places and labs; provider time limits, retries and circuit breaker with a cached offline reply; LAN guide and robot token; admin login (argon2id), retention purge, backups; report export; 30-minute simulated soak test. **Waiting on the student:** approve FAQ and pitch drafts, enter places and labs, create the admin user, firewall and token. Still open in B5: the React admin panel (the admin stays one static page), real telemetry from the robot. Next: Raspberry Pi and ESP32 code (docs/SPRINT_4.md) |
 | Sprint 2 | Sprint 2, 2026-11-13 (docs/SPRINT_2.md): faster voice, program explainers with animated scenes, interest matching, attract mode | ✅ S0–S5 built and tested with fakes (docs/SPRINT_2_LOG.md). Voice: TTS speed 1.12, answers streamed as PCM chunks, VAD silence 700 ms. 12 explainer drafts (6 programs × ar/en) are **pending the student's review**; nothing plays until he approves them. Not judged by ear and not tried with a microphone yet |
 | Demo | Demo sprint 2026-11-13 (docs/DEMO_SPRINT.md): `/robot` screen page, streaming, admin analytics, media, demo script | ✅ M0–M6 done (M6 = simulated robot runs); M7 camera prototype built but not validated with people; see docs/DEMO.md and docs/DEMO_SPRINT_LOG.md |
 
@@ -36,6 +37,15 @@ Milestones: **M1** 6 Dec (base moves + conversation works) · **M2** 27 Dec (ret
 - [ ] Final golden-set run and multi-speaker validation (docs/SPEAKERS.md), with the results saved in data/golden/results/.
 - [ ] 30-minute mixed-operation test.
 - [ ] Rehearsal of the demo script; fallback plan if the internet fails (text subtitles and the "service unavailable" face).
+
+## To do by the student after sprint 3 (2026-11-13)
+- [ ] `docker compose build backend`, `docker compose up -d`, `alembic upgrade head` (once after pulling `sprint-3`).
+- [ ] Create the admin user (`create-admin`) and log in.
+- [ ] Approve FAQs and pitches in `/admin` → FAQs & pitches (19 FAQ drafts need the program name added to the question first).
+- [ ] Enter and approve places and labs in `/admin` → Places & labs.
+- [ ] Before a demo on another device or with the robot: fixed address, firewall rule, `ROBOT_TOKEN`, `PUBLIC_BASE_URL` (docs/DEPLOY.md).
+- [ ] Make a backup before each demo (`scriptsackup-db.ps1`) and run `purge-conversations` from time to time (docs/PRIVACY.md).
+- [ ] Agree a privacy notice near the robot with the supervisor (docs/PRIVACY.md, last section).
 
 ## To do by the student after sprint 2 (2026-11-13)
 - [ ] Review and approve the 12 explainer drafts in `/admin` → Explainers, then seed and approve the interest mapping.

@@ -70,6 +70,7 @@ def test_evaluator_check() -> None:
     assert check(unans, "ما عندي هاي المعلومة", False, []) == []
     assert check(unans, "سعر الساعة 80 دينار", True, ["80"]) != []
     assert normalize("أيمن") == normalize("ايمن")
+    assert normalize("الأنظمة المضمّنة") == normalize("الأنظمة المضمنة")  # diacritics do not change a word
 
 
 # ---------- database ----------
