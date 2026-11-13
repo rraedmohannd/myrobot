@@ -106,6 +106,58 @@ docker compose exec backend python -m app.ingestion.cli latency --dialogue  # ti
 docker compose exec backend python -m app.ingestion.cli bench --stt-only    # compare speech-to-text models
 ```
 
+## Sprint 3: what is new and how to use it
+After pulling this branch: `docker compose build backend` (new packages), `docker compose up -d`, `docker compose exec backend alembic upgrade head` (migrations 0009–0011).
+
+**Admin login.** Create your user once, then log in on http://localhost:8000/admin (the token still works under "token (scripts)"):
+```powershell
+docker compose exec backend python -m app.ingestion.cli create-admin yourname     # asks for a password (10+ characters)
+```
+
+**FAQs and pitches** (answered at once, no language model). Drafts are pending until you approve them in admin → **FAQs & pitches**:
+```powershell
+docker compose exec backend python -m app.ingestion.cli draft-faqs                      # every program + handbook rules (1 model call each)
+docker compose exec backend python -m app.ingestion.cli draft-faqs --program graphic-design
+```
+A program FAQ must name its program in the question; the page refuses to approve it otherwise. Admin → **Ask the robot** shows which kind of answer a question gets (FAQ, pitch, place, or search + model).
+
+**Places and labs.** Admin → **Places & labs**: type each place (name, building, floor, directions as the robot should say them, other spoken names), then Approve. The robot answers "وين …؟" only from approved entries.
+
+**Robot (live).** Admin → **Robot (live)** shows the connected robot and sends requests (the robot may refuse). Without the real robot:
+```powershell
+docker compose exec backend python -m app.ingestion.cli simulate-robot --seconds 120    # a SIMULATED robot; its runs are stored as simulated
+```
+
+**Protocol package** (`shared/`). After changing a message in `shared/scr_protocol/messages.py`:
+```powershell
+docker compose exec backend python -m scr_protocol.generate      # JSON Schema files + the tables of docs/PROTOCOL.md
+```
+
+**Local network, firewall, token:** `docs/DEPLOY.md`. **Privacy:** `docs/PRIVACY.md`.
+```powershell
+docker compose exec backend python -m app.ingestion.cli purge-conversations --dry-run   # conversations older than 30 days
+powershell -ExecutionPolicy Bypass -File scripts\backup-db.ps1                          # database backup -> backups\
+```
+
+**Figures for the report:**
+```powershell
+docker compose exec backend python -m app.ingestion.cli export-report                   # CSVs and PNG charts -> reports\ (git-ignored)
+```
+Simulated runs are titled "SIMULATED — not a physical result". Charts are in English (the chart font cannot shape Arabic).
+
+**Soak test** (30 minutes, SIMULATED robot, fake AI providers, a scratch copy of the database; it never touches your data and costs nothing):
+```powershell
+# 1. a scratch copy of the database and a preview backend with fake providers
+docker compose exec db sh -c "dropdb -U $POSTGRES_USER --if-exists smart_campus_preview && createdb -U $POSTGRES_USER smart_campus_preview && pg_dump -U $POSTGRES_USER $POSTGRES_DB | psql -q -U $POSTGRES_USER -d smart_campus_preview"
+docker compose run --rm -d --name scr-preview -e ADMIN_TOKEN=preview-token backend sh -c 'DATABASE_URL=$(echo $DATABASE_URL | sed "s#/[^/]*$#/smart_campus_preview#") exec uvicorn tests.preview_app:app --host 0.0.0.0 --port 8000'
+# 2. the soak run (use --minutes 1 for a quick check)
+docker compose exec -e SOAK_ADMIN_TOKEN=preview-token backend python -m app.ingestion.cli soak --minutes 30 --url ws://scr-preview:8000/ws/robot --admin-url http://scr-preview:8000
+# 3. clean up
+docker rm -f scr-preview
+docker compose exec db sh -c "dropdb -U $POSTGRES_USER smart_campus_preview"
+```
+Run step 1 in Git Bash or adapt the quotes for PowerShell. The result is saved in `backend\data\soak\`.
+
 ## Robot runs (trajectory view) — simulation only for now
 ```powershell
 docker compose exec backend python -m app.ingestion.cli simulate-run             # direct return
@@ -115,7 +167,7 @@ These runs are **SIMULATED** (stored with `is_simulated = true`, shown with a ba
 
 ## Demo for the supervisor
 Follow `docs/DEMO.md` (10-minute script in Arabic: `/robot`, then `/voice`, then `/admin`, with a fallback plan).
-After pulling new code, always run `docker compose exec backend alembic upgrade head` (the demo sprint added migrations 0006 and 0007; sprint 2 added 0008).
+After pulling new code, always run `docker compose exec backend alembic upgrade head` (the demo sprint added migrations 0006 and 0007; sprint 2 added 0008; sprint 3 added 0009–0011 and needs `docker compose build backend` once).
 New optional settings (see `.env.example`): `LLM_STREAMING`, `LLM_REASONING_EFFORT=low`, `LOCAL_TIMEZONE`.
 
 ## Save a version (after each phase passes its tests)
