@@ -104,6 +104,8 @@
   #choices .tap:disabled { opacity:.75; cursor:default; }
   body.choosing #subtitle { flex:0 0 auto; font-size:27px; min-height:86px; }
   body.choosing #card { display:none; }
+  body.offline.choosing #card { display:flex; }
+  body.offline #choices .tap { min-height:44px; font-size:17px; padding:6px 8px; }
 
   /* ---------- face ---------- */
   #face { width:340px; height:340px; --eye:#8fe9ff; transition:filter .4s; }
@@ -379,6 +381,7 @@ client.on("message", m => {
     case "interest.result": setChoices({programs: m.programs}); break;
     case "display.update":
       serverMode = m.mode;
+      if (m.offline) showOffline(m.offline);
       if (m.speaker_label) { $("speaker").textContent = "متحدث " + m.speaker_label; $("speaker").hidden = false; }
       if (m.mode === "processing") setCard(null);
       if (m.card) setCard(m.card);
@@ -390,7 +393,7 @@ client.on("message", m => {
       }
       break;
     case "transcript":
-      if (m.text) setChoices(null);
+      if (m.text) { setChoices(null); offlineView = false; }
       $("heard").textContent = m.text ? "«" + m.text + "»" : "";
       if (m.speaker) { $("speaker").textContent = "متحدث " + m.speaker.label; $("speaker").hidden = false; }
       break;
@@ -484,19 +487,43 @@ function setIdleExtras(idle) {
 }
 setInterval(() => { if (connected && !inSession) loadScreen(); }, 60000);   // newly approved content appears by itself
 
+// ---------- weak internet: QR to the faculty page and the explainers that still work ----------
+let offlineView = false;
+function showOffline(info) {
+  offlineView = true;
+  setCard({title: "الإنترنت ضعيف · Weak internet", lines: info.qr_url ? ["صوّر الكود لصفحة الكلية الرسمية", "Scan for the official faculty page"] : ["جرّب كمان شوي · Please try again shortly"], sources: []});
+  $("card").classList.add("on");
+  const box = $("cardMedia");
+  box.replaceChildren();
+  if (info.qr_url && window.qrcode) {
+    try {
+      const qr = qrcode(0, "M"); qr.addData(info.qr_url, "Byte"); qr.make();
+      const n = qr.getModuleCount(), k = 4, q = 2, c = document.createElement("canvas"), ctx = c.getContext("2d");
+      c.width = c.height = (n + 2 * q) * k; c.style.cssText = "width:100%;height:100%;object-fit:contain;background:#fff";
+      ctx.fillStyle = "#fff"; ctx.fillRect(0, 0, c.width, c.height); ctx.fillStyle = "#000";
+      for (let r = 0; r < n; r++) for (let col = 0; col < n; col++) if (qr.isDark(r, col)) ctx.fillRect((col + q) * k, (r + q) * k, k, k);
+      box.appendChild(c); box.classList.add("on");
+    } catch (e) { box.classList.remove("on"); }
+  }
+  // touch buttons for the approved explainers: their speech is cached, so they play offline
+  setChoices({compact: true, programs: (info.programs || []).slice(0, 6).map(p => ({slug: p.slug, name: p.name, has_explainer: true, lang: p.lang}))});
+  document.body.classList.add("offline");
+}
+
 // ---------- interest matching buttons ----------
 function setChoices(data) {
   const box = $("choices"), items = [];
+  document.body.classList.remove("offline");
   for (const o of (data && data.options) || []) {
     const b = document.createElement("button"); b.className = "tap" + (o.key === "none" ? " wide" : ""); b.textContent = o.label;
     b.onclick = () => { setChoices(null); client.stopPlayback(); client.send({type: "interest.choice", key: o.key}); };
     items.push(b);
   }
   for (const p of (data && data.programs) || []) {
-    const b = document.createElement("button"); b.className = "tap wide" + (p.has_explainer ? " main" : ""); b.textContent = p.name + (p.has_explainer ? " ▶" : "");
+    const b = document.createElement("button"); b.className = "tap" + (data.compact ? "" : " wide") + (p.has_explainer ? " main" : ""); b.textContent = p.name + (p.has_explainer ? " ▶" : "");
     if (p.line) { const s = document.createElement("span"); s.textContent = p.line; b.appendChild(s); }
     b.disabled = !p.has_explainer;
-    b.onclick = () => { setChoices(null); client.stopPlayback(); client.send({type: "explainer.start", program: p.slug}); };
+    b.onclick = () => { setChoices(null); client.stopPlayback(); client.send({type: "explainer.start", program: p.slug, lang: p.lang}); };
     items.push(b);
   }
   box.replaceChildren(...items);
