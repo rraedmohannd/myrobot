@@ -11,6 +11,7 @@ from app import __version__
 from app.api.rest import (
     admin,
     analytics,
+    auth,
     chat,
     curated,
     explainers,
@@ -64,6 +65,7 @@ def create_app() -> FastAPI:
     app.include_router(robot_api.router)
     app.include_router(explainers.router)
     app.include_router(curated.router)
+    app.include_router(auth.router)
     app.include_router(explainers.public_router)
     app.include_router(chat.router)
     app.include_router(voice.router)

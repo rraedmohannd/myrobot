@@ -22,6 +22,10 @@
     python -m app.ingestion.cli seed-demo-media       # dev only: labelled placeholder images
     python -m app.ingestion.cli simulate-run [--seed 7]   # SIMULATED robot run (never a real result)
     python -m app.ingestion.cli simulate-robot [--seconds 120]   # SIMULATED robot client (status, commands)
+    python -m app.ingestion.cli create-admin NAME     # admin login (asks for the password)
+    python -m app.ingestion.cli purge-conversations [--days 30] [--dry-run]   # privacy: delete old conversations
+    python -m app.ingestion.cli export-report [--out /reports]   # CSVs and charts for the graduation report
+    python -m app.ingestion.cli soak [--minutes 30]   # SIMULATED mixed session (see docs/HOW_TO_START.md)
 """
 
 import argparse
@@ -582,6 +586,59 @@ async def _simulate_run(seed: int, roam_seconds: float) -> None:
     print("See it at http://localhost:8000/admin -> Robot runs")
 
 
+async def _create_admin(username: str, password_stdin: bool) -> None:
+    """Create an admin user (or set a new password). The password is typed, never an argument,
+    so it does not end up in the shell history."""
+    import getpass
+    import sys
+
+    from app.services.auth import AuthError, create_admin
+
+    if password_stdin:
+        password = sys.stdin.readline().rstrip("\r\n")
+    elif sys.stdin.isatty():
+        password = getpass.getpass("Password (at least 10 characters): ")
+        if getpass.getpass("Again: ") != password:
+            print("The two passwords are different. Nothing was changed.")
+            return
+    else:
+        print("No terminal: run this without -T (docker compose exec backend ...), or pipe the "
+              "password with --password-stdin.")  # fmt: skip
+        return
+    async with get_sessionmaker()() as session:
+        try:
+            user, created = await create_admin(session, username, password)
+        except AuthError as e:
+            print(f"Not created: {e}")
+            return
+    print(f"{'created' if created else 'password changed for'} admin user '{user.username}'. "
+          "Log in at http://localhost:8000/admin")  # fmt: skip
+
+
+async def _purge_conversations(days: int | None, dry_run: bool) -> None:
+    from app.services.auth import purge_conversations
+
+    async with get_sessionmaker()() as session:
+        r = await purge_conversations(session, days, dry_run)
+    verb = "would delete" if dry_run else "deleted"
+    print(f"{verb} {r['sessions']} conversation(s) with {r['turns']} turn(s) older than {r['days']} days")
+
+
+async def _export_report(out: str | None) -> None:
+    """CSV files and PNG charts for the graduation report (reports/ is git-ignored)."""
+    from pathlib import Path
+
+    from app.services.report import export_report
+
+    out_dir = Path(out) if out else (Path("/reports") if Path("/reports").is_dir() else Path("reports"))
+    async with get_sessionmaker()() as session:
+        files = await export_report(session, out_dir)
+    for path in files:
+        print(f"  {path.name}")
+    print(f"{len(files)} file(s) written to {out_dir} (on the laptop: the reports folder of the project). "
+          "Simulated runs are titled SIMULATED; they are not results.")  # fmt: skip
+
+
 async def _simulate_robot(url: str, seconds: float, seed: int, token: str | None) -> None:
     """Connect a SIMULATED robot (protocol 2) to the backend: live status, telemetry when it
     roams, and answers to the command buttons of the admin "Robot" tab."""
@@ -631,6 +688,23 @@ async def _main(args: argparse.Namespace) -> None:
     if args.cmd == "simulate-run":
         await _simulate_run(args.seed, args.roam_seconds)
         await get_engine().dispose()
+        return
+    if args.cmd == "create-admin":
+        await _create_admin(args.username, args.password_stdin)
+        await get_engine().dispose()
+        return
+    if args.cmd == "purge-conversations":
+        await _purge_conversations(args.days, args.dry_run)
+        await get_engine().dispose()
+        return
+    if args.cmd == "export-report":
+        await _export_report(args.out)
+        await get_engine().dispose()
+        return
+    if args.cmd == "soak":
+        from app.soak import main as soak_main
+
+        await soak_main(args.minutes, args.url, args.admin_url, args.out)
         return
     if args.cmd == "simulate-robot":
         await _simulate_robot(args.url, args.seconds, args.seed, args.token)
@@ -720,6 +794,19 @@ def main() -> None:
     sim = sub.add_parser("simulate-run", help="store a SIMULATED robot run (trajectory + return-to-origin)")
     sim.add_argument("--seed", type=int, default=7, help="random seed (16 shows the breadcrumb fallback)")
     sim.add_argument("--roam-seconds", type=float, default=45.0)
+    ca = sub.add_parser("create-admin", help="create an admin login (or change its password)")
+    ca.add_argument("username")
+    ca.add_argument("--password-stdin", action="store_true", help="read the password from standard input")
+    pc = sub.add_parser("purge-conversations", help="delete conversations older than the retention period")
+    pc.add_argument("--days", type=int, default=None, help="default: CONVERSATION_RETENTION_DAYS (30)")
+    pc.add_argument("--dry-run", action="store_true", help="only count, delete nothing")
+    er = sub.add_parser("export-report", help="write CSVs and PNG charts for the graduation report")
+    er.add_argument("--out", default=None, help="output folder (default: /reports = reports/ on the laptop)")
+    so = sub.add_parser("soak", help="SIMULATED mixed session against a preview backend (fake providers)")
+    so.add_argument("--minutes", type=float, default=30.0)
+    so.add_argument("--url", default="ws://localhost:8000/ws/robot")
+    so.add_argument("--admin-url", default="http://localhost:8000")
+    so.add_argument("--out", default=None, help="folder for the JSON result (default: data/soak)")
     bot = sub.add_parser("simulate-robot", help="connect a SIMULATED robot client (status + commands)")
     bot.add_argument("--url", default="ws://localhost:8000/ws/robot")
     bot.add_argument("--seconds", type=float, default=120.0)

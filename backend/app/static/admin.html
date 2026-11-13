@@ -98,8 +98,12 @@
 <body>
 <header>
   <h1>Robot admin — Review Queue and analytics</h1>
-  <input id="token" type="password" placeholder="Admin token">
-  <button id="connect">Connect</button>
+  <span id="loginBox"><input id="loginUser" type="text" placeholder="Username" autocomplete="username" style="width:130px;border:0;border-radius:6px;padding:6px 8px">
+    <input id="loginPass" type="password" placeholder="Password" autocomplete="current-password" style="width:150px">
+    <button id="loginBtn">Log in</button></span>
+  <span id="whoBox" hidden><span id="who"></span> <button id="logoutBtn">Log out</button></span>
+  <details style="font-size:13px"><summary style="cursor:pointer">token (scripts)</summary>
+    <input id="token" type="password" placeholder="Admin token"> <button id="connect">Connect</button></details>
   <span id="msg"></span>
 </header>
 <nav id="nav">
@@ -116,6 +120,7 @@
   <button data-view="media">Media</button>
   <button data-view="robot">Robot (live)</button>
   <button data-view="runs">Robot runs</button>
+  <button data-view="system">System</button>
 </nav>
 <section class="view" id="view-overview"></section>
 <section class="view" id="view-gaps"></section>
@@ -132,6 +137,7 @@
 <section class="view" id="view-evaluation"></section>
 <section class="view" id="view-coverage"></section>
 <section class="view" id="view-robot"></section>
+<section class="view" id="view-system"></section>
 <section class="view" id="view-faqs"></section>
 <section class="view" id="view-places"></section>
 <section class="view" id="view-runs"></section>
@@ -155,7 +161,7 @@
   <section class="card">
     <div class="stats" id="stats"></div>
     <div class="tabs" id="tabs"></div>
-    <div id="list" class="muted">Enter the ADMIN_TOKEN from your .env file and press Connect.</div>
+    <div id="list" class="muted">Log in with your admin user (create one with <code>create-admin</code>), or open “token (scripts)” and enter the ADMIN_TOKEN from your .env file.</div>
   </section>
   <section class="card" id="detail"><p class="muted">Select a page to review its chunks.</p></section>
 </main>
@@ -173,7 +179,7 @@ const pill = (st, n) => `<span class="pill ${st}">${st}${n !== undefined ? ": " 
 function msg(t, bad) { const m = document.getElementById("msg"); m.textContent = t; m.style.color = bad ? "#ffd2d2" : "#fff"; }
 
 async function api(path, opts = {}) {
-  const r = await fetch(path, { ...opts, headers: { "Content-Type": "application/json", "X-Admin-Token": token, ...(opts.headers || {}) } });
+  const r = await fetch(path, { ...opts, headers: { "Content-Type": "application/json", ...(token ? { "X-Admin-Token": token } : {}), ...(opts.headers || {}) } });
   if (!r.ok) {
     const b = await r.json().catch(() => ({})), d = b.detail;
     // a refusal with reasons, e.g. approving an explainer that still has an unsourced number
@@ -268,7 +274,7 @@ document.querySelectorAll("#nav button").forEach(b => b.onclick = () => {
   view = b.dataset.view;
   document.querySelectorAll("#nav button").forEach(x => x.classList.toggle("active", x === b));
   document.querySelectorAll(".view").forEach(v => v.classList.toggle("on", v.id === "view-" + view));
-  if (token) refresh();
+  if (token || loggedIn) refresh();
 });
 
 async function loadOverview() {
@@ -730,12 +736,65 @@ async function loadExplainerList() {
 
 const VIEWS = { faqs: loadFaqs, places: loadPlaces, robot: async () => { await loadRobot(); robotPolling(); }, explainers: loadExplainers, runs: loadRuns, media: loadMedia, overview: loadOverview, gaps: loadGaps, conversations: loadConversations, evaluation: loadEvaluation, coverage: loadCoverage, ask: async () => {} };
 
+// ---------------- system: providers, LAN address, privacy (sprint 3 S5-S7) ----------------
+async function loadSystem() {
+  const d = await api("/api/admin/system");
+  const names = { stt: "Speech-to-text", llm: "Language model", tts: "Text-to-speech", embeddings: "Embeddings (search)" };
+  const errors = Object.entries(d.providers).flatMap(([k, v]) => v.recent_errors.map(e => ({ ...e, provider: k }))).sort((a, b) => a.at < b.at ? 1 : -1).slice(0, 12);
+  el("view-system").innerHTML = `<div class="grid">
+    <div class="card"><h2>AI providers (as seen by this backend since it started)</h2>
+      <table class="data"><tr><th>Provider</th><th>State</th><th class="num">Calls</th><th class="num">Failed</th><th>Last success</th><th>Last error</th></tr>
+      ${Object.entries(d.providers).map(([k, v]) => `<tr><td>${names[k] || k}</td><td>${v.state === "closed" && v.ok ? `<span class="tag good">✓ ok</span>` : v.state === "closed" ? `<span class="tag warn">! ${v.failures_in_a_row} failure(s) in a row</span>` : v.state === "open" ? `<span class="tag bad">! not reachable (paused)</span>` : `<span class="tag warn">! trying again</span>`}</td><td class="num">${v.calls}</td><td class="num">${v.failed_calls}</td><td>${when(v.last_ok)}</td><td class="muted">${esc(v.last_error || "–")}</td></tr>`).join("")}</table>
+      <p class="muted">Every call has a time limit and one retry. After 3 failures in a row a provider is paused for 30 s, and the robot gives its “weak internet” reply (cached phrase, QR to the faculty page, approved explainers and identical FAQs still work). “No calls yet” simply means nobody asked since the restart.</p>
+      <h3>Recent errors</h3>${errors.length ? `<table class="data"><tr><th>When</th><th>Provider</th><th>Error</th></tr>${errors.map(e => `<tr><td>${when(e.at)}</td><td>${names[e.provider] || e.provider}</td><td class="muted">${esc(e.error)}</td></tr>`).join("")}</table>` : `<p class="muted">None since the backend started.</p>`}
+    </div>
+    <div class="card"><h2>Robot address on the local network</h2>
+      ${d.lan.base_is_localhost ? `<div class="issue">This page was opened with “localhost”, which only works on this laptop. For the robot or a phone, set PUBLIC_BASE_URL in .env to the laptop's address (for example http://192.168.1.20:8000) and open the firewall for port 8000: see docs/DEPLOY.md.</div>` : ""}
+      <div class="row" style="align-items:flex-start"><canvas id="lanQr" style="background:#fff;border:1px solid var(--line);border-radius:8px"></canvas>
+        <div style="flex:1;min-width:240px"><p><b>Robot screen page</b><br><code style="word-break:break-all">${esc(d.lan.robot_page)}</code></p><p><b>WebSocket for the Raspberry Pi</b><br><code style="word-break:break-all">${esc(d.lan.robot_ws)}</code></p>
+        <p>${d.lan.token_required ? `<span class="tag good">✓ ROBOT_TOKEN is set</span> Robots that are not on this laptop must send it (it is inside the addresses above: do not show this QR to the public).` : `<span class="tag warn">! ROBOT_TOKEN is not set</span> Anyone on the same network can connect as a robot. Set it before the demo.`}</p></div></div>
+      <p class="muted">${esc(d.lan.note)}</p>
+      <h2 style="margin-top:14px">Privacy and data</h2>
+      <p>Conversations are kept for <b>${d.privacy.retention_days} days</b> (text and timings only: no audio, no face images, anonymous speakers). ${d.privacy.conversations_total} stored, ${d.privacy.conversations_older_than_retention} older than the limit${d.privacy.conversations_older_than_retention ? ` → <code>docker compose exec backend python -m app.ingestion.cli purge-conversations</code>` : ""}. Details: docs/PRIVACY.md. Backups: <code>scripts/backup-db.ps1</code>.</p>
+      <h2 style="margin-top:14px">Admin access</h2>
+      <p>${d.admin_users ? `${d.admin_users} admin user(s).` : `<span class="tag warn">! no admin user yet</span> Create one: <code>docker compose exec backend python -m app.ingestion.cli create-admin yourname</code>`} ${d.admin_token_set ? "The shared token (ADMIN_TOKEN) also works, for scripts." : "ADMIN_TOKEN is not set."}</p>
+      <p class="muted">Backend ${esc(d.version)} · up ${Math.round(d.uptime_s / 60)} min · memory ${d.memory_mb ?? "–"} MB</p>
+    </div></div>`;
+  try {
+    const qr = qrcode(0, "M"); qr.addData(d.lan.robot_page, "Byte"); qr.make();
+    const n = qr.getModuleCount(), k = 5, q = 2, c = el("lanQr"), ctx = c.getContext("2d");
+    c.width = c.height = (n + 2 * q) * k; ctx.fillStyle = "#fff"; ctx.fillRect(0, 0, c.width, c.height); ctx.fillStyle = "#000";
+    for (let r = 0; r < n; r++) for (let col = 0; col < n; col++) if (qr.isDark(r, col)) ctx.fillRect((col + q) * k, (r + q) * k, k, k);
+  } catch (e) { /* the address is still shown as text */ }
+}
+VIEWS.system = loadSystem;
+
+// ---------------- login (sprint 3 S7): a session cookie; the token stays for scripts ----------------
+let loggedIn = false;
+function showWho(user) {
+  loggedIn = !!user;
+  el("loginBox").hidden = loggedIn; el("whoBox").hidden = !loggedIn;
+  el("who").textContent = user ? "Logged in: " + user : "";
+}
+async function checkLogin() {
+  try { const r = await fetch("/api/admin/me", { headers: token ? { "X-Admin-Token": token } : {} }); if (r.ok) { const me = await r.json(); showWho(me.user); return true; } } catch (e) { /* offline */ }
+  showWho(null); return false;
+}
+el("loginBtn").onclick = async () => {
+  try {
+    await api("/api/admin/login", { method: "POST", body: JSON.stringify({ username: el("loginUser").value, password: el("loginPass").value }) });
+    el("loginPass").value = ""; await checkLogin(); refresh();
+  } catch (e) { msg(e.message, true); }
+};
+el("loginPass").addEventListener("keydown", e => { if (e.key === "Enter") el("loginBtn").click(); });
+el("logoutBtn").onclick = async () => { try { await api("/api/admin/logout", { method: "POST" }); } catch (e) { /* already out */ } showWho(null); msg("Logged out"); };
+
 document.getElementById("connect").onclick = () => {
   token = document.getElementById("token").value.trim();
   try { sessionStorage.setItem("adminToken", token); } catch (e) {}
   refresh();
 };
-if (token) refresh();
+checkLogin().then(ok => { if (ok || token) refresh(); });
 </script>
 </body>
 </html>
