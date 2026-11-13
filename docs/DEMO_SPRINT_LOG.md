@@ -84,3 +84,16 @@ Task file: `docs/DEMO_SPRINT.md`. Branch: `demo-sprint` (created from `master` a
 - Multipart uploads are parsed by a small built-in parser, because `python-multipart` is not in the Docker image and adding it would force an image rebuild before the demo.
 - Not tested: a real mp4/webm video on the screen (only the type check and the muted/loop attributes are covered). Please try one short clip.
 - Tests: **112 passed** (13 new in `tests/test_media.py`: upload validation, unapproved files not served, card media only when approved).
+- Commit: `1529d13` (17:00). Elapsed: 29 min. Not pushed (no remote).
+
+## M5 — Demo pack
+- `docs/DEMO.md`: 10-minute script in Arabic with English headings (start, `/robot` → `/voice` → `/admin`, 8 sample questions from golden questions that passed today plus a multi-speaker moment and an "I don't know" moment, what to show in the admin, numbers to quote, fallback plan, questions to avoid, honest limitations).
+- Updated `docs/HOW_TO_START.md`, the status table in `docs/PLAN.md`, `docs/DECISIONS.md`.
+- **Evaluation run (1 of 2 allowed), 49 golden questions, gpt-6-luna, streaming, effort low: 37/49 (76 %), 0 numbers outside the sources**, median 2714 ms, p90 3581 ms (text: retrieval + whole LLM answer). Report: `backend/data/golden/results/20261113-140307.md`.
+  - 11 failures are the Student Handbook and Biomedical Engineering questions: those sources are still `pending` (question 2), so the robot correctly says it does not know.
+  - 1 failure (`faculty-programs-ar`) comes from the stale faculty-overview page: the Arabic answer lists three programs only.
+  - On approved content: 37 of 38. For comparison, 2026-11-06 gave 36/49 with the same pending sources.
+  - **Watch out:** `hb-biomedical-en` "passes" the automatic check, but the answer says Biomedical Engineering is *not listed*. That is wrong since the program was confirmed; it will fix itself when you approve the Biomedical plan and the overview page. Do not ask about it in the demo before that.
+  - Some Arabic answers address the visitor in the feminine form ("اسألي"). I did not change the evaluated prompt for this; it is listed under limitations.
+- OpenAI budget used: **1 of 2** `evaluate` runs, **3 of 3** bench/latency runs.
+- Final `docker compose exec backend pytest -q`: **112 passed**.

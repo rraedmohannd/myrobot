@@ -53,6 +53,7 @@ docker compose exec backend python -m app.ingestion.cli import-knowledge
 ```
 Review page: http://localhost:8000/admin (token = ADMIN_TOKEN in .env).
 Only approved content will ever be used by the robot.
+The same page has tabs for analytics (Overview, Knowledge gaps, Conversations), a test box (Ask the robot), the golden-set runs (Evaluation), Knowledge coverage and the Media library.
 
 ## Ask the robot (text) — B3
 ```powershell
@@ -77,6 +78,11 @@ docker compose exec backend python -m app.ingestion.cli seed-demo-media   # labe
 Real images and videos: http://localhost:8000/admin → Media → upload, link to a program, approve.
 
 Several visitors: each utterance is labelled "متحدث 1/2/3" in the /voice log (anonymous, forgotten when the conversation ends). See docs/SPEAKERS.md.
+
+## Demo for the supervisor
+Follow `docs/DEMO.md` (10-minute script in Arabic: `/robot`, then `/voice`, then `/admin`, with a fallback plan).
+After pulling new code, always run `docker compose exec backend alembic upgrade head` (the demo sprint added migrations 0006 and 0007).
+New optional settings (see `.env.example`): `LLM_STREAMING`, `LLM_REASONING_EFFORT=low`, `LOCAL_TIMEZONE`.
 
 ## Save a version (after each phase passes its tests)
 ```powershell
