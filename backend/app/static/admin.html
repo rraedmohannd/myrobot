@@ -482,7 +482,7 @@ let explainerOpen = null, previewTimer = null;
 async function loadExplainers() {
   const [d, im] = [await api("/api/admin/explainers"), await api("/api/admin/interests")];
   const progOptions = d.programs.map(p => `<option value="${p.id}">${esc(p.name_en)}</option>`).join("");
-  el("view-explainers").innerHTML = `<div class="grid" style="grid-template-columns:minmax(360px, 1fr) 2fr">
+  el("view-explainers").innerHTML = `<div class="grid" style="grid-template-columns:minmax(480px, 1.15fr) 2fr">
     <div>
       <div class="card"><h2>Program explainers</h2>
         <p class="muted">A 60–90 second presentation per program and language, spoken in segments with a scene on the robot screen. Drafts come from the program's <b>approved</b> sources (one model call each) and are <b>pending</b>: the robot plays an explainer only after you approve it here. Check every sentence against the official documents.</p>
@@ -494,10 +494,10 @@ async function loadExplainers() {
       <div class="card" style="margin-top:16px"><h2>Interests → programs (“ساعدني أختار”)</h2>
         <p class="muted">Promotional, curated data, reviewed like pitches: the robot suggests a program for an interest only from <b>approved</b> rows, and never promises an outcome. “Seed” adds pending rows for programs whose explainer is approved.</p>
         <div class="row"><button id="imSeed">Seed from approved explainers</button><span class="muted" id="imState"></span></div>
-        ${im.items.length ? `<table class="data" style="margin-top:8px"><tr><th>Interest</th><th>Program</th><th>Line on the screen</th><th>Status</th><th></th></tr>
+        ${im.items.length ? `<table class="data" style="margin-top:8px"><tr><th>Interest</th><th>Program</th><th>Line on the screen, status</th></tr>
           ${im.items.map(m => `<tr data-id="${m.id}"><td>${esc(m.interest_en || m.interest)}<div class="muted" dir="rtl">${esc(m.interest_ar || "")}</div></td><td>${esc(m.program ? m.program.name_en : "–")}</td>
-            <td><input type="text" dir="rtl" data-f="text_ar" value="${esc(m.text_ar || "")}" placeholder="سطر قصير بالعربي" style="width:100%"><input type="text" data-f="text_en" value="${esc(m.text_en || "")}" placeholder="Short line (English)" style="width:100%;margin-top:4px">${m.issues.map(i => `<div class="issue">${esc(i)}</div>`).join("")}</td>
-            <td>${pill(m.status)}</td><td class="row"><button data-act="save">Save</button><button data-act="approve" class="ok">Approve</button><button data-act="reject">Reject</button><button data-act="delete" class="bad">Delete</button></td></tr>`).join("")}</table>` : `<p class="muted">No mapping rows yet.</p>`}
+            <td><input type="text" dir="rtl" data-f="text_ar" value="${esc(m.text_ar || "")}" placeholder="سطر قصير بالعربي" style="width:100%"><input type="text" data-f="text_en" value="${esc(m.text_en || "")}" placeholder="Short line (English)" style="width:100%;margin-top:4px">${m.issues.map(i => `<div class="issue">${esc(i)}</div>`).join("")}
+            <div class="row" style="margin-top:4px">${pill(m.status)}<button data-act="save">Save</button><button data-act="approve" class="ok">Approve</button><button data-act="reject">Reject</button><button data-act="delete" class="bad">Delete</button></div></td></tr>`).join("")}</table>` : `<p class="muted">No mapping rows yet.</p>`}
         <div class="row" style="margin-top:8px"><select id="imInterest">${im.interests.map(i => `<option value="${i.key}">${esc(i.en)}</option>`).join("")}</select><span>→</span><select id="imProgram">${progOptions}</select><button id="imAdd">Add row (pending)</button></div>
       </div>
     </div>
