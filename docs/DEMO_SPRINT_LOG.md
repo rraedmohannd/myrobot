@@ -5,7 +5,7 @@ Task file: `docs/DEMO_SPRINT.md`. Branch: `demo-sprint` (created from `master` a
 **Start time: Fri 2026-11-13 16:31 (laptop clock, `date`).** Time budget: 4 hours → stop by about 20:31.
 
 ## Questions for Mohannd
-1. **Nothing was pushed: no git remote is configured in this folder** (`git remote -v` is empty, and the `gh` tool is not installed). `git push -u origin demo-sprint` answered "'origin' does not appear to be a git repository". I did not create or guess a remote. All work is committed locally on the branch `demo-sprint` (10 commits). To push it yourself:
+1. **Nothing was pushed: no git remote is configured in this folder** (`git remote -v` is empty, and the `gh` tool is not installed). `git push -u origin demo-sprint` answered "'origin' does not appear to be a git repository". I did not create or guess a remote. All work is committed locally on the branch `demo-sprint` (10 commits: `git log --oneline master..demo-sprint`). To push it yourself:
    `git remote add origin <your GitHub repo URL>` then `git push -u origin demo-sprint`.
    (DECISIONS says the repo was pushed to GitHub on 2026-11-06; that was probably done from another copy of the folder.)
 2. **The Student Handbook (source 346, 19 chunks) and the Biomedical Engineering plan (source 345, 13 chunks) are still `pending`, and the faculty-overview page (source 66) is `stale`.** The robot cannot use them until you review them in `/admin`. I did not approve anything. Until then: handbook and Biomedical questions get "I don't have this information", the Arabic "which programs" answer is incomplete, the robot may say Biomedical Engineering is "not listed" (wrong), and the golden set stays at 37/49.
