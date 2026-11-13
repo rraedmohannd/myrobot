@@ -71,6 +71,9 @@ class Settings(BaseSettings):
     # Retrieval-augmented answers
     rag_top_k: int = 8  # passages given to the LLM
     rag_candidates: int = 20  # candidates from each search before fusion
+    # The best N hits of each search (keywords, meaning) always reach the LLM, even when the
+    # other search did not find them (English question, Arabic passage). 0 = fusion only.
+    rag_keep_top: int = 2
     chat_history_turns: int = 3  # previous turns of the same session sent as context
 
     # "Today" in the admin analytics is a day in this time zone (the database stores UTC).

@@ -6,7 +6,7 @@ Task file: `docs/DEMO_SPRINT.md`. Branch: `demo-sprint` (created from `master` a
 
 ## Questions for Mohannd
 1. ~~Nothing was pushed: no git remote was configured.~~ **Resolved:** you gave me the repository URL after the sprint. `origin` is now `https://github.com/rraedmohannd/myrobot.git` and the branch **`demo-sprint` is pushed** (only that branch; nothing was pushed to `main` or `master`). The repository was empty, so GitHub shows `demo-sprint` as its default branch; `master` (the state before the sprint) is still only on your laptop. Push it too if you want it on GitHub: `git push origin master`.
-2. **The Student Handbook (source 346, 19 chunks) and the Biomedical Engineering plan (source 345, 13 chunks) are still `pending`, and the faculty-overview page (source 66) is `stale`.** The robot cannot use them until you review them in `/admin`. I did not approve anything. Until then: handbook and Biomedical questions get "I don't have this information", the Arabic "which programs" answer is incomplete, the robot may say Biomedical Engineering is "not listed" (wrong), and the golden set stays at 37/49.
+2. ~~The Student Handbook and the Biomedical Engineering plan are still `pending`.~~ **Resolved by you on 2026-11-13:** both are approved, and the golden set went from 37/49 to **48/49** (see "After the sprint" at the end). Still open: the faculty-overview page (source 66) is `stale`, with one pending and one stale chunk.
 3. The local branch is called `master`, while the task file says `main`. Nothing was merged or pushed to either.
 4. **Reasoning effort:** `LLM_REASONING_EFFORT` now defaults to `low` (10/10 on the bench, and 37/38 on approved content in `evaluate`). If your `.env` has its own `LLM_REASONING_EFFORT=` line, that line wins; set it to `low` or delete it. To go back: `LLM_REASONING_EFFORT=` (empty) is not enough because the default is now `low`; use `medium`.
 5. **Latency target:** about 4.7–5.2 s from end of speech to the answer (estimate) against the 4 s target. The next real gain is in TTS (about 1.8 s per piece). Do you want TTS audio streaming (a protocol change to PCM chunks, about half a day), or wait for the ElevenLabs switch in the final week?
@@ -141,11 +141,11 @@ Task file: `docs/DEMO_SPRINT.md`. Branch: `demo-sprint` (created from `master` a
 # Summary for Mohannd
 
 ## What to try first (15 minutes)
-1. `docker compose up -d`, then `docker compose exec backend alembic upgrade head`, then `docker compose exec backend pytest -q` → 129 passed.
+1. `docker compose up -d`, then `docker compose exec backend alembic upgrade head`, then `docker compose exec backend pytest -q` → 130 passed.
 2. Open **http://localhost:8000/robot** in Chrome or Edge, press **Space**, and have a real spoken conversation. This is the one thing I could not do: **no real microphone conversation was run today**, on `/robot` or on `/voice`. Check that the mouth moves, the subtitles follow the voice, and the card with the sample picture appears for "كم ساعة معتمدة بدها هندسة الأنظمة الذكية؟".
 3. Open **http://localhost:8000/voice**, do the same once, and read the timings table (ack and answer are separate columns).
 4. Open **http://localhost:8000/admin**, connect with your token, and click through the tabs: Overview, Knowledge gaps, Conversations, Ask the robot, Evaluation, Knowledge coverage, Media, Robot runs.
-5. Review the three sources in the Review queue (question 2), then read `docs/DEMO.md` and rehearse it once.
+5. Review the faculty-overview page in the Review queue (question 2), then read `docs/DEMO.md` and rehearse it once.
 
 ## What is done
 | Milestone | Result |
@@ -163,7 +163,7 @@ Task file: `docs/DEMO_SPRINT.md`. Branch: `demo-sprint` (created from `master` a
 - Pushed to `origin/demo-sprint` after you supplied the URL; the "Not pushed (no remote)" notes under each milestone describe the state during the sprint.
 - **No live voice test** with a microphone, and no live conversation through the WebSocket with the real OpenAI providers. The real providers were exercised by the `latency`, `bench` and `evaluate` commands only (including streaming).
 - **4 s latency target not reached** (about 4.7–5.2 s estimated from end of speech).
-- **Golden set 37/49**, below the 90 % target, because three sources wait for your review.
+- Golden set: 37/49 during the sprint; **48/49 (98 %)** after you approved the two sources (see "After the sprint"). The faculty-overview page is still `stale`.
 - **Camera prototype not validated with people** (0 real faces tested).
 - **A real video file** was never played on the robot screen (only images).
 - **Robot runs are simulation only**; there is no physical trial and no ESP32 or Pi code.
@@ -172,4 +172,28 @@ Task file: `docs/DEMO_SPRINT.md`. Branch: `demo-sprint` (created from `master` a
 - The Raspberry Pi will need an Arabic font installed; the pages use system fonts.
 
 ## Questions for Mohannd
-See the list at the top of this file (10 questions). The one that matters before the demo is question 2: the three sources waiting for review.
+See the list at the top of this file (10 questions). Before the demo, the live voice test matters most; question 2 is down to one stale page.
+
+# After the sprint (2026-11-13, same day)
+
+## Evaluation after your review: 48/49
+- You approved the Student Handbook and the Biomedical Engineering plan, then asked for `evaluate`: **48/49 (98 %), 0 numbers outside the sources**, median 2129 ms, p90 2609 ms. Report: `backend/data/golden/results/20261113-145030.md`. The B3 target (≥ 90 %) is met on the full 49-question set.
+- The same code gave 37/49 before the approval, so the whole difference comes from the reviewed sources. `faculty-programs-ar` and the Biomedical questions now pass (the robot says the faculty offers Biomedical Engineering).
+- This was the third `evaluate` run of the day (two in total were planned for the sprint; this one was your own request after the sprint).
+
+## The one failure: `hb-grad-gpa-en` — a retrieval miss, fixed in retrieval
+- Question: "What is the minimum GPA needed to graduate?" The handbook's grading chunk (Arabic) holds the answer (2.00).
+- **Cause (measured):** the vector search ranked that chunk **first**, but the keyword search ranked it 21st, just outside its 20 candidates, because 20 English study-plan passages share common words with the question. Rank fusion adds the two ranks, so a chunk found by one search only (score 1/61 ≈ 0.016) loses to any chunk present in both lists (at least 0.025). The passage never reached the model, which then correctly said it did not know. It was not a prompt problem.
+- **Fix (general, no special case, no knowledge change):** `select_passages` in `services/rag.py` now always keeps the best 2 hits of each search (keyword and vector) among the 8 passages, in fused order. New setting `rag_keep_top` (default 2; 0 = the old behaviour). Search hints, chunk texts and the prompt are unchanged.
+- **Checked with `ask` (4 real questions, not a full evaluate):**
+
+  | Question | Answer | Source used |
+  |---|---|---|
+  | What is the minimum GPA needed to graduate? | 2.00 | handbook, grading |
+  | What GPA do I need to avoid an academic warning? | at least 2.00 | handbook, academic standing |
+  | How many points is a B+ worth? | 3.50 | handbook, grading |
+  | What is the maximum number of credit hours I can register per semester? | 18 (21 if expected to graduate); summer 10 (13) | handbook, study system |
+
+  In the first and last question the handbook passage was found by the vector search only and is now kept by the new rule.
+- **Not done:** the 49 questions were not re-run after the fix (as you asked), so 48/49 stays the recorded result, and I cannot rule out that the changed passage selection alters another answer. The rule only replaces the lowest-ranked passages, and only when a top-2 hit of one search was missing.
+- Tests: **130 passed** (1 new: top hits of each search are never dropped).

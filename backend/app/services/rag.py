@@ -104,6 +104,43 @@ def rrf(rank_lists: list[list[int]], k: int = RRF_K) -> dict[int, float]:
     return scores
 
 
+def select_passages(
+    ranked: list[int],
+    categories: dict[int, str | None],
+    rank_lists: list[list[int]],
+    top_k: int,
+    keep_top: int = 0,
+) -> list[int]:
+    """The chunk ids given to the LLM, in fused-rank order.
+
+    Two rules on top of the fused ranking:
+    - Category caps: course lists are long and numerous; capping them leaves room for summaries.
+    - The best `keep_top` hits of EACH search are never dropped. Fusion favours chunks that
+      appear in both lists, so a chunk found by only one search can lose even at rank 1. That
+      happens across languages: an English question matches an Arabic passage by meaning
+      (vector rank 1), while the keyword search is filled with English passages that merely
+      share common words. Keeping each search's top hits fixes this for every such question.
+    """
+    best: list[int] = []
+    per_category: dict[str | None, int] = {}
+    for cid in ranked:
+        cat = categories.get(cid)
+        if cat in CATEGORY_CAPS and per_category.get(cat, 0) >= CATEGORY_CAPS[cat]:
+            continue
+        per_category[cat] = per_category.get(cat, 0) + 1
+        best.append(cid)
+        if len(best) == top_k:
+            break
+    must_keep = list(dict.fromkeys(cid for ranks in rank_lists for cid in ranks[:keep_top]))[:top_k]
+    missing = [cid for cid in must_keep if cid not in best]
+    if missing:
+        droppable = [cid for cid in best if cid not in must_keep]
+        keep = droppable[: max(0, top_k - len(must_keep))]
+        chosen = set(keep) | set(must_keep)
+        best = [cid for cid in ranked if cid in chosen]
+    return best
+
+
 async def retrieve(
     session: AsyncSession, embedder: Embedder, query: str, top_k: int | None = None
 ) -> Retrieval:
@@ -126,17 +163,10 @@ async def retrieve(
     if ranked:
         rows = {r.id: r for r in (await session.execute(DETAILS_SQL, {"ids": ranked})).all()}
         fts_set, vec_set = set(fts_ids), set(vec_ids)
-        best: list[int] = []
-        per_category: dict[str | None, int] = {}
-        for cid in ranked:
-            cat = rows[cid].category
-            # course lists are long and numerous; capping them leaves room for summaries
-            if cat in CATEGORY_CAPS and per_category.get(cat, 0) >= CATEGORY_CAPS[cat]:
-                continue
-            per_category[cat] = per_category.get(cat, 0) + 1
-            best.append(cid)
-            if len(best) == top_k:
-                break
+        best = select_passages(
+            ranked, {cid: rows[cid].category for cid in ranked}, [fts_ids, vec_ids], top_k,
+            settings.rag_keep_top,
+        )  # fmt: skip
         for cid in best:
             r = rows[cid]
             passages.append(

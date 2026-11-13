@@ -192,3 +192,30 @@ async def test_course_passages_are_capped(db_session) -> None:
     r = await retrieve(db_session, emb, f"{UNIQUE}", top_k=8)
     cats = [p.category for p in r.passages]
     assert cats.count("courses") <= 3 and "study_plan" in cats
+
+
+def test_top_hits_of_each_search_are_never_dropped() -> None:
+    """A chunk found by one search only (cross-language match) must not lose its place to
+    chunks that are merely present in both lists."""
+    from app.services.rag import rrf, select_passages
+
+    fts = list(range(100, 120))  # keyword search: 20 passages, none of them the right one
+    vec = [1, 2, *range(100, 118)]  # meaning search: the right passages first
+    scores = rrf([fts, vec])
+    ranked = sorted(scores, key=lambda cid: (-scores[cid], cid))
+    categories: dict[int, str | None] = {cid: None for cid in ranked}
+
+    fusion_only = select_passages(ranked, categories, [fts, vec], top_k=8, keep_top=0)
+    assert 1 not in fusion_only and 2 not in fusion_only  # the weakness being fixed
+
+    kept = select_passages(ranked, categories, [fts, vec], top_k=8, keep_top=2)
+    assert {1, 2} <= set(kept) and {100, 101} <= set(kept)  # top 2 of each search
+    assert len(kept) == 8 and kept == [cid for cid in ranked if cid in set(kept)]  # fused order
+
+    # nothing changes when the top hits are already in
+    both = select_passages(ranked, categories, [fts, fts], top_k=8, keep_top=2)
+    assert both == select_passages(ranked, categories, [fts, fts], top_k=8, keep_top=0)
+    # category caps still apply to the rest
+    capped = select_passages(ranked, {cid: "courses" for cid in ranked}, [fts, vec], 8, 0)
+    assert len(capped) == 3
+    assert select_passages([], {}, [[], []], 8, 2) == []
