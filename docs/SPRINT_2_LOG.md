@@ -98,7 +98,7 @@ Task file: `docs/SPRINT_2.md`. Branch: `sprint-2` (created from `demo-sprint` at
 - Final `docker compose exec backend pytest -q`: **165 passed, 0 failed** (130 at the start). `node backend/tests/js/speaker_logic_test.mjs`: all checks passed. Migration state: 0008.
 - OpenAI budget used: `evaluate` **2 of 2**; latency/bench **4 of 4**; explainer drafting **12 of 12** LLM calls; TTS: 59 fixed-phrase pieces generated, plus 14 short diagnostic calls (speed and streaming checks). No explainer speech was generated, because no explainer is approved.
 - Your database after the run: 12 explainers `pending`, no interest rows, sources and chunks untouched, no test conversations left (the measurement sessions were deleted; the two conversations of this evening in the list are your own). The scratch database used for screen checks was dropped.
-- Commit: see the summary below for the hash of the S5 commit. Elapsed: 49 min. Pushed: `origin/sprint-2` (never `main` or `master`).
+- Commit: `9adf979` (18:44). Elapsed: 49 min. (The hash was added to this log by the next, log-only commit.) Pushed: `origin/sprint-2` (never `main` or `master`).
 
 # Summary for Mohannd
 
@@ -122,7 +122,7 @@ Total time used: about 50 minutes of the 4 hours (start 17:56). I stopped becaus
 | S2 explainers | drafting from approved sources, number and course checks, review tab with preview, cached speech, 8 scene types, 6 line drawings, QR, protocol; 12 drafts pending | `c57cd1f` |
 | S3 interest matching | two questions by voice or buttons, approved mapping only, explainer offered at the end | `c57cd1f`, `aa75483` |
 | S4 attract mode | idle screen cycles approved title and stat scenes, program buttons, stops at once | `c57cd1f`, `07f3ba1` |
-| S5 demo pack | DEMO.md, HOW_TO_START, PLAN, DECISIONS; evaluation 49/49; 165 tests | the commit that contains this line (see `git log`) |
+| S5 demo pack | DEMO.md, HOW_TO_START, PLAN, DECISIONS; evaluation 49/49; 165 tests | `9adf979` |
 
 ## What is not verified, said plainly
 - **Nobody has heard the new voice pace**, and no microphone conversation was run in this sprint. Everything conversational was tested with fake providers; the real providers were used only by `evaluate`, `latency`, `bench`, drafting and phrase generation.
