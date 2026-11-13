@@ -79,6 +79,13 @@ Real images and videos: http://localhost:8000/admin → Media → upload, link t
 
 Several visitors: each utterance is labelled "متحدث 1/2/3" in the /voice log (anonymous, forgotten when the conversation ends). See docs/SPEAKERS.md.
 
+## Robot runs (trajectory view) — simulation only for now
+```powershell
+docker compose exec backend python -m app.ingestion.cli simulate-run             # direct return
+docker compose exec backend python -m app.ingestion.cli simulate-run --seed 16   # blocked path -> breadcrumbs
+```
+These runs are **SIMULATED** (stored with `is_simulated = true`, shown with a banner). They are for developing the admin view and must never be reported as tests of the robot. See http://localhost:8000/admin → Robot runs.
+
 ## Demo for the supervisor
 Follow `docs/DEMO.md` (10-minute script in Arabic: `/robot`, then `/voice`, then `/admin`, with a fallback plan).
 After pulling new code, always run `docker compose exec backend alembic upgrade head` (the demo sprint added migrations 0006 and 0007).

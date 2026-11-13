@@ -97,3 +97,14 @@ Task file: `docs/DEMO_SPRINT.md`. Branch: `demo-sprint` (created from `master` a
   - Some Arabic answers address the visitor in the feminine form ("اسألي"). I did not change the evaluated prompt for this; it is listed under limitations.
 - OpenAI budget used: **1 of 2** `evaluate` runs, **3 of 3** bench/latency runs.
 - Final `docker compose exec backend pytest -q`: **112 passed**.
+- Commit: `5b01942` (17:04). Elapsed: 33 min. `git push -u origin demo-sprint` was tried and failed: "'origin' does not appear to be a git repository" (question 1).
+
+## M6 (stretch) — Robot runs: trajectory and return-to-start, SIMULATED
+- **Protocol** (`docs/PROTOCOL.md`): `run.start {is_simulated, odom_config}`, `telemetry {samples[]}`, `event {kind, data}`, `run.end` on `/ws/robot`, stored in `robot_runs`, `pose_samples`, `events`. `is_simulated` is required (no default). Conversations during a run are linked to it.
+- **Odometry maths** `app/telemetry/odometry.py`: the pose update of ODOMETRY.md §3 (encoders for distance, gyro for heading, mid-heading integration, wrap), written so the Raspberry Pi can reuse it.
+- **Simulator** `python -m app.ingestion.cli simulate-run [--seed N]`: a simulated Rover 5 in a 6 × 5 m room with three obstacles; reactive roaming with segments of at most 5 m; track slip and gyro bias/noise; return-to-origin by direct vector, with breadcrumbs (every 0.3 m and at each turn) when the direct path is blocked. Stored with `is_simulated = true`.
+  - I stored two runs in your database: run 13 (seed 7, direct return) and run 14 (seed 16, direct path blocked → breadcrumbs).
+  - **The noise values are guesses, not measurements.** The "simulated true error" printed by the command (0.11 m and 0.18 m) is a simulation value; it says nothing about the real robot.
+- **Admin → Robot runs**: list, trajectory plot (outbound blue, return orange, start and end markers, events, and for simulations the room and the dashed simulated true path), a big "SIMULATED — not a physical result" banner, an entry form for **physical** return-trial measurements (only on real runs; the API answers 409 for simulated runs), and return-trial statistics ("No physical return trials have been recorded yet").
+- No ESP32 pins or firmware were written (rule 8), and no return trial was created.
+- Tests: **127 passed** (15 new in `tests/test_telemetry.py`: kinematics, simulator, storage, simulated runs cannot get return trials).

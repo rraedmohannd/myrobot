@@ -13,6 +13,7 @@
     python -m app.ingestion.cli bench                 # LLM/STT model latency + correctness
     python -m app.ingestion.cli latency [--n 8]       # retrieval -> LLM -> first TTS piece timings
     python -m app.ingestion.cli seed-demo-media       # dev only: labelled placeholder images
+    python -m app.ingestion.cli simulate-run [--seed 7]   # SIMULATED robot run (never a real result)
 """
 
 import argparse
@@ -315,6 +316,31 @@ async def _seed_demo_media() -> None:
     print("Replace these with real MEU media in /admin → Media (upload, link to a program, approve).")
 
 
+async def _simulate_run(seed: int, roam_seconds: float) -> None:
+    """Store one SIMULATED Rover 5 run (roaming + return-to-origin) with is_simulated = true."""
+    from app.telemetry.simulator import SimConfig, simulate_run
+    from app.telemetry.store import MAX_SAMPLES_PER_MESSAGE, add_event, add_samples, end_run, start_run
+
+    result = simulate_run(SimConfig(seed=seed, roam_seconds=roam_seconds))
+    async with get_sessionmaker()() as session:
+        run = await start_run(
+            session, True, result.odom_config(),
+            notes=f"SIMULATED run (seed {seed}) - not a physical result",
+        )  # fmt: skip
+        for i in range(0, len(result.samples), MAX_SAMPLES_PER_MESSAGE):
+            await add_samples(session, run.id, result.samples[i : i + MAX_SAMPLES_PER_MESSAGE])
+        for event in result.events:
+            await add_event(session, run.id, event)
+        counts = await end_run(session, run.id)
+    last = result.events[-1]
+    print("*** SIMULATED - not a physical result ***")
+    print(f"run {run.id}: {counts['samples']} samples, {counts['events']} events, "
+          f"{result.samples[-1]['t_ms'] / 1000:.0f} s, outcome {result.outcome} ({last['data'].get('method')})")  # fmt: skip
+    print(f"odometry end distance {last['data']['odom_distance_m']} m; simulated true error "
+          f"{last['data']['simulated_true_error_m']} m (a simulation value, not a measurement)")
+    print("See it at http://localhost:8000/admin -> Robot runs")
+
+
 async def _main(args: argparse.Namespace) -> None:
     cfg = CrawlConfig()
     simple = {
@@ -330,6 +356,10 @@ async def _main(args: argparse.Namespace) -> None:
         return
     if args.cmd == "bench":
         await _bench(args.models, args.effort, args.stt)
+        await get_engine().dispose()
+        return
+    if args.cmd == "simulate-run":
+        await _simulate_run(args.seed, args.roam_seconds)
         await get_engine().dispose()
         return
     if args.cmd == "latency":
@@ -400,6 +430,9 @@ def main() -> None:
     b.add_argument("--effort", default=None, help="reasoning effort for reasoning models, e.g. low / minimal")
     b.add_argument("--stt", nargs="*", default=["gpt-transcribe", "gpt-4o-transcribe", "gpt-4o-mini-transcribe"])
     sub.add_parser("seed-demo-media", help="dev only: add labelled placeholder images as approved media")
+    sim = sub.add_parser("simulate-run", help="store a SIMULATED robot run (trajectory + return-to-origin)")
+    sim.add_argument("--seed", type=int, default=7, help="random seed (16 shows the breadcrumb fallback)")
+    sim.add_argument("--roam-seconds", type=float, default=45.0)
     lat = sub.add_parser("latency", help="time retrieval, LLM and first TTS piece on golden questions")
     lat.add_argument("--n", type=int, default=8, help="number of golden questions (default 8)")
     lat.add_argument("--no-stream", action="store_true", help="wait for the whole LLM answer (old behaviour)")

@@ -65,6 +65,10 @@
   textarea.ask { width:100%; min-height:70px; border:1px solid var(--line); border-radius:6px; padding:8px; }
   .passage { border-top:1px solid var(--line); padding:8px 0; } .passage.used { background:#f4faf5; }
   .passage pre { white-space:pre-wrap; font:inherit; margin:4px 0 0; max-height:150px; overflow:auto; }
+  /* trajectory plot: outbound and return are two series (blue, orange) + legend + start/end labels */
+  .plot { width:100%; max-width:760px; background:#fcfcfb; border:1px solid var(--line); border-radius:8px; }
+  .legend { display:flex; gap:14px; flex-wrap:wrap; font-size:13px; margin:6px 0; }
+  .legend i { display:inline-block; width:18px; height:0; border-top:3px solid; vertical-align:middle; margin-right:5px; }
   input[type=text], input[type=number], select { padding:5px 8px; border:1px solid var(--line); border-radius:6px; }
 </style>
 </head>
@@ -84,6 +88,7 @@
   <button data-view="evaluation">Evaluation</button>
   <button data-view="coverage">Knowledge coverage</button>
   <button data-view="media">Media</button>
+  <button data-view="runs">Robot runs</button>
 </nav>
 <section class="view" id="view-overview"></section>
 <section class="view" id="view-gaps"></section>
@@ -99,6 +104,7 @@
 </section>
 <section class="view" id="view-evaluation"></section>
 <section class="view" id="view-coverage"></section>
+<section class="view" id="view-runs"></section>
 <section class="view" id="view-media">
   <div class="grid">
     <div class="card">
@@ -386,7 +392,74 @@ el("mUpload").onclick = async () => {
   } catch (e) { el("mState").textContent = e.message; }
 };
 
-const VIEWS = { media: loadMedia, overview: loadOverview, gaps: loadGaps, conversations: loadConversations, evaluation: loadEvaluation, coverage: loadCoverage, ask: async () => {} };
+// ---------------- robot runs (M6) ----------------
+const OUT = "#2a78d6", RET = "#eb6834";
+async function loadRuns() {
+  const [d, st] = [await api("/api/admin/runs"), await api("/api/admin/return-trials/stats")];
+  el("view-runs").innerHTML = `<div class="grid">
+    <div class="card"><h2>Robot runs</h2>
+      ${d.items.length ? `<table class="data"><tr><th>#</th><th>Kind</th><th>Started</th><th class="num">Samples</th><th class="num">Events</th><th class="num">Return trials</th></tr>
+        ${d.items.map(r => `<tr class="click" data-id="${r.id}"><td>${r.id}</td><td>${r.is_simulated ? `<span class="tag warn">⚠ SIMULATED</span>` : `<span class="tag good">physical</span>`}</td><td>${when(r.started_at)}</td><td class="num">${r.samples}</td><td class="num">${r.events}</td><td class="num">${r.return_trials}</td></tr>`).join("")}</table>`
+        : `<p class="muted">No runs yet. For a development example: <code>docker compose exec backend python -m app.ingestion.cli simulate-run</code> (stored as SIMULATED).</p>`}
+      <h3>Return-to-start trials (physical measurements only)</h3>
+      ${st.trials ? `<div class="tiles"><div class="tile"><b>${st.trials}</b><span>trials</span></div><div class="tile"><b>${Math.round(st.success_rate * 100)}%</b><span>success</span></div><div class="tile"><b>${st.mean_err_m} m</b><span>mean error</span></div><div class="tile"><b>${st.median_err_m} m</b><span>median error</span></div><div class="tile"><b>${st.max_err_m} m</b><span>largest error</span></div></div>` : ""}
+      <p class="muted">${esc(st.note)} Real runs: ${st.real_runs}. Simulated runs: ${st.simulated_runs}.</p>
+    </div>
+    <div class="card" id="runDetail"><p class="muted">Select a run to see its trajectory.</p></div></div>`;
+  el("view-runs").querySelectorAll("tr.click").forEach(tr => tr.onclick = () => openRun(+tr.dataset.id));
+  if (d.items.length) openRun(d.items[0].id);
+}
+
+function trajectorySvg(run) {
+  const pts = run.points, sim = run.odom_config && run.odom_config.sim;
+  const xs = pts.flatMap(p => p.sim_true ? [p.x, p.sim_true[0]] : [p.x]), ys = pts.flatMap(p => p.sim_true ? [p.y, p.sim_true[1]] : [p.y]);
+  if (sim) { xs.push(sim.room[0], sim.room[2]); ys.push(sim.room[1], sim.room[3]); }
+  const pad = 0.4, x0 = Math.min(0, ...xs) - pad, x1 = Math.max(0, ...xs) + pad, y0 = Math.min(0, ...ys) - pad, y1 = Math.max(0, ...ys) + pad;
+  const W = 760, k = W / (x1 - x0), H = Math.round((y1 - y0) * k);
+  const X = x => ((x - x0) * k).toFixed(1), Y = y => ((y1 - y) * k).toFixed(1);   // y up, as in the odometry frame
+  const path = (list, get) => list.map((p, i) => (i ? "L" : "M") + X(get(p)[0]) + " " + Y(get(p)[1])).join(" ");
+  const firstReturn = pts.findIndex(p => p.phase === "return");
+  const out = firstReturn < 0 ? pts : pts.slice(0, firstReturn + 1), ret = firstReturn < 0 ? [] : pts.slice(firstReturn);
+  const end = pts[pts.length - 1];
+  let grid = "";
+  for (let gx = Math.ceil(x0); gx <= x1; gx++) grid += `<line x1="${X(gx)}" y1="0" x2="${X(gx)}" y2="${H}" stroke="#eceae6"/><text x="${X(gx)}" y="${H - 4}" font-size="10" fill="#8a8780" text-anchor="middle">${gx} m</text>`;
+  for (let gy = Math.ceil(y0); gy <= y1; gy++) grid += `<line x1="0" y1="${Y(gy)}" x2="${W}" y2="${Y(gy)}" stroke="#eceae6"/><text x="4" y="${Y(gy) - 3}" font-size="10" fill="#8a8780">${gy} m</text>`;
+  const room = sim ? `<rect x="${X(sim.room[0])}" y="${Y(sim.room[3])}" width="${((sim.room[2] - sim.room[0]) * k).toFixed(1)}" height="${((sim.room[3] - sim.room[1]) * k).toFixed(1)}" fill="none" stroke="#52514e" stroke-width="2"><title>Simulated room walls</title></rect>` +
+    sim.obstacles.map(o => `<rect x="${X(o[0])}" y="${Y(o[3])}" width="${((o[2] - o[0]) * k).toFixed(1)}" height="${((o[3] - o[1]) * k).toFixed(1)}" fill="#d9d6cf" stroke="#8a8780"><title>Simulated obstacle</title></rect>`).join("") : "";
+  const truth = pts.some(p => p.sim_true) ? `<path d="${path(pts.filter(p => p.sim_true), p => p.sim_true)}" fill="none" stroke="#8a8780" stroke-width="1.5" stroke-dasharray="5 4"><title>Simulated true path (exists only in simulation)</title></path>` : "";
+  const marks = run.events.filter(e => e.data && e.data.x_m !== undefined).map(e => `<circle cx="${X(e.data.x_m)}" cy="${Y(e.data.y_m)}" r="7" fill="#fcfcfb" stroke="#52514e" stroke-width="2"><title>${esc(e.kind)} at ${(e.t_ms / 1000).toFixed(1)} s</title></circle><text x="${X(e.data.x_m)}" y="${(+Y(e.data.y_m) + 3.5).toFixed(1)}" font-size="10" text-anchor="middle" fill="#0b0b0b" pointer-events="none">${e.kind === "obstacle" ? "!" : "×"}</text>`).join("");
+  return `<svg class="plot" viewBox="0 0 ${W} ${H}" role="img" aria-label="Trajectory of run ${run.id}">${grid}${room}${truth}
+    <path d="${path(out, p => [p.x, p.y])}" fill="none" stroke="${OUT}" stroke-width="2.5" stroke-linejoin="round"><title>Outbound path (odometry estimate)</title></path>
+    ${ret.length ? `<path d="${path(ret, p => [p.x, p.y])}" fill="none" stroke="${RET}" stroke-width="2.5" stroke-linejoin="round"><title>Return path (odometry estimate)</title></path>` : ""}
+    ${marks}
+    <circle cx="${X(0)}" cy="${Y(0)}" r="8" fill="#0b0b0b" stroke="#fcfcfb" stroke-width="2"><title>Start (0, 0)</title></circle><text x="${+X(0) + 12}" y="${+Y(0) + 16}" font-size="13" font-weight="700" fill="#0b0b0b">Start</text>
+    <rect x="${X(end.x) - 7}" y="${Y(end.y) - 7}" width="14" height="14" fill="${ret.length ? RET : OUT}" stroke="#fcfcfb" stroke-width="2"><title>End of the run (odometry): ${end.x.toFixed(2)}, ${end.y.toFixed(2)} m</title></rect><text x="${+X(end.x) + 12}" y="${+Y(end.y) - 8}" font-size="13" font-weight="700" fill="#0b0b0b">End</text>
+  </svg>`;
+}
+
+async function openRun(id) {
+  const r = await api(`/api/admin/runs/${id}`);
+  const hasTruth = r.points.some(p => p.sim_true);
+  el("runDetail").innerHTML = `${r.is_simulated ? `<div class="banner">⚠ SIMULATED — not a physical result. This run was generated by software for development; none of its numbers may be reported as a test of the robot.</div>` : ""}
+    <h2>Run ${r.id} — ${r.is_simulated ? "simulated" : "physical"}</h2>
+    <p class="muted">${when(r.started_at)} · ${r.duration_s ?? "–"} s · ${r.samples} samples · ${r.events.length} events${r.notes ? " · " + esc(r.notes) : ""}</p>
+    ${r.points.length ? trajectorySvg(r) + `<div class="legend"><span><i style="border-color:${OUT}"></i>Outbound (odometry)</span><span><i style="border-color:${RET}"></i>Return (odometry)</span>${hasTruth ? `<span><i style="border-color:#8a8780;border-top-style:dashed"></i>Simulated true path</span>` : ""}<span>● Start · ■ End · ○ event</span></div>` : `<p class="muted">This run has no pose samples.</p>`}
+    <h3>Events</h3>
+    ${r.events.length ? `<table class="data"><tr><th class="num">Time (s)</th><th>Event</th><th>Details</th></tr>${r.events.map(e => `<tr><td class="num">${(e.t_ms / 1000).toFixed(1)}</td><td>${esc(e.kind)}</td><td class="muted">${esc(Object.entries(e.data || {}).map(([k, v]) => k + "=" + v).join(" · "))}</td></tr>`).join("")}</table>` : `<p class="muted">No events.</p>`}
+    <h3>Return trials (physical measurement with a tape)</h3>
+    ${r.trials.length ? `<table class="data"><tr><th>#</th><th class="num">Error (m)</th><th class="num">Heading error (°)</th><th>Result</th><th>Notes</th></tr>${r.trials.map(t => `<tr><td>${t.id}</td><td class="num">${t.measured_err_m}</td><td class="num">${t.measured_heading_err_deg ?? "–"}</td><td>${t.success ? `<span class="tag good">✓ success</span>` : `<span class="tag bad">✕ failed</span>`}</td><td>${esc(t.notes || "")}</td></tr>`).join("")}</table>` : `<p class="muted">None recorded for this run.</p>`}
+    ${r.can_add_return_trial ? `<div class="row"><input type="number" id="rtErr" step="0.01" min="0" placeholder="distance from start mark (m)" style="width:220px"><input type="number" id="rtHead" step="1" placeholder="heading error (°), optional" style="width:200px"><select id="rtOk"><option value="true">success</option><option value="false">failed</option></select><input type="text" id="rtNotes" placeholder="notes (floor, route, who measured)" style="flex:1"><button class="ok" id="rtSave">Save measurement</button></div>`
+      : `<p class="muted">Return trials cannot be entered for a simulated run: they are physical measurements.</p>`}`;
+  if (r.can_add_return_trial) el("rtSave").onclick = async () => {
+    const body = { measured_err_m: parseFloat(el("rtErr").value), success: el("rtOk").value === "true", notes: el("rtNotes").value || null };
+    if (el("rtHead").value !== "") body.measured_heading_err_deg = parseFloat(el("rtHead").value);
+    if (Number.isNaN(body.measured_err_m)) { msg("Enter the measured distance in metres", true); return; }
+    try { await api(`/api/admin/runs/${id}/return-trials`, { method: "POST", body: JSON.stringify(body) }); msg("Saved"); await loadRuns(); await openRun(id); }
+    catch (e) { msg(e.message, true); }
+  };
+}
+
+const VIEWS = { runs: loadRuns, media: loadMedia, overview: loadOverview, gaps: loadGaps, conversations: loadConversations, evaluation: loadEvaluation, coverage: loadCoverage, ask: async () => {} };
 
 document.getElementById("connect").onclick = () => {
   token = document.getElementById("token").value.trim();

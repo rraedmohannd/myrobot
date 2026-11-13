@@ -19,6 +19,7 @@ from app.services.dialogue import DialogueManager
 from app.services.providers import LLM, Embedder, get_embedder, get_llm
 from app.services.speakers import SpeakerEmbedder, get_speaker_embedder
 from app.services.speech import STT, CachedTTS, get_stt, get_tts
+from app.telemetry.store import TelemetryRecorder
 
 router = APIRouter()
 log = logging.getLogger(__name__)
@@ -46,6 +47,7 @@ async def robot_socket(
         await ws.send_json({**msg, "id": uuid.uuid4().hex[:12], "ts": int(time.time() * 1000)})
 
     manager = DialogueManager(send, sessionmaker, embedder, llm, stt, tts, speaker_embedder=speaker_embedder)
+    recorder = TelemetryRecorder(send, sessionmaker)  # run.start / telemetry / event / run.end
     try:
         while True:
             msg = await ws.receive_json()
@@ -53,7 +55,11 @@ async def robot_socket(
                 await send({"type": "error", "code": "bad_message", "message": "expected a JSON object"})
                 continue
             try:
-                await manager.handle(msg)
+                if msg.get("type") in TelemetryRecorder.TYPES:
+                    await recorder.handle(msg)
+                    manager.robot_run_id = recorder.run_id  # conversations during a run link to it
+                else:
+                    await manager.handle(msg)
             except WebSocketDisconnect:
                 raise
             except Exception as e:  # noqa: BLE001 - keep the connection alive, report the problem
@@ -61,3 +67,4 @@ async def robot_socket(
                 await send({"type": "error", "code": "internal", "message": f"{type(e).__name__}: {e}"})
     except WebSocketDisconnect:
         await manager.disconnected()
+        await recorder.disconnected()

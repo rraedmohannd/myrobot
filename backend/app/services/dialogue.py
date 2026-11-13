@@ -163,6 +163,7 @@ class DialogueManager:
     speaker: Assignment | None = None  # who spoke the utterance being handled
     filler_turn: int = 0
     media_turn: int = 0
+    robot_run_id: int | None = None  # set by /ws/robot while a robot run is being recorded
     _warm_up: asyncio.Task[None] | None = None
 
     # ---------- plumbing ----------
@@ -243,7 +244,7 @@ class DialogueManager:
             await self.close_session("lost_face", None)
         self.lang = lang if lang in ("ar", "en") else "ar"
         async with self.sessionmaker() as db:
-            s = Session(lang_detected=self.lang)
+            s = Session(lang_detected=self.lang, robot_run_id=self.robot_run_id)
             db.add(s)
             await db.commit()
             self.session_id = s.id

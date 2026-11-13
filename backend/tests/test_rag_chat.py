@@ -3,10 +3,10 @@
 from sqlalchemy import select, text
 
 from app.db.models import Chunk, Source, Turn
+from app.knowledge.hints import build_hint, refresh_hints
 from app.services.chat import INSTRUCTIONS, answer_question, build_input, invented_numbers
 from app.services.evaluate import check, load_questions, normalize
 from app.services.providers import get_embedder, get_llm, parse_json_object
-from app.knowledge.hints import build_hint, refresh_hints
 from app.services.rag import embed_missing, retrieve, rrf
 from tests.fakes import FakeEmbedder, FakeLLM
 

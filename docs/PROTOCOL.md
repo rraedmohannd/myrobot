@@ -18,6 +18,10 @@ The reference client is `backend/app/static/robot-client.js`, shared by the brow
 | `text.input` | `text` | typed question (testing); starts a session without a greeting if none is active |
 | `listen.timeout` | – | nobody spoke for `follow_up_timeout_s` after the robot finished talking |
 | `session.end` | `reason`: `user_done` / `lost_face` / `timeout` | visitor left or the robot ended the session |
+| `run.start` | `is_simulated` (**required**, true/false), `odom_config?`, `notes?` | a robot run begins (roaming, return-to-start); backend answers `run.started`. One run per connection; a new `run.start` closes the previous run |
+| `telemetry` | `samples[]`: `{t_ms, x_m, y_m, theta_rad, v_mps?, omega_rps?, enc?, imu?, state?}` | batched pose samples (at most 1000 per message; about 10 Hz is enough for the plot). `t_ms` = ms since run start, pose in the start frame (docs/ODOMETRY.md) |
+| `event` | `t_ms`, `kind`, `data?` | `obstacle`, `return_start`, `return_blocked`, `return_done`, `return_failed`, `estop`, `comm_loss`, `slip`, … |
+| `run.end` | – | the run is finished; backend answers `run.ended` |
 
 ## Backend → robot
 | type | fields | meaning |
@@ -30,8 +34,9 @@ The reference client is `backend/app/static/robot-client.js`, shared by the brow
 | `answer.text` | `text`, `lang`, `found`, `sources[]`, `timings`, `invented_numbers` | the grounded answer as spoken (subtitles). It is sent when the model has finished, so **it can arrive after the first `answer.audio` pieces** |
 | `answer.audio` | `seq`, `last`, `text`, `mp3_b64` | speech, sent piece by piece **while the model is still writing** (a short first piece, then one piece per sentence); play the pieces in arrival order |
 | `turn.timings` | `stt_ms`, `retrieval_ms`, `llm_ms`, `llm_first_ms`, `ack_ms`, `tts_ms`, `total_ms` | latency for the report: `ack_ms` runs from end of speech to the first audio of any kind (cached filler or greeting); `tts_ms` = `total_ms` runs from end of speech to the first audio of the **answer**; `llm_first_ms` runs from the LLM request to the first speakable piece, `llm_ms` to the end of the LLM answer |
+| `run.started` / `run.ended` | `run_id`, `is_simulated` / `run_id`, `samples`, `events` | run boundaries (stored in `robot_runs`); `run.ended` reports how many samples and events were stored |
 | `heartbeat` | – | reply to heartbeat |
-| `error` | `code`, `message` | `stt_failed`, `tts_failed`, `unknown_type`, `bad_message`, `internal` |
+| `error` | `code`, `message` | `stt_failed`, `tts_failed`, `unknown_type`, `bad_message`, `no_run` (telemetry before `run.start`), `internal` |
 
 ### `display.update.card` (optional; sent with found answers)
 | field | meaning |
@@ -48,6 +53,12 @@ The card never contains facts that are not in the grounded answer. Answers with 
 ### Client behaviour for the screen (`/robot`)
 - Display modes arrive faster than audio plays. The face follows the mode that was current when each audio piece was queued, and the subtitle shows the piece being spoken (`answer.audio.text`). When the queue is empty, the latest `mode` applies.
 - If the WebSocket closes, or no message arrives for 25 s while heartbeats are sent every 5 s, the client shows the "service unavailable" face and reconnects every 2 s. This is display only; safety never depends on it.
+
+### Telemetry rules
+- Telemetry is for recording and plotting only. The robot never waits for the backend to move or to stop (rule 4), and it keeps its own buffer if the connection drops.
+- `is_simulated` has no default: every run must say whether it is a simulation. Simulated runs are shown with a "SIMULATED — not a physical result" banner and can never receive return trials (rule 5).
+- Conversations started while a run is open are linked to it (`sessions.robot_run_id`).
+- Return trials are **not** protocol messages: they are tape measurements typed into `/admin` → Robot runs.
 
 ## Conversation
 ```
