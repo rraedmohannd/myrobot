@@ -12,6 +12,7 @@ Milestones: **M1** 6 Dec (base moves + conversation works) · **M2** 27 Dec (ret
 | B4 | Voice: STT/TTS, dialogue manager, /ws/robot, /voice page | 🟡 works end to end. Streaming answers + reasoning effort low (2026-11-13): question text → first answer audio, median 5.3 s → 3.5 s (STT not included); about 4.7–5.2 s from end of speech (estimate). Target about 4 s not reached; TTS is now the largest stage |
 | B4+ | Multi-speaker Level 2 (voice + camera), docs/SPEAKERS.md | 🟡 voice part done; camera part: browser prototype built on 2026-11-13 (`/robot?camera=1`, off by default), **not yet tried with real people**; validation and the Pi version (YuNet, pan servo) are next |
 | B5 | Admin complete, analytics, telemetry + trajectory view, return-trial stats | 🟡 analytics, knowledge gaps, conversations, ask-the-robot, evaluation, coverage and media tabs done (2026-11-13, static page). Telemetry messages, trajectory view and return-trial entry/stats exist and are exercised with **simulated** runs only. Still open: real telemetry from the robot, React panel and login |
+| Sprint 2 | Sprint 2, 2026-11-13 (docs/SPRINT_2.md): faster voice, program explainers with animated scenes, interest matching, attract mode | ✅ S0–S5 built and tested with fakes (docs/SPRINT_2_LOG.md). Voice: TTS speed 1.12, answers streamed as PCM chunks, VAD silence 700 ms. 12 explainer drafts (6 programs × ar/en) are **pending the student's review**; nothing plays until he approves them. Not judged by ear and not tried with a microphone yet |
 | Demo | Demo sprint 2026-11-13 (docs/DEMO_SPRINT.md): `/robot` screen page, streaming, admin analytics, media, demo script | ✅ M0–M6 done (M6 = simulated robot runs); M7 camera prototype built but not validated with people; see docs/DEMO.md and docs/DEMO_SPRINT_LOG.md |
 
 ## Robot and hardware (from the Follow-Up Protocol plan)
@@ -26,6 +27,7 @@ Milestones: **M1** 6 Dec (base moves + conversation works) · **M2** 27 Dec (ret
 
 ## Final week (week 12, 18–24 Jan 2027, or the last week before the defense) — checklist
 - [ ] **Switch TTS to ElevenLabs** (student's decision on 2026-11-06: OpenAI TTS for all development and testing, ElevenLabs only at the end, so paid credits are kept for the final tests and the defense).
+  - **Deadline moved up (found on 2026-11-13):** OpenAI's deprecations page lists `gpt-4o-mini-tts`, the model used today, with shutdown on **2027-01-06**. That is before week 12, so the TTS switch (ElevenLabs, or another OpenAI voice path) must be done and tested **before 2027-01-06**, and the approved explainers and fixed phrases must be regenerated with the new voice (`prepare-phrases`, `prepare-explainers`).
   - Add the `ElevenLabsTTS` adapter (TTS_PROVIDER=elevenlabs, ELEVENLABS_API_KEY, ELEVENLABS_VOICE_ID, ELEVENLABS_MODEL). This takes about 1 hour of code; the free plan is enough to test it.
   - Choose an Arabic or Levantine voice from the ElevenLabs library by listening; do not clone a real person's voice without explicit consent.
   - Subscribe to Starter (about $6/month, 30k credits ≈ 150 answers) only for this period.
@@ -34,6 +36,12 @@ Milestones: **M1** 6 Dec (base moves + conversation works) · **M2** 27 Dec (ret
 - [ ] Final golden-set run and multi-speaker validation (docs/SPEAKERS.md), with the results saved in data/golden/results/.
 - [ ] 30-minute mixed-operation test.
 - [ ] Rehearsal of the demo script; fallback plan if the internet fails (text subtitles and the "service unavailable" face).
+
+## To do by the student after sprint 2 (2026-11-13)
+- [ ] Review and approve the 12 explainer drafts in `/admin` → Explainers, then seed and approve the interest mapping.
+- [ ] Listen to the new voice pace (`TTS_SPEED=1.12`) and to a streamed answer on `/robot`; adjust in `.env` if needed.
+- [ ] Try `VAD_SILENCE_MS=700` with your own voice (pauses in the middle of a sentence); go back to 900 if it cuts you off.
+- [ ] Collect real photos or short videos per program (with permission) for the `media` scenes, and the official study-plan web addresses of the five programs that only have a document id (for the QR scene).
 
 ## Don't forget (student's request, 2026-11-06): videos while the robot explains
 - **On the robot screen:** while the robot explains a program, lab or service, the display can play a short video (or show images), not only subtitles.

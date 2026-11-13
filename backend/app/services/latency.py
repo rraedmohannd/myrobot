@@ -139,6 +139,50 @@ async def measure(
     return [await measure_one(session, embedder, llm, tts, q, stream) for q in questions]
 
 
+async def measure_dialogue(
+    sessionmaker: Any, embedder: Embedder, llm: LLM, stt: Any, tts: Any,
+    questions: list[dict[str, Any]], audio_stream: bool = True,
+) -> tuple[list[LatencyRow], list[int]]:  # fmt: skip
+    """The same questions through the real conversation manager, as typed questions from a
+    client that accepts streamed audio: `first_audio_ms` is the time from the question text to
+    the first audio of the ANSWER being sent (a PCM chunk when streaming, else the first mp3
+    piece). The cached filler is not counted. Returns the rows and the ids of the sessions it
+    created, so the caller can delete them (they are measurements, not visitors)."""
+    from app.services.dialogue import DialogueManager
+
+    rows: list[LatencyRow] = []
+    session_ids: list[int] = []
+    for item in questions:
+        sent: list[dict[str, Any]] = []
+
+        async def send(msg: dict[str, Any], sent: list[dict[str, Any]] = sent) -> None:
+            sent.append(msg)
+
+        dm = DialogueManager(send, sessionmaker, embedder, llm, stt, tts)
+        await dm.handle({"type": "hello", "audio_stream": ["pcm16"] if audio_stream else []})
+        await dm.handle({"type": "text.input", "text": item["question"]})
+        if dm.session_id is not None:
+            session_ids.append(dm.session_id)
+        row = LatencyRow(id=item["id"], question=item["question"])
+        timings = next((m for m in sent if m["type"] == "turn.timings"), {})
+        answer = next((m for m in sent if m["type"] == "answer.text"), {})
+        spoken = str(answer.get("text") or "")
+        pieces = [  # the answer's own pieces, streamed or whole (not the filler or the follow-up)
+            m for m in sent
+            if m["type"] in ("answer.audio.start", "answer.audio") and m.get("text") and m["text"] in spoken
+        ]
+        row.pieces = len(pieces)
+        row.first_piece = pieces[0]["text"] if pieces else ""
+        row.found = bool(answer.get("found"))
+        row.retrieval_ms, row.llm_ms = timings.get("retrieval_ms"), timings.get("llm_ms")
+        row.llm_first_ms, row.first_audio_ms = timings.get("llm_first_ms"), timings.get("tts_ms")
+        errors = [m["message"] for m in sent if m["type"] == "error"]
+        row.error = errors[0] if errors else None
+        rows.append(row)
+        await dm.handle({"type": "session.end", "reason": "user_done"})
+    return rows, session_ids
+
+
 def format_report(rows: list[LatencyRow], label: str) -> str:
     summary = summarize(rows)
     lines = [f"Latency — {label} — {len(rows)} question(s)", ""]

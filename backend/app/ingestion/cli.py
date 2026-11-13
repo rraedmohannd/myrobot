@@ -12,8 +12,12 @@
     python -m app.ingestion.cli tts-samples           # one mp3 per voice (accent test)
     python -m app.ingestion.cli bench                 # LLM/STT model latency + correctness
     python -m app.ingestion.cli latency [--n 8]       # retrieval -> LLM -> first TTS piece timings
+    python -m app.ingestion.cli latency --dialogue    # the same through the conversation manager
     python -m app.ingestion.cli bench --stt-only      # STT models on the same spoken sentences
     python -m app.ingestion.cli prepare-phrases       # fixed phrases with the current voice/pace
+    python -m app.ingestion.cli draft-explainers [--program slug] [--lang ar|en]   # PENDING drafts (1 LLM call each)
+    python -m app.ingestion.cli prepare-explainers    # speech of the APPROVED explainers -> cache
+    python -m app.ingestion.cli seed-interests        # PENDING interest -> program rows
     python -m app.ingestion.cli seed-demo-media       # dev only: labelled placeholder images
     python -m app.ingestion.cli simulate-run [--seed 7]   # SIMULATED robot run (never a real result)
 """
@@ -193,7 +197,39 @@ BENCH_IDS = (
 )  # fmt: skip
 
 
-async def _latency(n: int, stream: bool, effort: str | None) -> None:
+async def _latency_dialogue(questions: list, llm, stream_audio: bool) -> None:  # noqa: ANN001
+    """`latency --dialogue`: typed questions through the real conversation manager."""
+    from sqlalchemy import delete
+
+    from app.db.models import Session
+    from app.services.latency import format_report, measure_dialogue, write_results
+    from app.services.providers import get_embedder
+    from app.services.speech import get_stt, get_tts
+
+    tts = get_tts()
+    rows, session_ids = await measure_dialogue(
+        get_sessionmaker(), get_embedder(), llm, get_stt(), tts, questions, stream_audio
+    )
+    async with get_sessionmaker()() as session:  # measurements are not visitors: remove them
+        await session.execute(delete(Session).where(Session.id.in_(session_ids)))
+        await session.commit()
+    label = (
+        f"conversation manager, {llm.model}, effort={llm.reasoning_effort or 'default'}, "
+        f"answer audio {'streamed as PCM chunks' if stream_audio else 'as whole mp3 pieces'}, "
+        f"TTS {tts.model}/{tts.voice}"
+    )
+    print(format_report(rows, label))
+    print("\n'audio' = question text -> first audio of the answer sent to the client "
+          "(the cached filler is not counted; speech-to-text is not included).")  # fmt: skip
+    path = write_results(rows, {
+        "mode": "dialogue", "model": llm.model, "reasoning_effort": llm.reasoning_effort,
+        "audio_stream": stream_audio, "tts_model": tts.model, "tts_voice": tts.voice,
+    })  # fmt: skip
+    print(f"Saved: backend/{path.relative_to(path.parents[2])}")
+
+
+async def _latency(n: int, stream: bool, effort: str | None, dialogue: bool = False,
+                   stream_audio: bool = True) -> None:  # fmt: skip
     """Median/p90 per stage and time to the first answer audio, on the real pipeline."""
     from app.services.evaluate import load_questions
     from app.services.latency import format_report, measure, write_results
@@ -205,6 +241,9 @@ async def _latency(n: int, stream: bool, effort: str | None) -> None:
     llm = OpenAILLM()
     if effort:
         llm.reasoning_effort = effort
+    if dialogue:
+        await _latency_dialogue(questions, llm, stream_audio)
+        return
     tts = OpenAITTS()
     async with get_sessionmaker()() as session:
         rows = await measure(session, get_embedder(), llm, tts, questions, stream)
@@ -363,6 +402,76 @@ async def _prepare_phrases() -> None:
           f"(model {tts.model}, voice {tts.voice}, speed {getattr(tts.inner, 'speed', 1.0)})")  # fmt: skip
 
 
+async def _draft_explainers(slug: str | None, lang: str | None, force: bool) -> None:
+    """One LLM call per program and language -> PENDING explainer drafts (never approved here)."""
+    from app.db.models import Program
+    from app.services.explainers import draft_explainer
+    from app.services.providers import OpenAILLM
+
+    llm = OpenAILLM()
+    llm.max_tokens = max(llm.max_tokens, 4000)  # 5-7 segments of JSON, plus reasoning tokens
+    langs = [lang] if lang else ["ar", "en"]
+    calls = 0
+    async with get_sessionmaker()() as session:
+        query = select(Program).order_by(Program.id)
+        if slug:
+            query = query.where(Program.slug == slug)
+        programs = (await session.scalars(query)).all()
+        if not programs:
+            print(f"no program with slug {slug!r}")
+            return
+        for program in programs:
+            for code in langs:
+                r = await draft_explainer(session, llm, program, code, force=force)
+                calls += r.outcome in ("created", "replaced", "failed")
+                line = f"{r.outcome:16s} {program.slug} [{code}]"
+                if r.segments:
+                    line += f": {r.segments} segments, {len(r.issues)} issue(s) to fix before approval"
+                if r.error:
+                    line += f": {r.error[:160]}"
+                print(line)
+                for issue in r.issues:
+                    print(f"      segment {issue.segment}: {issue.kind}: {issue.detail}")
+    print(f"\n{calls} LLM call(s). Drafts are PENDING: review, edit and approve them at "
+          "http://localhost:8000/admin -> Explainers")  # fmt: skip
+
+
+async def _prepare_explainers() -> None:
+    """Generate and cache the speech of every APPROVED explainer (instant playback)."""
+    from app.db.models import Explainer, Program
+    from app.services.explainers import prepare_audio
+    from app.services.providers import ProviderError
+    from app.services.speech import get_tts
+
+    tts = get_tts()
+    async with get_sessionmaker()() as session:
+        rows = (
+            await session.execute(
+                select(Explainer, Program).join(Program, Program.id == Explainer.program_id)
+                .where(Explainer.status == "approved").order_by(Program.id, Explainer.lang)
+            )
+        ).all()  # fmt: skip
+        if not rows:
+            print("No approved explainers yet. Approve drafts at http://localhost:8000/admin -> Explainers")
+        for explainer, program in rows:
+            try:
+                made, ready = await prepare_audio(session, tts, explainer)
+                print(f"ok   {program.slug} [{explainer.lang}]: {made} generated, {ready} already cached")
+            except ProviderError as e:
+                print(f"ERR  {program.slug} [{explainer.lang}]: {e}")
+
+
+async def _seed_interests() -> None:
+    from app.services.interests import seed_from_explainers
+
+    async with get_sessionmaker()() as session:
+        report = await seed_from_explainers(session)
+    for outcome, rows in report.items():
+        for row in rows:
+            print(f"{outcome:22s} {row}")
+    print("New rows are PENDING: review them at http://localhost:8000/admin -> Explainers -> Interests")
+
+
 DEMO_MEDIA = (
     ("placeholder_ise.png", "intelligent-systems-engineering"),
     ("placeholder_ree.png", "renewable-energy-engineering"),
@@ -441,9 +550,15 @@ async def _main(args: argparse.Namespace) -> None:
         "tts-samples": _tts_samples,
         "seed-demo-media": _seed_demo_media,
         "prepare-phrases": _prepare_phrases,
+        "prepare-explainers": _prepare_explainers,
+        "seed-interests": _seed_interests,
     }
     if args.cmd in simple:
         await simple[args.cmd]()
+        await get_engine().dispose()
+        return
+    if args.cmd == "draft-explainers":
+        await _draft_explainers(args.program, args.lang, args.force)
         await get_engine().dispose()
         return
     if args.cmd == "bench":
@@ -455,7 +570,7 @@ async def _main(args: argparse.Namespace) -> None:
         await get_engine().dispose()
         return
     if args.cmd == "latency":
-        await _latency(args.n, not args.no_stream, args.effort)
+        await _latency(args.n, not args.no_stream, args.effort, args.dialogue, not args.no_stream_audio)
         await get_engine().dispose()
         return
     if args.cmd == "ask":
@@ -525,6 +640,12 @@ def main() -> None:
                    help="only compare the STT models, on several sentences spoken by the TTS voice")
     sub.add_parser("seed-demo-media", help="dev only: add labelled placeholder images as approved media")
     sub.add_parser("prepare-phrases", help="generate the fixed phrases with the current voice and pace")
+    dx = sub.add_parser("draft-explainers", help="draft PENDING program explainers from approved sources")
+    dx.add_argument("--program", help="program slug (default: every program)")
+    dx.add_argument("--lang", choices=["ar", "en"], help="one language (default: both)")
+    dx.add_argument("--force", action="store_true", help="also replace an APPROVED explainer (it becomes pending)")
+    sub.add_parser("prepare-explainers", help="generate and cache the speech of approved explainers")
+    sub.add_parser("seed-interests", help="pending interest -> program rows from approved explainers")
     sim = sub.add_parser("simulate-run", help="store a SIMULATED robot run (trajectory + return-to-origin)")
     sim.add_argument("--seed", type=int, default=7, help="random seed (16 shows the breadcrumb fallback)")
     sim.add_argument("--roam-seconds", type=float, default=45.0)
@@ -532,6 +653,10 @@ def main() -> None:
     lat.add_argument("--n", type=int, default=8, help="number of golden questions (default 8)")
     lat.add_argument("--no-stream", action="store_true", help="wait for the whole LLM answer (old behaviour)")
     lat.add_argument("--effort", default=None, help="reasoning effort override, e.g. low")
+    lat.add_argument("--dialogue", action="store_true",
+                     help="run the questions through the conversation manager (real audio path)")
+    lat.add_argument("--no-stream-audio", action="store_true",
+                     help="with --dialogue: whole mp3 pieces instead of PCM chunks")
     asyncio.run(_main(p.parse_args()))
 
 

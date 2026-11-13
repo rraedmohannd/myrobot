@@ -157,7 +157,8 @@
       };
       item.finish = done;
       this.emit("play", item);
-      if (item.stream) this._playStream(item, done); else this._playFile(item, item.bytes, "audio/mpeg", done);
+      if (item.stream) this._playStream(item, done);
+      else this._playFile(item, item.bytes, isWav(item.bytes) ? "audio/wav" : "audio/mpeg", done);
     }
 
     _playFile(item, bytes, mime, done) {
@@ -361,6 +362,8 @@
     endSession(reason) { this.send({type: "session.end", reason: reason || "user_done"}); }
     async sendText(text) { if (await this.connect()) this.send({type: "text.input", text}); }
   }
+
+  const isWav = b => b.length > 12 && b[0] === 0x52 && b[1] === 0x49 && b[2] === 0x46 && b[3] === 0x46;   // "RIFF" (test audio)
 
   // PCM16 mono chunks -> one WAV file (fallback when WebAudio is not running).
   function pcmToWav(chunks, sampleRate) {

@@ -26,6 +26,8 @@
   /* ---------- layout ---------- */
   #main { display:grid; grid-template-columns:1fr 372px; direction:ltr; min-height:0; }
   #facePanel { display:flex; align-items:center; justify-content:center; position:relative; border-left:1px solid var(--line); }
+  #leftCol { position:relative; min-width:0; min-height:0; display:flex; }
+  #leftCol > #textPanel { flex:1; }
   #textPanel { direction:rtl; display:flex; flex-direction:column; padding:14px 22px 12px; min-width:0; min-height:0; position:relative; }
   #meta { display:flex; align-items:center; gap:10px; min-height:30px; }
   #speaker { background:var(--eye); color:#06222b; font-weight:700; font-size:16px; padding:2px 14px; border-radius:999px; }
@@ -57,6 +59,50 @@
   #typed { flex:1; font:inherit; font-size:18px; padding:8px 12px; border-radius:10px; border:1px solid var(--line); background:#0a141b; color:var(--ink); }
   #typedRow button { font:inherit; font-size:16px; border:0; border-radius:10px; padding:0 18px; background:var(--eye); color:#06222b; cursor:pointer; }
   #keys { position:absolute; right:12px; top:50px; direction:ltr; font-size:11px; color:#5d7383; }
+
+  /* ---------- explainer: "the robot presents the program" (sprint 2) ---------- */
+  #scenePanel { position:absolute; inset:0; background:var(--bg); display:none; flex-direction:column; padding:8px 16px 10px; direction:rtl; z-index:3; }
+  #scenePanel.on { display:flex; }
+  #sceneHead { display:flex; align-items:center; gap:10px; min-height:30px; }
+  #sceneProgram { font-size:17px; font-weight:700; color:var(--eye); flex:1; overflow:hidden; white-space:nowrap; text-overflow:ellipsis; }
+  #sceneDots { display:flex; gap:6px; direction:ltr; }
+  #sceneDots i { width:22px; height:6px; border-radius:3px; background:var(--line); }
+  #sceneDots i.done { background:var(--muted); } #sceneDots i.now { background:var(--eye); }
+  #sceneBox { flex:1; min-height:0; display:flex; align-items:center; justify-content:center; }
+  #sceneBox .xs { flex:none; }
+  #sceneCaption { height:54px; font-size:18px; line-height:27px; color:var(--muted); overflow:hidden; text-align:center; font-weight:400; }
+  #sceneButtons { display:flex; gap:10px; justify-content:center; margin-top:4px; min-height:46px; }
+  .tap { font:inherit; font-size:19px; font-weight:700; color:var(--ink); background:var(--panel); border:2px solid var(--line); border-radius:14px; padding:8px 22px; cursor:pointer; min-height:46px; }
+  .tap:active { transform:translateY(2px); }
+  .tap.main { background:var(--brand); border-color:var(--brand); color:#fff; }
+  .tap small { font-size:13px; font-weight:400; opacity:.8; margin-inline-start:6px; }
+  #scenePanel [hidden] { display:none; }
+
+  /* ---------- idle screen: attract mode + touch buttons ---------- */
+  #attract { display:none; height:250px; flex:none; align-items:center; gap:6px; direction:rtl; }
+  #attract.on { display:flex; }
+  #attractBox { width:372px; height:250px; flex:none; position:relative; overflow:hidden; }
+  #attractBox .xs { position:absolute; left:0; top:0; transform:scale(.6); transform-origin:0 0; }
+  #attractSide { flex:1; min-width:0; text-align:center; }
+  #attractSide b { display:block; font-size:34px; line-height:1.35; }
+  #attractSide span { display:block; font-size:15px; color:var(--muted); margin-top:6px; }
+  body.attract #subtitle { display:none; }
+  body.attract #start { font-size:24px; padding:8px 34px; margin:2px 0 2px; }
+  body.attract #hint { display:none; }
+  #chips { display:none; flex-wrap:wrap; gap:8px; justify-content:center; margin-top:8px; }
+  #chips.on { display:flex; }
+  #chips .label { flex-basis:100%; text-align:center; font-size:14px; color:var(--muted); }
+  #chips .tap { font-size:16px; padding:5px 14px; min-height:38px; border-radius:999px; }
+  /* ---------- interest matching: options and suggested programs ---------- */
+  #choices { display:none; grid-template-columns:1fr 1fr; gap:10px; margin-top:10px; }
+  #choices.on { display:grid; }
+  #choices .tap { font-size:20px; padding:10px 8px; min-height:56px; }
+  #choices .tap.wide { grid-column:1 / -1; }
+  #choices .tap span { display:block; font-size:14px; font-weight:400; color:var(--muted); }
+  #choices .tap.main span { color:#fff; opacity:.85; }
+  #choices .tap:disabled { opacity:.75; cursor:default; }
+  body.choosing #subtitle { flex:0 0 auto; font-size:27px; min-height:86px; }
+  body.choosing #card { display:none; }
 
   /* ---------- face ---------- */
   #face { width:340px; height:340px; --eye:#8fe9ff; transition:filter .4s; }
@@ -111,10 +157,14 @@
     <span id="conn"><i></i><span id="connText">جاري الاتصال…</span></span>
   </div>
   <div id="main">
+    <div id="leftCol">
     <div id="textPanel">
       <div id="meta"><span id="speaker" hidden></span><span id="heard" dir="auto"></span></div>
+      <div id="attract"><div id="attractBox"></div><div id="attractSide"><b>قرّب واحكي معي 👋</b><span>Come closer and talk to me</span></div></div>
       <div id="subtitle" dir="auto"></div>
       <button id="start" hidden>ابدأ المحادثة<small>Start · أو اضغط مسافة (Space)</small></button>
+      <div id="chips"></div>
+      <div id="choices"></div>
       <div id="hint"></div>
       <div id="card">
         <div id="cardMedia"></div>
@@ -125,6 +175,18 @@
         </div>
       </div>
       <div id="typedRow"><input id="typed" type="text" dir="auto" placeholder="اكتب سؤالك هون… Type your question"><button id="typedSend">إرسال</button></div>
+    </div>
+    <div id="scenePanel">
+      <div id="sceneHead"><span id="sceneProgram" dir="auto"></span><span id="sceneDots"></span></div>
+      <div id="sceneBox"></div>
+      <div id="sceneCaption" dir="auto"></div>
+      <div id="sceneButtons">
+        <button class="tap" id="xSkip">التالي ⏭<small>Next</small></button>
+        <button class="tap" id="xStop">إيقاف ⏹<small>Stop</small></button>
+        <button class="tap main" id="xMore" hidden>كمّل ▶<small>Continue</small></button>
+        <button class="tap" id="xAsk" hidden>عندي سؤال<small>I have a question</small></button>
+      </div>
+    </div>
     </div>
     <div id="facePanel">
       <svg id="face" data-mode="idle" viewBox="0 0 400 400" role="img" aria-label="وجه الروبوت">
@@ -161,6 +223,8 @@
 
 <script src="/static/robot-client.js"></script>
 <script src="/static/speaker-camera.js"></script>
+<script src="/static/vendor/qrcode/qrcode.js"></script>
+<script src="/static/explainer-scenes.js"></script>
 <script>
 "use strict";
 const $ = id => document.getElementById(id);
@@ -221,6 +285,9 @@ function render() {
   $("face").dataset.mode = mode;
   const idleScreen = connected && !inSession && !client.playing && client.queue.length === 0;
   $("start").hidden = !idleScreen;
+  setIdleExtras(idleScreen);
+  if (!connected && xp) exitExplainer();
+  if (!connected || idleScreen) setChoices(null);
   if (!connected) { setSubtitle(TEXT.unavailable[0], TEXT.unavailable[1]); setCard(null); $("speaker").hidden = true; $("heard").textContent = ""; $("hint").textContent = ""; }
   else if (idleScreen) { setSubtitle(TEXT.idle[0], TEXT.idle[1]); setCard(null); $("speaker").hidden = true; $("heard").textContent = ""; $("hint").textContent = ""; }
 }
@@ -264,6 +331,8 @@ function animate(t) {
     // No analyser (audio context not running): fall back to a simple talking motion.
     open = level > 0 || client.analyser ? Math.min(1, level * 5.5) : .3 + .25 * Math.sin(t / 70) * Math.sin(t / 190);
   }
+  if (xp && xp.ctl) { xp.ctl.update(client.playProgress(), client.playSeconds()); updateCaption(); }
+  if (attract.ctl) attract.ctl.update(null, (t - attract.since) / 1000);
   mouth.w += (target.w - mouth.w) * .18; mouth.smile += (target.smile - mouth.smile) * .18;
   mouth.open += (open - mouth.open) * (open > mouth.open ? .5 : .25);
   const y = 290, x1 = 200 - mouth.w, x2 = 200 + mouth.w, o = Math.max(0, mouth.open);
@@ -285,12 +354,28 @@ client.on("hint", hint => {
   $("hint").textContent = hint === "speak" && !micOk ? TEXT.mic : TEXT.hints[hint] || "";
   render();
 });
-client.on("play", item => { playingTag = item.tag; clearTimeout(subtitleTimer); setSubtitle(item.text); render(); });
+client.on("play", item => {
+  playingTag = item.tag; clearTimeout(subtitleTimer); setSubtitle(item.text);
+  if (xp) {
+    if (item.segment && xp.scenes[item.segment]) showSegment(item.segment, item.text);
+    else if (xp.pausePending) showPause();           // "بدك أكمل ولا عندك سؤال؟" is playing
+    else exitExplainer();                            // the presentation is over: back to the conversation
+  }
+  render();
+});
 client.on("playidle", () => { playingTag = null; render(); });
 client.on("message", m => {
   switch (m.type) {
-    case "session.started": inSession = true; setCard(null); $("heard").textContent = ""; break;
-    case "session.ended": inSession = false; break;
+    case "session.started": inSession = true; setCard(null); $("heard").textContent = ""; stopAttract(); break;
+    case "session.ended": inSession = false; exitExplainer(); setChoices(null); loadScreen(); break;
+    // ----- program explainer: scenes arrive before their audio; they are shown when it plays -----
+    case "explainer.start": xp = {program: m.program, total: m.total, scenes: {}, pausePending: false, ctl: null, index: 0, sentences: []}; setChoices(null); break;
+    case "explainer.segment": if (xp) { xp.scenes[m.index] = m.scene; xp.total = m.total; xp.pausePending = false; } break;
+    case "explainer.pause": if (xp) xp.pausePending = true; break;
+    case "explainer.end": if (xp) { xp.pausePending = false; if (!client.playing && client.queue.length === 0) exitExplainer(); } break;
+    // ----- interest matching: tappable options, then the suggested programs -----
+    case "interest.question": setChoices({options: m.options}); break;
+    case "interest.result": setChoices({programs: m.programs}); break;
     case "display.update":
       serverMode = m.mode;
       if (m.speaker_label) { $("speaker").textContent = "متحدث " + m.speaker_label; $("speaker").hidden = false; }
@@ -304,6 +389,7 @@ client.on("message", m => {
       }
       break;
     case "transcript":
+      if (m.text) setChoices(null);
       $("heard").textContent = m.text ? "«" + m.text + "»" : "";
       if (m.speaker) { $("speaker").textContent = "متحدث " + m.speaker.label; $("speaker").hidden = false; }
       break;
@@ -312,18 +398,128 @@ client.on("message", m => {
   render();
 });
 
+// ---------- explainer view ----------
+let xp = null;   // the running presentation: {program, total, scenes{index: scene}, pausePending, ctl, index, sentences}
+function showSegment(index, text) {
+  const scene = xp.scenes[index];
+  xp.index = index;
+  $("scenePanel").classList.add("on");
+  $("sceneProgram").textContent = (xp.program && xp.program.name) || "";
+  $("sceneDots").replaceChildren(...Array.from({length: xp.total}, (_, i) => { const d = document.createElement("i"); d.className = i + 1 < index ? "done" : i + 1 === index ? "now" : ""; return d; }));
+  xp.ctl = ExplainerScenes.render($("sceneBox"), scene, {lang: /[\u0600-\u06FF]/.test(text || "") ? "ar" : "en", words: (text || "").split(/\s+/).length});
+  // running caption: the sentence being spoken, chosen by the position inside the audio
+  xp.sentences = (text || "").split(/(?<=[.!?؟])\s+/).filter(Boolean);
+  xp.caption = -1; updateCaption();
+  for (const [id, hidden] of [["xSkip", false], ["xStop", false], ["xMore", true], ["xAsk", true]]) $(id).hidden = hidden;
+}
+function updateCaption() {
+  if (!xp || !xp.sentences.length) return;
+  const total = xp.sentences.reduce((n, s) => n + s.length, 0), at = (client.playProgress() || 0) * total;
+  let i = 0, sum = 0;
+  while (i < xp.sentences.length - 1 && sum + xp.sentences[i].length < at) sum += xp.sentences[i++].length;
+  if (i !== xp.caption) { xp.caption = i; $("sceneCaption").textContent = xp.sentences[i]; }
+}
+function showPause() {
+  $("sceneCaption").textContent = "";
+  for (const [id, hidden] of [["xSkip", true], ["xStop", false], ["xMore", false], ["xAsk", false]]) $(id).hidden = hidden;
+}
+function exitExplainer() {
+  xp = null;
+  $("scenePanel").classList.remove("on");
+  $("sceneBox").replaceChildren();
+}
+$("xSkip").onclick = () => client.skipCurrent();
+$("xStop").onclick = () => { client.stopPlayback(); exitExplainer(); client.send({type: "explainer.stop"}); };
+$("xMore").onclick = () => { client.stopPlayback(); client.send({type: "explainer.continue"}); };
+$("xAsk").onclick = () => { client.stopPlayback(); exitExplainer(); };   // the microphone opens: the question ends the presentation
+
+// ---------- idle screen: attract mode and touch buttons (approved content only) ----------
+const attract = {scenes: [], i: 0, ctl: null, since: 0, timer: null};
+let screenData = {programs: [], attract: [], interests: false};
+async function loadScreen() {
+  try {
+    const r = await fetch("/api/robot/screen", {cache: "no-store"});
+    if (r.ok) { screenData = await r.json(); attract.scenes = screenData.attract || []; renderChips(); render(); }
+  } catch (e) { /* offline: the idle screen stays as it is */ }
+}
+function renderChips() {
+  const box = $("chips"), items = [];
+  if ((screenData.programs || []).length) { const l = document.createElement("div"); l.className = "label"; l.textContent = "اكبس على تخصص لأحكيلك عنه · Tap a program"; items.push(l); }
+  for (const p of screenData.programs || []) {
+    const b = document.createElement("button"); b.className = "tap"; b.textContent = p.name_ar; b.title = p.name_en;
+    b.onclick = () => begin({type: "explainer.start", program: p.slug, lang: (p.langs || []).includes("ar") ? "ar" : "en"});
+    items.push(b);
+  }
+  if (screenData.interests) {
+    const b = document.createElement("button"); b.className = "tap main"; b.textContent = "ساعدني أختار 🤔"; b.title = "Help me choose";
+    b.onclick = () => begin({type: "interest.start", lang: "ar"});
+    items.push(b);
+  }
+  box.replaceChildren(...items);
+}
+function nextAttract() {
+  if (!attract.scenes.length) return;
+  attract.ctl = ExplainerScenes.render($("attractBox"), attract.scenes[attract.i % attract.scenes.length], {words: 14});
+  attract.since = performance.now(); attract.i++;
+}
+function startAttract() {
+  if (attract.timer || !attract.scenes.length) return;
+  nextAttract();
+  attract.timer = setInterval(nextAttract, 7000);
+}
+function stopAttract() {
+  clearInterval(attract.timer); attract.timer = null; attract.ctl = null;
+  $("attractBox").replaceChildren();
+}
+function setIdleExtras(idle) {
+  const showAttract = idle && attract.scenes.length > 0;
+  $("attract").classList.toggle("on", showAttract);
+  document.body.classList.toggle("attract", showAttract);
+  $("chips").classList.toggle("on", idle && $("chips").childElementCount > 0);
+  if (showAttract) startAttract(); else stopAttract();
+}
+setInterval(() => { if (connected && !inSession) loadScreen(); }, 60000);   // newly approved content appears by itself
+
+// ---------- interest matching buttons ----------
+function setChoices(data) {
+  const box = $("choices"), items = [];
+  for (const o of (data && data.options) || []) {
+    const b = document.createElement("button"); b.className = "tap" + (o.key === "none" ? " wide" : ""); b.textContent = o.label;
+    b.onclick = () => { setChoices(null); client.stopPlayback(); client.send({type: "interest.choice", key: o.key}); };
+    items.push(b);
+  }
+  for (const p of (data && data.programs) || []) {
+    const b = document.createElement("button"); b.className = "tap wide" + (p.has_explainer ? " main" : ""); b.textContent = p.name + (p.has_explainer ? " ▶" : "");
+    if (p.line) { const s = document.createElement("span"); s.textContent = p.line; b.appendChild(s); }
+    b.disabled = !p.has_explainer;
+    b.onclick = () => { setChoices(null); client.stopPlayback(); client.send({type: "explainer.start", program: p.slug}); };
+    items.push(b);
+  }
+  box.replaceChildren(...items);
+  box.classList.toggle("on", items.length > 0);
+  document.body.classList.toggle("choosing", items.length > 0);
+}
+
 // ---------- controls ----------
 let starting = false;
+async function prepareAudio() {
+  try { await client.initAudio(); micOk = true; }
+  catch (e) { micOk = false; console.warn("microphone unavailable", e); }
+  await client.ensureContext();
+  if (cameraWanted) camera.start();
+}
 async function start() {
   if (inSession || !connected || starting) return;
-  starting = true;
-  try {
-    try { await client.initAudio(); micOk = true; }
-    catch (e) { micOk = false; console.warn("microphone unavailable", e); }
-    await client.ensureContext();
-    if (cameraWanted) camera.start();
-    await client.startSession("ar");
-  } finally { setTimeout(() => { starting = false; }, 1500); }
+  starting = true; stopAttract();
+  try { await prepareAudio(); await client.startSession("ar"); }
+  finally { setTimeout(() => { starting = false; }, 1500); }
+}
+// A touch button on the idle screen: it starts the conversation with that request.
+async function begin(message) {
+  if (!connected || starting) return;
+  starting = true; stopAttract();
+  try { await prepareAudio(); client.send(message); }
+  finally { setTimeout(() => { starting = false; }, 1500); }
 }
 function toggleTyping(show) {
   const row = $("typedRow");
@@ -344,12 +540,13 @@ addEventListener("keydown", e => {
   if (e.code === "Space") { e.preventDefault(); start(); }
   else if (e.code === "KeyT") { e.preventDefault(); toggleTyping(); }
   else if (e.code === "KeyC") { cameraWanted = !camera.running; camera.toggle(); }
-  else if (e.code === "Escape") { if (inSession) client.endSession("user_done"); }
+  else if (e.code === "Escape") { if (xp) { client.stopPlayback(); exitExplainer(); } if (inSession) client.endSession("user_done"); }
   else if (e.code === "KeyF") { if (document.fullscreenElement) document.exitFullscreen(); else document.documentElement.requestFullscreen().catch(() => {}); }
 });
 
 render();
 client.connect();
+loadScreen();
 if (params.get("face_start") === "1") camera.start();   // the camera must watch before a conversation exists
 </script>
 </body>

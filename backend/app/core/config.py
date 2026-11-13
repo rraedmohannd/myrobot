@@ -67,9 +67,10 @@ class Settings(BaseSettings):
     # there is one), so its audio is ready sooner; the rest is synthesized while it plays.
     tts_first_piece_words: int = Field(default=6, ge=3, le=20)
     # Send answer speech as PCM chunks while the provider is still generating it (clients that
-    # ask for it in `hello`; docs/PROTOCOL.md). Measured 2026-11-13: first audio about 0.9 s
-    # earlier than waiting for the whole mp3 of the first piece. false = whole mp3 pieces only.
-    tts_streaming: bool = True
+    # ask for it in `hello`; docs/PROTOCOL.md). OFF by default: on 2026-11-13 the first 85 ms
+    # arrived early (about 0.7 s) but the continuous audio only 0.5 s later, and the end-to-end
+    # run showed no gain over whole mp3 pieces (docs/DECISIONS.md). true = try it.
+    tts_streaming: bool = False
     # Silence that ends the visitor's utterance (client VAD), sent to the client in hello.ack.
     vad_silence_ms: int = Field(default=700, ge=300, le=2000)
     filler_enabled: bool = True  # short cached "لحظة بس…" right after a question (masks latency)

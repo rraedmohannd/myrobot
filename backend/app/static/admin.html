@@ -70,6 +70,15 @@
   .legend { display:flex; gap:14px; flex-wrap:wrap; font-size:13px; margin:6px 0; }
   .legend i { display:inline-block; width:18px; height:0; border-top:3px solid; vertical-align:middle; margin-right:5px; }
   input[type=text], input[type=number], select { padding:5px 8px; border:1px solid var(--line); border-radius:6px; }
+  /* ---- explainers (sprint 2) ---- */
+  .seg { border-top:1px solid var(--line); padding:10px 0; display:grid; grid-template-columns:minmax(0, 1fr) 380px; gap:12px; }
+  @media (max-width: 1100px) { .seg { grid-template-columns:1fr; } }
+  .seg textarea { width:100%; border:1px solid var(--line); border-radius:6px; padding:8px; }
+  .seg textarea.say { min-height:84px; font-size:16px; }
+  .seg textarea.scene { min-height:96px; font:13px/1.4 ui-monospace, Consolas, monospace; direction:ltr; }
+  .stagebox { width:372px; height:252px; background:#0d1820; border-radius:10px; overflow:hidden; position:relative; }
+  .stagebox .xs { position:absolute; left:0; top:0; transform:scale(.6); transform-origin:0 0; }
+  .issue { background:#f8dcdc; color:var(--bad); border-radius:6px; padding:4px 8px; margin:3px 0; font-size:14px; }
 </style>
 </head>
 <body>
@@ -87,6 +96,7 @@
   <button data-view="ask">Ask the robot</button>
   <button data-view="evaluation">Evaluation</button>
   <button data-view="coverage">Knowledge coverage</button>
+  <button data-view="explainers">Explainers</button>
   <button data-view="media">Media</button>
   <button data-view="runs">Robot runs</button>
 </nav>
@@ -105,6 +115,7 @@
 <section class="view" id="view-evaluation"></section>
 <section class="view" id="view-coverage"></section>
 <section class="view" id="view-runs"></section>
+<section class="view" id="view-explainers"></section>
 <section class="view" id="view-media">
   <div class="grid">
     <div class="card">
@@ -128,6 +139,8 @@
   </section>
   <section class="card" id="detail"><p class="muted">Select a page to review its chunks.</p></section>
 </main>
+<script src="/static/vendor/qrcode/qrcode.js"></script>
+<script src="/static/explainer-scenes.js"></script>
 <script>
 const STATUSES = ["pending", "stale", "approved", "rejected"];
 let token = "", filter = "pending", selected = null;
@@ -141,7 +154,12 @@ function msg(t, bad) { const m = document.getElementById("msg"); m.textContent =
 
 async function api(path, opts = {}) {
   const r = await fetch(path, { ...opts, headers: { "Content-Type": "application/json", "X-Admin-Token": token, ...(opts.headers || {}) } });
-  if (!r.ok) { const b = await r.json().catch(() => ({})); throw new Error(b.detail || r.statusText); }
+  if (!r.ok) {
+    const b = await r.json().catch(() => ({})), d = b.detail;
+    // a refusal with reasons, e.g. approving an explainer that still has an unsourced number
+    if (d && typeof d === "object") throw new Error([d.message, ...(d.issues || []).map(i => typeof i === "string" ? i : `segment ${i.segment}: ${i.detail}`)].filter(Boolean).join(" · "));
+    throw new Error(d || r.statusText);
+  }
   return r.json();
 }
 
@@ -459,7 +477,94 @@ async function openRun(id) {
   };
 }
 
-const VIEWS = { runs: loadRuns, media: loadMedia, overview: loadOverview, gaps: loadGaps, conversations: loadConversations, evaluation: loadEvaluation, coverage: loadCoverage, ask: async () => {} };
+// ---------------- explainers and interest matching (sprint 2) ----------------
+let explainerOpen = null, previewTimer = null;
+async function loadExplainers() {
+  const [d, im] = [await api("/api/admin/explainers"), await api("/api/admin/interests")];
+  const progOptions = d.programs.map(p => `<option value="${p.id}">${esc(p.name_en)}</option>`).join("");
+  el("view-explainers").innerHTML = `<div class="grid" style="grid-template-columns:minmax(360px, 1fr) 2fr">
+    <div>
+      <div class="card"><h2>Program explainers</h2>
+        <p class="muted">A 60–90 second presentation per program and language, spoken in segments with a scene on the robot screen. Drafts come from the program's <b>approved</b> sources (one model call each) and are <b>pending</b>: the robot plays an explainer only after you approve it here. Check every sentence against the official documents.</p>
+        ${d.items.length ? `<table class="data"><tr><th>Program</th><th>Lang</th><th>Status</th><th class="num">Segments</th><th class="num">To fix</th></tr>
+          ${d.items.map(x => `<tr class="click" data-id="${x.id}"><td>${esc(x.program.name_en)}<div class="muted" dir="auto">${esc(x.program.name_ar)}</div></td><td>${x.lang}</td><td>${pill(x.status)}</td><td class="num">${x.segments}</td><td class="num">${x.issues ? `<span class="tag bad">${x.issues}</span>` : "0"}</td></tr>`).join("")}</table>`
+          : `<p>No explainers yet.</p>`}
+        <p class="muted">Create or redo drafts: <code>docker compose exec backend python -m app.ingestion.cli draft-explainers [--program slug] [--lang ar|en]</code> (an approved explainer is kept unless you add <code>--force</code>).</p>
+      </div>
+      <div class="card" style="margin-top:16px"><h2>Interests → programs (“ساعدني أختار”)</h2>
+        <p class="muted">Promotional, curated data, reviewed like pitches: the robot suggests a program for an interest only from <b>approved</b> rows, and never promises an outcome. “Seed” adds pending rows for programs whose explainer is approved.</p>
+        <div class="row"><button id="imSeed">Seed from approved explainers</button><span class="muted" id="imState"></span></div>
+        ${im.items.length ? `<table class="data" style="margin-top:8px"><tr><th>Interest</th><th>Program</th><th>Line on the screen</th><th>Status</th><th></th></tr>
+          ${im.items.map(m => `<tr data-id="${m.id}"><td>${esc(m.interest_en || m.interest)}<div class="muted" dir="rtl">${esc(m.interest_ar || "")}</div></td><td>${esc(m.program ? m.program.name_en : "–")}</td>
+            <td><input type="text" dir="rtl" data-f="text_ar" value="${esc(m.text_ar || "")}" placeholder="سطر قصير بالعربي" style="width:100%"><input type="text" data-f="text_en" value="${esc(m.text_en || "")}" placeholder="Short line (English)" style="width:100%;margin-top:4px">${m.issues.map(i => `<div class="issue">${esc(i)}</div>`).join("")}</td>
+            <td>${pill(m.status)}</td><td class="row"><button data-act="save">Save</button><button data-act="approve" class="ok">Approve</button><button data-act="reject">Reject</button><button data-act="delete" class="bad">Delete</button></td></tr>`).join("")}</table>` : `<p class="muted">No mapping rows yet.</p>`}
+        <div class="row" style="margin-top:8px"><select id="imInterest">${im.interests.map(i => `<option value="${i.key}">${esc(i.en)}</option>`).join("")}</select><span>→</span><select id="imProgram">${progOptions}</select><button id="imAdd">Add row (pending)</button></div>
+      </div>
+    </div>
+    <div class="card" id="xDetail"><p class="muted">Select an explainer to review its segments.</p></div></div>`;
+  el("view-explainers").querySelectorAll("tr.click").forEach(tr => tr.onclick = () => openExplainer(+tr.dataset.id));
+  const act = async fn => { try { await fn(); msg("Saved"); await loadExplainers(); } catch (e) { msg(e.message, true); } };
+  el("imSeed").onclick = () => act(async () => { const r = await api("/api/admin/interests/seed", { method: "POST" }); alert(`Created: ${r.created.length}\nAlready there: ${r.exists.length}\nSkipped (no approved explainer yet): ${r.no_approved_explainer.length}`); });
+  el("imAdd").onclick = () => act(() => api("/api/admin/interests", { method: "POST", body: JSON.stringify({ interest: el("imInterest").value, program_id: +el("imProgram").value }) }));
+  el("view-explainers").querySelectorAll("tr[data-id]:not(.click)").forEach(tr => tr.querySelectorAll("button").forEach(b => b.onclick = () => {
+    const id = tr.dataset.id, a = b.dataset.act;
+    if (a === "save") return act(() => api(`/api/admin/interests/${id}`, { method: "PATCH", body: JSON.stringify({ text_ar: tr.querySelector('[data-f="text_ar"]').value, text_en: tr.querySelector('[data-f="text_en"]').value }) }));
+    if (a === "delete") { if (!confirm("Delete this row?")) return; return act(() => fetch(`/api/admin/interests/${id}`, { method: "DELETE", headers: { "X-Admin-Token": token } })); }
+    return act(() => api(`/api/admin/interests/${id}/review`, { method: "POST", body: JSON.stringify({ decision: a }) }));
+  }));
+  if (explainerOpen && d.items.some(x => x.id === explainerOpen)) openExplainer(explainerOpen);
+}
+function renderExplainer(x) {
+  const issuesOf = n => x.issues.filter(i => i.segment === n);
+  el("xDetail").innerHTML = `<div class="row"><h2 style="margin:0">${esc(x.program.name_en)} — ${x.lang}</h2> ${pill(x.status)}</div>
+    <p class="muted" dir="auto">${esc(x.program.name_ar)} · updated ${when(x.updated_at)} · ${x.segments.length} segments · about ${Math.round(x.segments.reduce((n, s) => n + s.words, 0) * 0.42)} s of speech</p>
+    ${x.audio_error ? `<div class="issue">Approved, but the speech could not be generated now (${esc(x.audio_error)}). It will be generated at the first playback, or run <code>prepare-explainers</code>.</div>` : ""}
+    ${issuesOf(0).map(i => `<div class="issue">${esc(i.kind)}: ${esc(i.detail)}</div>`).join("")}
+    <div class="row"><button class="ok" id="xApprove" ${x.can_approve ? "" : "disabled"}>Approve (the robot may play it)</button><button class="bad" id="xReject">Reject</button>
+      <span class="muted">${x.can_approve ? "Approving also generates and stores the speech." : `${x.issues.length} thing(s) to fix first: every number and course name must be in the program's approved sources.`}</span></div>
+    ${x.segments.map(s => `<div class="seg" data-id="${s.id}" data-n="${s.position}">
+      <div><div class="row"><b>Segment ${s.position}</b><span class="tag">${esc(s.scene.type)}</span><span class="tag">${s.words} words</span>${s.audio_ready ? `<span class="tag good">✓ speech ready</span>` : `<span class="tag">speech not generated</span>`}</div>
+        ${issuesOf(s.position).map(i => `<div class="issue">${esc(i.kind)}: ${esc(i.detail)}</div>`).join("")}
+        <textarea class="say" dir="auto">${esc(s.text)}</textarea>
+        <textarea class="scene" spellcheck="false">${esc(JSON.stringify(s.scene, null, 1))}</textarea>
+        <div class="row"><button data-act="save">Save text and scene</button><button data-act="preview">▶ Preview scene</button><button data-act="delete" class="bad">Delete segment</button></div></div>
+      <div><div class="stagebox"></div><div class="muted">Preview at 60 % of the robot screen. QR address and photo come from your records, not from the draft.</div></div>
+    </div>`).join("")}
+    <div class="row" style="margin-top:8px"><button id="xAdd">Add a segment</button><span class="muted">Scene types: title, keypoints, stat, timeline, courses, diagram, media, qr.</span></div>`;
+  const reopen = r => { renderExplainer(r); msg("Saved"); loadExplainerList(); };
+  const guard = async fn => { try { reopen(await fn()); } catch (e) { msg(e.message, true); } };
+  el("xApprove").onclick = () => guard(() => api(`/api/admin/explainers/${x.id}/review`, { method: "POST", body: JSON.stringify({ decision: "approve" }) }));
+  el("xReject").onclick = () => guard(() => api(`/api/admin/explainers/${x.id}/review`, { method: "POST", body: JSON.stringify({ decision: "reject" }) }));
+  el("xAdd").onclick = () => guard(() => api(`/api/admin/explainers/${x.id}/segments`, { method: "POST", body: JSON.stringify({ text: "…", scene: { type: "keypoints", points: [] } }) }));
+  const play = (div, seg) => {
+    const ctl = ExplainerScenes.render(div.querySelector(".stagebox"), seg.preview_scene, { lang: x.lang, words: seg.words });
+    const t0 = performance.now(), total = Math.max(3, seg.words * 0.42);
+    clearInterval(div._timer);
+    div._timer = setInterval(() => { const sec = (performance.now() - t0) / 1000; ctl.update(Math.min(1, sec / total), sec); if (sec > total + 1) clearInterval(div._timer); }, 60);
+  };
+  el("xDetail").querySelectorAll(".seg").forEach(div => {
+    const seg = x.segments.find(s => s.id === +div.dataset.id);
+    const ctl = ExplainerScenes.render(div.querySelector(".stagebox"), seg.preview_scene, { lang: x.lang, words: seg.words });
+    ctl.update(1, 99);   // at rest the preview shows the finished scene
+    div.querySelectorAll("button").forEach(b => b.onclick = () => {
+      const a = b.dataset.act;
+      if (a === "preview") return play(div, seg);
+      if (a === "delete") { if (!confirm("Delete this segment?")) return; return guard(async () => { const r = await fetch(`/api/admin/explainers/segments/${seg.id}`, { method: "DELETE", headers: { "X-Admin-Token": token } }); if (!r.ok) throw new Error(r.statusText); return r.json(); }); }
+      let scene;
+      try { scene = JSON.parse(div.querySelector(".scene").value); } catch (e) { msg("The scene is not valid JSON: " + e.message, true); return; }
+      return guard(() => api(`/api/admin/explainers/segments/${seg.id}`, { method: "PATCH", body: JSON.stringify({ text: div.querySelector(".say").value, scene }) }));
+    });
+  });
+}
+async function openExplainer(id) { explainerOpen = id; try { renderExplainer(await api(`/api/admin/explainers/${id}`)); } catch (e) { msg(e.message, true); } }
+async function loadExplainerList() {
+  const keep = el("xDetail").innerHTML, scroll = el("xDetail").scrollTop;
+  void keep; void scroll;
+  const d = await api("/api/admin/explainers");
+  el("view-explainers").querySelectorAll("tr.click").forEach(tr => { const x = d.items.find(i => i.id === +tr.dataset.id); if (x) { tr.children[2].innerHTML = pill(x.status); tr.children[4].innerHTML = x.issues ? `<span class="tag bad">${x.issues}</span>` : "0"; } });
+}
+
+const VIEWS = { explainers: loadExplainers, runs: loadRuns, media: loadMedia, overview: loadOverview, gaps: loadGaps, conversations: loadConversations, evaluation: loadEvaluation, coverage: loadCoverage, ask: async () => {} };
 
 document.getElementById("connect").onclick = () => {
   token = document.getElementById("token").value.trim();

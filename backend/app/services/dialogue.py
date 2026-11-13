@@ -1,7 +1,11 @@
 """Conversation manager for one robot connection (B4).
 
 States: IDLE -> GREETING -> LISTENING -> ANSWERING -> FOLLOW_UP ("عندك سؤال ثاني؟") -> CLOSING -> IDLE
+EXPLAINING: the robot presents a program (approved explainer, sprint 2), then FOLLOW_UP.
 Intents (rule-based, instant): question, done/thanks, greeting, repeat, unclear.
+Guided turns (sprint 2): "tell me about X" plays the approved explainer of X when there is one,
+and "I don't know what to study" starts the interest questions; both fall back to the normal
+grounded answer when no approved content exists.
 
 Turn-taking: audio is only accepted in LISTENING / FOLLOW_UP; the robot mutes its microphone
 while it plays our audio and sends `listen.timeout` if nobody speaks after the follow-up.
@@ -23,6 +27,8 @@ from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 from app.core.config import get_settings
 from app.db.models import Program, Session, Turn
 from app.ingestion.lang import detect_lang
+from app.services import explainers as ex
+from app.services import interests
 from app.services.chat import UNAVAILABLE, ChatResult, answer_events
 from app.services.display import build_card, dominant_program
 from app.services.media import approved_media_for_program
@@ -71,6 +77,26 @@ PHRASES: dict[str, dict[str, str]] = {
     "filler_0": {"ar": "سؤال حلو، لحظة بس.", "en": "Good question, one moment."},
     "filler_1": {"ar": "خليني أشوفلك.", "en": "Let me check that for you."},
     "filler_2": {"ar": "ثانية بس.", "en": "Just a second."},
+    "explainer_ask": {
+        "ar": "بدك أكمل ولا عندك سؤال؟",
+        "en": "Shall I go on, or do you have a question?",
+    },
+    "interest_q1": {
+        "ar": "ولا يهمك، بساعدك تختار. شو أكثر إشي بتحبه من هدول؟",
+        "en": "No worries, I'll help you choose. Which of these do you like most?",
+    },
+    "interest_q2": {
+        "ar": "حلو! وفي إشي ثاني بتحبه كمان؟",
+        "en": "Nice! Is there something else you like too?",
+    },
+    "interest_retry": {
+        "ar": "ما لقطتها. اختار من الشاشة، أو احكيلي شو بتحب.",
+        "en": "I didn't get that. Pick one on the screen, or tell me what you like.",
+    },
+    "interest_none": {
+        "ar": "لسا ما عندي اقتراح جاهز لهالاهتمام. اسألني عن أي تخصص بالكلية وبحكيلك عنه.",
+        "en": "I don't have a suggestion ready for that yet. Ask me about any program of the faculty.",
+    },
     "one_at_a_time": {
         "ar": "لو سمحتوا واحد واحد، عشان أقدر أسمعكم منيح. تفضّلوا.",
         "en": "One at a time please, so I can hear you well. Go ahead.",
@@ -128,6 +154,11 @@ def _norm(text: str) -> str:
     return re.sub(r"\s+", " ", text).strip()
 
 
+def asks(text: str) -> bool:
+    """A question mark or a question word: the visitor is asking something."""
+    return "?" in text or "؟" in text or any(w.lstrip("و") in QUESTION_WORDS for w in _norm(text).split())
+
+
 def classify(text: str, state: str) -> str:
     """Cheap, predictable intent rules; anything that looks like a question is a question."""
     raw = text.strip()
@@ -135,8 +166,7 @@ def classify(text: str, state: str) -> str:
     if len(re.sub(r"\W", "", norm)) < 2:
         return "unclear"
     words = norm.split()
-    asks = "?" in raw or "؟" in raw or any(w.lstrip("و") in QUESTION_WORDS for w in words)
-    if asks or len(words) > 5:
+    if asks(raw) or len(words) > 5:
         return "question"
     if set(words) & REPEAT or any(p in norm for p in REPEAT if " " in p):
         return "repeat"
@@ -165,6 +195,25 @@ class TurnTimings:
 
 
 @dataclass
+class ExplainerRun:
+    """An approved explainer being presented; `next` = segments already sent."""
+
+    playable: ex.Playable
+    next: int = 0
+
+
+@dataclass
+class InterestFlow:
+    """"What do you like?": steps 1 and 2 are the questions, 3 = programs suggested and an
+    explainer offered."""
+
+    step: int = 1
+    picked: list[str] = field(default_factory=list)
+    suggested: list[str] = field(default_factory=list)  # slugs that have an approved explainer
+    retries: int = 0
+
+
+@dataclass
 class DialogueManager:
     send: Send
     sessionmaker: async_sessionmaker[AsyncSession]
@@ -185,6 +234,8 @@ class DialogueManager:
     media_turn: int = 0
     robot_run_id: int | None = None  # set by /ws/robot while a robot run is being recorded
     audio_stream: bool = False  # the client said in `hello` that it can play PCM chunks
+    explainer: ExplainerRun | None = None  # paused or running program presentation
+    interest: InterestFlow | None = None  # running "what do you like?" questions
     _warm_up: asyncio.Task[None] | None = None
 
     # ---------- plumbing ----------
@@ -277,7 +328,25 @@ class DialogueManager:
             await self.handle_text(str(msg.get("text") or ""), time.perf_counter(), None)
         elif kind == "listen.timeout":
             if self.state in ("LISTENING", "FOLLOW_UP"):
-                await self.close_session("timeout", "timeout_goodbye")
+                if self.explainer is not None:  # nobody objected: go on with the presentation
+                    await self._play_explainer(time.perf_counter(), "", "explainer_more")
+                else:
+                    await self.close_session("timeout", "timeout_goodbye")
+        elif kind == "explainer.start":  # a program button on the screen
+            await self.start_explainer(str(msg.get("program") or ""), msg.get("lang"))
+        elif kind == "explainer.continue":
+            if self.explainer is not None and self.session_id is not None:
+                await self._play_explainer(time.perf_counter(), "", "explainer_more")
+        elif kind == "explainer.stop":
+            await self.stop_explainer()
+        elif kind == "interest.start":  # the "ساعدني أختار" button
+            await self._ensure_session(msg.get("lang"))
+            if not await self._interest_start(time.perf_counter(), ""):
+                await self.send({"type": "error", "code": "no_interests",
+                                 "message": "no approved interest mapping yet"})  # fmt: skip
+        elif kind == "interest.choice":
+            if self.interest is not None and self.session_id is not None and self.interest.step < 3:
+                await self._interest_answer(str(msg.get("key") or ""), "", TurnTimings())
         elif kind == "session.end":
             reason = msg.get("reason") if msg.get("reason") in ("user_done", "lost_face", "timeout") else "user_done"
             await self.close_session(reason, None)
@@ -297,6 +366,7 @@ class DialogueManager:
         await self.send({"type": "session.started", "session_id": self.session_id})
         self.audio.clear()
         self.last_answer = None
+        self.explainer, self.interest = None, None
         settings = get_settings()
         self.tracker = SpeakerTracker(
             settings.speaker_threshold, settings.max_speakers,
@@ -333,6 +403,7 @@ class DialogueManager:
         await self.send({"type": "session.ended", "session_id": self.session_id, "reason": reason})
         self.session_id = None
         self.tracker = None  # voiceprints are forgotten with the conversation
+        self.explainer, self.interest = None, None
         self.audio.clear()
         await self._set_state("IDLE")
         await self._display("idle")
@@ -345,6 +416,7 @@ class DialogueManager:
                     s.ended_at, s.end_reason = datetime.now(UTC), "error"
                     await db.commit()
             self.session_id = None
+            self.explainer, self.interest = None, None
 
     # ---------- turns ----------
     async def end_of_speech(self, face_track: int | None = None, overlap: bool = False) -> None:
@@ -398,6 +470,9 @@ class DialogueManager:
         timings = TurnTimings(stt_ms=stt_ms)
         answer_text, used_ids, error = None, None, None
         found: bool | None = None  # only question turns have it
+
+        if intent != "unclear" and await self._guided_turn(text, intent, started, timings):
+            return
 
         if intent == "done":
             await self._log_turn(text, lang, intent, PHRASES["goodbye"][self.lang], timings, None, None)
@@ -552,6 +627,222 @@ class DialogueManager:
             first = await self._speak(result.answer, cache=True, started=started) or first
         return result, first
 
+    # ---------- guided turns: explainers and interest matching (sprint 2) ----------
+    async def _ensure_session(self, lang: Any = None) -> None:
+        if self.session_id is None:
+            await self.start_session(lang if lang in ("ar", "en") else "ar", greet=False)
+
+    async def _playable(self, slug: str) -> ex.Playable | None:
+        async with self.sessionmaker() as db:
+            return await ex.load_playable(db, slug, self.lang)
+
+    async def _guided_turn(self, text: str, intent: str, started: float, timings: TurnTimings) -> bool:
+        """The explainer pause, the interest questions and explainer requests. True = handled;
+        False = go on with the normal intents (so missing approved content means a RAG answer)."""
+        if self.explainer is not None:  # paused: "بدك أكمل ولا عندك سؤال؟"
+            if interests.is_yes(text):
+                await self._play_explainer(started, text, "explainer_more", timings.stt_ms)
+                return True
+            self.explainer = None  # a question or a thank-you ends the presentation
+            await self.send({"type": "explainer.end", "reason": "question"})
+        if self.interest is not None and await self._interest_turn(text, intent, started, timings):
+            return True
+        if intent != "question":
+            return False
+        slug = ex.explainer_request(text)
+        if slug is not None:
+            playable = await self._playable(slug)
+            if playable is None:
+                return False  # no approved explainer in this language: the normal grounded answer
+            self.explainer = ExplainerRun(playable)
+            await self._play_explainer(started, text, "explainer", timings.stt_ms)
+            return True
+        if interests.is_interest_request(text):
+            return await self._interest_start(started, text, timings.stt_ms)
+        return False
+
+    async def start_explainer(self, slug: str, lang: Any = None) -> None:
+        """A program button was tapped on the screen."""
+        await self._ensure_session(lang)
+        self.interest = None
+        playable = await self._playable(slug)
+        if playable is None:  # the screen only offers approved explainers; this is a stale button
+            self.explainer = None
+            await self.send({"type": "error", "code": "no_explainer",
+                             "message": f"no approved explainer for {slug!r} ({self.lang})"})  # fmt: skip
+            return
+        self.explainer = ExplainerRun(playable)
+        await self._play_explainer(time.perf_counter(), playable.name, "explainer")
+
+    async def stop_explainer(self) -> None:
+        """The stop button: the screen already silenced the audio; forget the rest."""
+        self.explainer = None
+        if self.session_id is None:
+            return
+        await self.send({"type": "explainer.end", "reason": "stopped"})
+        await self._say("follow_up", "listening")
+        await self._set_state("FOLLOW_UP")
+
+    async def _play_explainer(self, started: float, user_text: str, intent: str,
+                              stt_ms: int | None = None) -> None:  # fmt: skip
+        """Send the next part of the approved explainer: for every segment its scene
+        (`explainer.segment`) and its cached speech (`answer.audio` with `segment`). After
+        segment 3 the robot asks whether to go on; the rest follows on "yes" or on silence."""
+        run = self.explainer
+        assert run is not None
+        segments, total = run.playable.segments, len(run.playable.segments)
+        begin = run.next
+        # pause once, and only when at least two segments would still follow
+        end = ex.PAUSE_AFTER if begin == 0 and total > ex.PAUSE_AFTER + 1 else total
+        await self._set_state("EXPLAINING")
+        if begin == 0:
+            await self.send({
+                "type": "explainer.start", "lang": run.playable.lang, "total": total,
+                "program": {"slug": run.playable.slug, "name": run.playable.name},
+            })  # fmt: skip
+        await self._display("answering")
+        part = segments[begin:end]
+        tasks = [asyncio.create_task(self.tts.synthesize(s.text, cache=True)) for s in part]
+        timings, spoken = TurnTimings(stt_ms=stt_ms), []
+        try:
+            for seg, task in zip(part, tasks, strict=True):
+                mp3 = await task
+                await self.send({
+                    "type": "explainer.segment", "index": seg.index, "total": total, "scene": seg.scene,
+                })  # fmt: skip
+                await self.send({
+                    "type": "answer.audio", "seq": seg.index - 1, "last": seg.index == total,
+                    "text": seg.text, "mp3_b64": base64.b64encode(mp3).decode(), "segment": seg.index,
+                })  # fmt: skip
+                if timings.tts_ms is None:
+                    timings.tts_ms = int((time.perf_counter() - started) * 1000)
+                spoken.append(seg.text)
+        except ProviderError as e:
+            for t in tasks:
+                t.cancel()
+            await self.send({"type": "error", "code": "tts_failed", "message": str(e)})
+            end = total  # do not offer to continue something that cannot be spoken
+        run.next = end
+        timings.ack_ms = timings.total_ms = timings.tts_ms
+        self.last_answer = " ".join(spoken) or self.last_answer
+        await self.send({"type": "turn.timings", **vars(timings)})
+        await self._log_turn(user_text, self.lang, intent, " ".join(spoken), timings, None, None)
+        if end < total:
+            await self.send({"type": "explainer.pause", "next_index": end + 1, "total": total})
+            await self._say("explainer_ask", "listening")
+        else:
+            self.explainer = None
+            await self.send({"type": "explainer.end", "reason": "finished"})
+            await self._say("follow_up", "listening")
+        await self._set_state("FOLLOW_UP")
+
+    async def _interest_start(self, started: float, text: str, stt_ms: int | None = None) -> bool:
+        """Begin "what do you like?". False when no mapping is approved yet (nothing to suggest)."""
+        async with self.sessionmaker() as db:
+            if not await interests.has_approved_mapping(db):
+                return False
+        self.explainer, self.interest = None, InterestFlow()
+        await self._interest_ask("interest_q1", text, TurnTimings(stt_ms=stt_ms))
+        return True
+
+    async def _interest_ask(self, key: str, user_text: str, timings: TurnTimings) -> None:
+        flow = self.interest
+        assert flow is not None
+        await self._set_state("ANSWERING")
+        choices = [o for o in interests.options(self.lang) if o["key"] not in flow.picked]
+        if flow.step == 2:
+            choices.append({"key": "none", "label": "بس هيك" if self.lang == "ar" else "That's all"})
+        await self.send({
+            "type": "interest.question", "step": flow.step, "text": PHRASES[key][self.lang],
+            "options": choices,
+        })  # fmt: skip
+        await self._say(key, "listening")
+        await self._log_turn(user_text, self.lang, "interest", PHRASES[key][self.lang], timings, None, None)
+        await self._set_state("FOLLOW_UP")
+
+    async def _interest_turn(self, text: str, intent: str, started: float, timings: TurnTimings) -> bool:
+        """One spoken reply inside the interest flow. False = leave the flow (a real question,
+        a goodbye, or two replies that named no interest)."""
+        flow = self.interest
+        assert flow is not None
+        if flow.step == 3:  # programs were suggested: "بدك أحكيلك عن X؟"
+            self.interest = None
+            named = ex.match_program(text)
+            slug = named or (flow.suggested[0] if flow.suggested and interests.is_yes(text) else None)
+            playable = await self._playable(slug) if slug else None
+            if playable is None or (named and ex.explainer_request(text) is None and asks(text)):
+                return False
+            self.explainer = ExplainerRun(playable)
+            await self._play_explainer(started, text, "explainer", timings.stt_ms)
+            return True
+        if flow.step == 2 and intent == "done":  # "لا، بس هيك": no second interest
+            await self._interest_answer("none", text, timings)
+            return True
+        key = None if asks(text) else interests.match_interest(text)
+        if key is None:
+            if intent != "question" or asks(text) or flow.retries >= 1:
+                self.interest = None
+                return False
+            flow.retries += 1
+            await self._interest_ask("interest_retry", text, timings)
+            return True
+        await self._interest_answer(key, text, timings)
+        return True
+
+    async def _interest_answer(self, key: str, user_text: str, timings: TurnTimings) -> None:
+        """An interest was picked (by voice or by a screen button). After the second question
+        (or "that's all") the robot suggests one or two programs from the APPROVED mapping."""
+        flow = self.interest
+        assert flow is not None
+        if key in interests.INTERESTS and key not in flow.picked:
+            flow.picked.append(key)
+        elif key != "none" or not flow.picked:
+            await self._interest_ask("interest_retry", user_text, timings)
+            return
+        if flow.step == 1:
+            flow.step, flow.retries = 2, 0
+            await self._interest_ask("interest_q2", user_text, timings)
+            return
+        async with self.sessionmaker() as db:
+            suggestions = await interests.suggest(db, flow.picked)
+            with_explainer = [
+                s.slug for s in suggestions if await ex.load_playable(db, s.slug, self.lang) is not None
+            ]
+        await self._set_state("ANSWERING")
+        lang = self.lang
+        programs = [
+            {"slug": s.slug, "name": s.name(lang), "line": s.line(lang),
+             "has_explainer": s.slug in with_explainer}
+            for s in suggestions
+        ]  # fmt: skip
+        if not suggestions:
+            self.interest = None
+            await self.send({"type": "interest.result", "programs": [], "text": PHRASES["interest_none"][lang]})
+            await self._say("interest_none")
+            await self._log_turn(user_text, lang, "interest_result", PHRASES["interest_none"][lang],
+                                 timings, None, None)  # fmt: skip
+            await self._say("follow_up", "listening")
+            await self._set_state("FOLLOW_UP")
+            return
+        names = [s.name(lang) for s in suggestions]
+        offer = next((s.name(lang) for s in suggestions if s.slug in with_explainer), None)
+        if lang == "ar":
+            said = f"حسب اللي بتحبه، بنصحك تتعرف على {' و'.join(names)}."
+            said += f" بدك أحكيلك عن {offer}؟" if offer else " اسألني عنه أي سؤال."
+        else:
+            said = f"From what you like, I suggest you look at {' and '.join(names)}."
+            said += f" Shall I tell you about {offer}?" if offer else " Ask me anything about it."
+        flow.step, flow.suggested = 3, with_explainer
+        if not with_explainer:
+            self.interest = None
+        await self.send({"type": "interest.result", "programs": programs, "text": said})
+        await self._display("answering", said)
+        await self._speak(said, cache=True)  # few combinations: cached after the first time
+        self.last_answer = said
+        await self._log_turn(user_text, lang, "interest_result", said, timings, None, None,
+                             pitch_ids=[s.pitch_id for s in suggestions])  # fmt: skip
+        await self._set_state("FOLLOW_UP")
+
     async def _card(self, result: ChatResult) -> dict[str, Any] | None:
         """Screen card for a found answer: built only from the answer text and its sources."""
         program_name, media = None, None
@@ -574,7 +865,8 @@ class DialogueManager:
     async def _log_turn(self, text: str, lang: str, intent: str, answer: str | None,
                         t: TurnTimings, used_ids: list[int] | None, error: str | None,
                         speaker: Assignment | None | str = "current",
-                        found: bool | None = None) -> None:  # fmt: skip
+                        found: bool | None = None,
+                        pitch_ids: list[int] | None = None) -> None:  # fmt: skip
         sp = self.speaker if speaker == "current" else speaker
         if self.session_id is None:
             return
@@ -588,6 +880,7 @@ class DialogueManager:
                 retrieval_ms=t.retrieval_ms, llm_ms=t.llm_ms, tts_ms=t.tts_ms,
                 total_ms=t.total_ms, error=error,
                 found=found, ack_ms=t.ack_ms, llm_first_ms=t.llm_first_ms,
+                used_pitch_ids=pitch_ids,
                 speaker_label=sp.label if sp else None,
                 speaker_confidence=sp.confidence if sp else None,
                 speaker_source=sp.source if sp else None,

@@ -3,6 +3,8 @@ Fakes only, no OpenAI."""
 
 import base64
 
+import pytest
+
 from app.core.config import Settings, get_settings
 from app.db.models import Chunk, Source
 from app.services.dialogue import DialogueManager
@@ -64,6 +66,7 @@ def test_tts_speed_and_pace_instructions_are_sent_to_the_provider() -> None:
 
 def test_pace_and_vad_settings_come_from_the_environment(monkeypatch) -> None:
     defaults = Settings(_env_file=None)
+    assert defaults.tts_streaming is False  # experimental: not enabled without a measured gain
     assert defaults.speech_rate == 1.0 and defaults.tts_speed == 1.12
     assert defaults.vad_silence_ms == 700 and defaults.tts_first_piece_words == 6
     monkeypatch.setenv("SPEECH_RATE", "1.12")
@@ -129,6 +132,16 @@ async def _seed(db_session) -> None:
     await db_session.commit()
 
 
+@pytest.fixture
+def streaming_on(monkeypatch):
+    """TTS_STREAMING=true for one test (the default is off)."""
+    monkeypatch.setenv("TTS_STREAMING", "true")
+    get_settings.cache_clear()
+    yield
+    monkeypatch.undo()
+    get_settings.cache_clear()
+
+
 async def _ask(db_session, hello: dict, reply: dict, tts: FakeTTS) -> tuple[list[dict], DialogueManager]:
     sent: list[dict] = []
 
@@ -141,7 +154,7 @@ async def _ask(db_session, hello: dict, reply: dict, tts: FakeTTS) -> tuple[list
     return sent, dm
 
 
-async def test_answer_is_streamed_as_pcm_chunks_when_the_client_asks(db_session) -> None:
+async def test_answer_is_streamed_as_pcm_chunks_when_the_client_asks(db_session, streaming_on) -> None:
     await _seed(db_session)
     tts = StreamingFakeTTS()
     sent, dm = await _ask(db_session, {"audio_stream": ["pcm16"]},
@@ -165,27 +178,27 @@ async def test_answer_is_streamed_as_pcm_chunks_when_the_client_asks(db_session)
     assert timings["tts_ms"] is not None and dm.state == "FOLLOW_UP"
 
 
-async def test_streaming_is_off_without_the_client_flag_or_the_setting(db_session, monkeypatch) -> None:
+async def test_streaming_is_off_by_default(db_session) -> None:
+    await _seed(db_session)
+    reply = {"answer": f"{GOOD} {LAST}", "found": True, "used": [1]}
+    sent, _ = await _ask(db_session, {"audio_stream": ["pcm16"]}, reply, StreamingFakeTTS())
+    assert next(m for m in sent if m["type"] == "hello.ack")["audio_stream"] is False
+    assert not any(m["type"].startswith("answer.audio.") for m in sent)
+    assert GOOD in [m["text"] for m in sent if m["type"] == "answer.audio"]  # whole mp3 pieces
+
+
+async def test_streaming_needs_the_client_flag_and_a_streaming_tts(db_session, streaming_on) -> None:
     await _seed(db_session)
     reply = {"answer": f"{GOOD} {LAST}", "found": True, "used": [1]}
     sent, _ = await _ask(db_session, {}, reply, StreamingFakeTTS())  # an older client
     assert not any(m["type"].startswith("answer.audio.") for m in sent)
     assert GOOD in [m["text"] for m in sent if m["type"] == "answer.audio"]
 
-    monkeypatch.setenv("TTS_STREAMING", "false")
-    get_settings.cache_clear()
-    try:
-        sent, _ = await _ask(db_session, {"audio_stream": ["pcm16"]}, reply, StreamingFakeTTS())
-    finally:
-        monkeypatch.undo()
-        get_settings.cache_clear()
-    assert not any(m["type"].startswith("answer.audio.") for m in sent)
-
     sent, _ = await _ask(db_session, {"audio_stream": ["pcm16"]}, reply, FakeTTS())  # TTS cannot stream
     assert not any(m["type"].startswith("answer.audio.") for m in sent)
 
 
-async def test_invented_number_is_never_streamed(db_session) -> None:
+async def test_invented_number_is_never_streamed(db_session, streaming_on) -> None:
     await _seed(db_session)
     tts = StreamingFakeTTS()
     sent, _ = await _ask(db_session, {"audio_stream": ["pcm16"]},
@@ -195,7 +208,7 @@ async def test_invented_number_is_never_streamed(db_session) -> None:
     assert [m["text"] for m in sent if m["type"] == "answer.audio.start"] == [GOOD, LAST]
 
 
-async def test_stream_failure_ends_the_piece_and_reports_it(db_session) -> None:
+async def test_stream_failure_ends_the_piece_and_reports_it(db_session, streaming_on) -> None:
     from app.services.providers import ProviderError
 
     class BrokenTTS(StreamingFakeTTS):
@@ -210,3 +223,19 @@ async def test_stream_failure_ends_the_piece_and_reports_it(db_session) -> None:
     assert kinds == ["answer.audio.start", "answer.audio.chunk", "answer.audio.end"]
     assert any(m["type"] == "error" and m["code"] == "tts_failed" for m in sent)
     assert dm.state == "FOLLOW_UP"  # the conversation goes on
+
+
+@pytest.mark.parametrize("audio_stream", [True, False])
+async def test_latency_through_the_conversation_manager(db_session, streaming_on, audio_stream) -> None:
+    from app.services.latency import measure_dialogue
+
+    await _seed(db_session)
+    questions = [{"id": "q1", "question": f"{UNIQUE}?"}, {"id": "q2", "question": f"{UNIQUE}?"}]
+    reply = {"answer": f"{GOOD} {LAST}", "found": True, "used": [1]}
+    rows, session_ids = await measure_dialogue(
+        OneSession(db_session), FakeEmbedder(), FakeStreamingLLM(reply), FakeSTT([]), StreamingFakeTTS(), questions,
+        audio_stream,
+    )
+    assert len(rows) == 2 and len(set(session_ids)) == 2
+    assert all(r.first_piece == GOOD and r.pieces == 2 and r.found and r.error is None for r in rows)
+    assert all(r.first_audio_ms is not None and r.llm_first_ms is not None for r in rows)

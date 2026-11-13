@@ -53,7 +53,7 @@ docker compose exec backend python -m app.ingestion.cli import-knowledge
 ```
 Review page: http://localhost:8000/admin (token = ADMIN_TOKEN in .env).
 Only approved content will ever be used by the robot.
-The same page has tabs for analytics (Overview, Knowledge gaps, Conversations), a test box (Ask the robot), the golden-set runs (Evaluation), Knowledge coverage and the Media library.
+The same page has tabs for analytics (Overview, Knowledge gaps, Conversations), a test box (Ask the robot), the golden-set runs (Evaluation), Knowledge coverage, the program Explainers (with the interest mapping) and the Media library.
 
 ## Ask the robot (text) — B3
 ```powershell
@@ -81,6 +81,31 @@ Camera prototype ("who is speaking", off by default): http://localhost:8000/robo
 
 Several visitors: each utterance is labelled "متحدث 1/2/3" in the /voice log (anonymous, forgotten when the conversation ends). See docs/SPEAKERS.md.
 
+## Program explainers, "help me choose" and the idle screen (sprint 2)
+The robot can **present a program** for 60–90 seconds (speech + animated scenes on the screen), suggest programs from the visitor's interests, and show approved scenes while nobody is talking. All of it uses **approved content only**, and you are the one who approves.
+```powershell
+docker compose exec backend python -m app.ingestion.cli draft-explainers                      # drafts for every program, ar + en (1 model call each) -> PENDING
+docker compose exec backend python -m app.ingestion.cli draft-explainers --program graphic-design --lang ar   # redo one draft
+docker compose exec backend python -m app.ingestion.cli prepare-explainers                    # speech of the APPROVED explainers -> cache (also done when you approve)
+docker compose exec backend python -m app.ingestion.cli seed-interests                        # PENDING interest -> program rows, for programs with an approved explainer
+```
+1. http://localhost:8000/admin → **Explainers**: open a draft, read every segment against the official documents, edit the text or the scene, press "▶ Preview scene", then **Approve**. Approval is refused while a number or a course name is not in the program's approved sources (the reason is shown in red).
+2. Same tab → **Interests → programs**: "Seed from approved explainers", then edit and approve the rows.
+3. http://localhost:8000/robot: the idle screen now cycles through the approved programs ("قرّب واحكي معي 👋") and shows a button per program and "ساعدني أختار". Say "احكيلي عن تخصص هندسة الأنظمة الذكية" or tap a button. During a presentation: **التالي** skips a segment, **إيقاف** stops.
+
+Screens without the AI providers (free, for checking layout only; the "voice" is a test tone and answers are fake):
+```powershell
+docker compose run --rm -p 8001:8000 backend uvicorn tests.preview_app:app --host 0.0.0.0 --port 8000   # then http://localhost:8001/robot
+```
+
+## Voice pace and waiting time (sprint 2)
+Settings in `.env` (defaults in `.env.example`): `TTS_SPEED=1.12` (the voice itself is a little faster), `SPEECH_RATE=1.0` (extra playback rate in the browser; leave it), `TTS_STREAMING=false` (experimental: answers sent as audio chunks while they are generated; no reliable gain measured yet), `TTS_FIRST_PIECE_WORDS=6`, `VAD_SILENCE_MS=700` (use 900 if the robot cuts you off mid-sentence).
+```powershell
+docker compose exec backend python -m app.ingestion.cli prepare-phrases     # after changing the voice, the speed or TTS_INSTRUCTIONS
+docker compose exec backend python -m app.ingestion.cli latency --dialogue  # timings through the conversation manager (costs a little)
+docker compose exec backend python -m app.ingestion.cli bench --stt-only    # compare speech-to-text models
+```
+
 ## Robot runs (trajectory view) — simulation only for now
 ```powershell
 docker compose exec backend python -m app.ingestion.cli simulate-run             # direct return
@@ -90,7 +115,7 @@ These runs are **SIMULATED** (stored with `is_simulated = true`, shown with a ba
 
 ## Demo for the supervisor
 Follow `docs/DEMO.md` (10-minute script in Arabic: `/robot`, then `/voice`, then `/admin`, with a fallback plan).
-After pulling new code, always run `docker compose exec backend alembic upgrade head` (the demo sprint added migrations 0006 and 0007).
+After pulling new code, always run `docker compose exec backend alembic upgrade head` (the demo sprint added migrations 0006 and 0007; sprint 2 added 0008).
 New optional settings (see `.env.example`): `LLM_STREAMING`, `LLM_REASONING_EFFORT=low`, `LOCAL_TIMEZONE`.
 
 ## Save a version (after each phase passes its tests)
