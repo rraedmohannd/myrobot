@@ -88,6 +88,7 @@ class ChatSource:
     title: str | None
     url: str
     category: str | None
+    program_id: int | None = None
 
 
 @dataclass
@@ -186,7 +187,8 @@ async def answer_question(
                     p = retrieval.passages[n - 1]
                     result.sources.append(
                         ChatSource(n=n, chunk_id=p.chunk_id, title=p.source_title,
-                                   url=p.source_url, category=p.category)  # fmt: skip
+                                   url=p.source_url, category=p.category,
+                                   program_id=p.program_id)  # fmt: skip
                     )
             result.invented_numbers = invented_numbers(
                 result.answer, [p.text for p in retrieval.passages]

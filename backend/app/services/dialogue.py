@@ -21,9 +21,10 @@ from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from app.core.config import get_settings
-from app.db.models import Session, Turn
+from app.db.models import Program, Session, Turn
 from app.ingestion.lang import detect_lang
-from app.services.chat import UNAVAILABLE, answer_question
+from app.services.chat import UNAVAILABLE, ChatResult, answer_question
+from app.services.display import build_card, dominant_program
 from app.services.providers import LLM, Embedder, ProviderError
 from app.services.speakers import (
     Assignment,
@@ -385,7 +386,7 @@ class DialogueManager:
                 "sources": [{"n": s.n, "title": s.title, "url": s.url} for s in result.sources],
                 "timings": result.timings, "invented_numbers": result.invented_numbers,
             })  # fmt: skip
-            card = {"sources": [s.title for s in result.sources]} if result.sources else None
+            card = await self._card(result) if result.found and not error else None
             await self._display("unavailable" if error else "answering", answer_text, card=card,
                                 speaker_label=label)  # fmt: skip
             first = await self._speak(answer_text, started=started)
@@ -396,6 +397,17 @@ class DialogueManager:
         await self._log_turn(text, lang, intent, answer_text, timings, used_ids, error)
         await self._say("follow_up", "listening")
         await self._set_state("FOLLOW_UP")
+
+    async def _card(self, result: ChatResult) -> dict[str, Any] | None:
+        """Screen card for a found answer: built only from the answer text and its sources."""
+        program_name = None
+        program_id = dominant_program(result.sources)
+        if program_id is not None:
+            async with self.sessionmaker() as db:
+                program = await db.get(Program, program_id)
+            if program is not None:
+                program_name = program.name_ar if result.lang == "ar" else program.name_en
+        return build_card(result.answer, [s.title for s in result.sources], result.lang, program_name)
 
     async def _log_turn(self, text: str, lang: str, intent: str, answer: str | None,
                         t: TurnTimings, used_ids: list[int] | None, error: str | None,

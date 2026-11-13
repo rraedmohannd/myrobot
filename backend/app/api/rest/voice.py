@@ -1,4 +1,5 @@
-"""Voice test page (/voice) and a text-to-speech endpoint used for the voice listening test."""
+"""Voice test page (/voice), robot screen page (/robot) and a text-to-speech endpoint used for
+the voice listening test."""
 
 from pathlib import Path
 from typing import Annotated
@@ -10,13 +11,21 @@ from pydantic import BaseModel, Field
 from app.services.providers import ProviderError
 from app.services.speech import VOICES, CachedTTS, get_tts
 
-VOICE_PAGE = Path(__file__).resolve().parents[2] / "static" / "voice.html"
+STATIC_DIR = Path(__file__).resolve().parents[2] / "static"
+VOICE_PAGE = STATIC_DIR / "voice.html"
+ROBOT_PAGE = STATIC_DIR / "robot.html"
 router = APIRouter()
 
 
 @router.get("/voice", include_in_schema=False)
 async def voice_page() -> FileResponse:
     return FileResponse(VOICE_PAGE, media_type="text/html")
+
+
+@router.get("/robot", include_in_schema=False)
+async def robot_page() -> FileResponse:
+    """The robot's screen in a browser: stands in for the 7" HDMI display (1024x600)."""
+    return FileResponse(ROBOT_PAGE, media_type="text/html")
 
 
 class TTSRequest(BaseModel):

@@ -66,58 +66,44 @@
     <label class="muted">حساسية الصوت <input id="sens" type="range" min="1.5" max="6" step="0.5" value="3"></label>
   </section>
 </main>
+<script src="/static/robot-client.js"></script>
 <script>
-const TARGET_RATE = 16000, FRAME_MS = 30;
+// The WebSocket, microphone, VAD, audio queue and turn-taking live in /static/robot-client.js
+// (shared with /robot). This page only shows what the client reports.
 const FACES = { idle:"🙂", attentive:"😃", listening:"👂", processing:"🤔", answering:"🗣️", finished:"👋", unavailable:"⚠️" };
-let ws, ctx, node, stream;
-let state = "IDLE", followUpTimeout = 10, maxUtterance = 20;
-let playing = false, queue = [], listenTimer = null;
-let inSpeech = false, speechFrames = 0, silenceFrames = 0, voicedFrames = 0;
-let preRoll = [], pending = [], frameBuf = new Float32Array(0), noise = 0.01, calib = 0;
-let endSentAt = null, firstAudioAt = null, turnNo = 0;
+const HINTS = { speak:"احكي هلأ…", hearing:"عم بسمعك…", thinking:"عم بفكّر…", robot:"الروبوت عم يحكي…", "":"" };
 const $ = id => document.getElementById(id);
+let turnNo = 0;
+const client = new RobotClient({ robotId:"laptop-browser", fwVersion:"voice-page-2", sensitivity: () => parseFloat($("sens").value) });
 
 function log(who, text) {
   const d = document.createElement("div"); d.dir = "auto";
   d.innerHTML = `<b>${who}:</b> ` + String(text).replace(/[&<>]/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;"}[c]));
   $("log").prepend(d);
 }
-function send(msg) { if (ws && ws.readyState === 1) ws.send(JSON.stringify(msg)); }
-function canListen() { return (state === "LISTENING" || state === "FOLLOW_UP") && !playing && queue.length === 0; }
-
-function connect() {
-  return new Promise(resolve => {
-    if (ws && ws.readyState === 1) return resolve();
-    ws = new WebSocket(`${location.protocol === "https:" ? "wss" : "ws"}://${location.host}/ws/robot`);
-    ws.onopen = () => { $("conn").textContent = "متصل"; send({type:"hello", robot_id:"laptop-browser", fw_version:"voice-page-1", protocol_version:1}); resolve(); };
-    ws.onclose = () => { $("conn").textContent = "انقطع الاتصال"; setFace("unavailable"); };
-    ws.onmessage = e => onMessage(JSON.parse(e.data));
-  });
-}
 function setFace(mode) { $("face").textContent = FACES[mode] || "🙂"; }
 
-function onMessage(m) {
+client.on("conn", status => {
+  if (status === "open") $("conn").textContent = "متصل";
+  else if (status === "closed" || status === "lost") { $("conn").textContent = "انقطع الاتصال"; setFace("unavailable"); }
+});
+client.on("state", state => { $("state").textContent = state; });
+client.on("hint", hint => { $("hint").textContent = HINTS[hint] || ""; if (hint === "hearing") setFace("listening"); });
+client.on("level", rms => { $("meter").firstElementChild.style.width = Math.min(100, rms * 800) + "%"; });
+client.on("message", m => {
   switch (m.type) {
-    case "hello.ack": followUpTimeout = m.follow_up_timeout_s; maxUtterance = m.max_utterance_s; break;
-    case "dialogue.state": state = m.state; $("state").textContent = state; maybeListen(); break;
     case "display.update": setFace(m.mode); if (m.subtitle) $("subtitle").textContent = m.subtitle; break;
     case "transcript": {
       const sims = m.speaker && m.speaker.sims ? Object.entries(m.speaker.sims).map(([k, v]) => `${k}:${v}`).join(" ") : "";
       const sp = m.speaker ? ` (متحدث ${m.speaker.label}${m.speaker.is_new ? " جديد" : ""} · ${m.speaker.source}${sims ? " · تشابه " + sims : ""})` : "";
       log("أنت" + sp, m.text || "(ما انسمع اشي)"); break;
     }
-    case "answer.text": log("الروبوت", m.text); lastServerTimings = m.timings || {}; break;
-    case "answer.audio": {
-      if (endSentAt && !firstAudioAt) firstAudioAt = performance.now();
-      const bytes = Uint8Array.from(atob(m.mp3_b64), c => c.charCodeAt(0));
-      queue.push(bytes); playNext(); break;
-    }
+    case "answer.text": log("الروبوت", m.text); break;
     case "turn.timings": addTimes(m); break;
-    case "session.ended": log("—", "انتهت المحادثة (" + m.reason + ")"); clearTimeout(listenTimer); break;
+    case "session.ended": log("—", "انتهت المحادثة (" + m.reason + ")"); break;
     case "error": log("خطأ", m.message); break;
   }
-}
-let lastServerTimings = {};
+});
 function addTimes(t) {
   turnNo++;
   const tr = document.createElement("tr");
@@ -125,106 +111,18 @@ function addTimes(t) {
   $("times").prepend(tr);
 }
 
-function playNext() {
-  if (playing || queue.length === 0) return;
-  playing = true; resetVad();
-  const url = URL.createObjectURL(new Blob([queue.shift()], {type:"audio/mpeg"}));
-  const a = new Audio(url);
-  const done = () => { URL.revokeObjectURL(url); playing = false; if (queue.length) playNext(); else maybeListen(); };
-  a.onended = done; a.onerror = done;
-  a.play().catch(done);
-}
-
-function maybeListen() {
-  clearTimeout(listenTimer);
-  if (!canListen()) { $("hint").textContent = playing ? "الروبوت عم يحكي…" : ""; return; }
-  $("hint").textContent = "احكي هلأ…";
-  resetVad();
-  if (state === "FOLLOW_UP") listenTimer = setTimeout(() => { if (canListen() && !inSpeech) send({type:"listen.timeout"}); }, followUpTimeout * 1000);
-}
-function resetVad() { inSpeech = false; speechFrames = silenceFrames = voicedFrames = 0; preRoll = []; pending = []; }
-
-// ---------- microphone ----------
-async function initAudio() {
-  if (ctx) return;
-  stream = await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation:true, noiseSuppression:true, autoGainControl:true, channelCount:1 } });
-  ctx = new AudioContext();
-  const code = `class Cap extends AudioWorkletProcessor { process(i){ const c=i[0][0]; if(c) this.port.postMessage(c.slice(0)); return true; } } registerProcessor('cap', Cap);`;
-  await ctx.audioWorklet.addModule(URL.createObjectURL(new Blob([code], {type:"application/javascript"})));
-  node = new AudioWorkletNode(ctx, "cap");
-  ctx.createMediaStreamSource(stream).connect(node);
-  node.port.onmessage = e => onSamples(e.data);
-}
-
-function onSamples(f32) {
-  const merged = new Float32Array(frameBuf.length + f32.length);
-  merged.set(frameBuf); merged.set(f32, frameBuf.length);
-  const size = Math.round(ctx.sampleRate * FRAME_MS / 1000);
-  let off = 0;
-  while (merged.length - off >= size) { onFrame(merged.subarray(off, off + size)); off += size; }
-  frameBuf = merged.slice(off);
-}
-
-function downsample(frame) {
-  const ratio = ctx.sampleRate / TARGET_RATE, n = Math.floor(frame.length / ratio), out = new Int16Array(n);
-  for (let i = 0; i < n; i++) {
-    let s = 0, a = Math.floor(i * ratio), b = Math.min(frame.length, Math.floor((i + 1) * ratio));
-    for (let j = a; j < b; j++) s += frame[j];
-    const v = Math.max(-1, Math.min(1, s / Math.max(1, b - a)));
-    out[i] = v < 0 ? v * 0x8000 : v * 0x7fff;
-  }
-  return out;
-}
-
-function onFrame(frame) {
-  let sum = 0; for (let i = 0; i < frame.length; i++) sum += frame[i] * frame[i];
-  const rms = Math.sqrt(sum / frame.length);
-  $("meter").firstElementChild.style.width = Math.min(100, rms * 800) + "%";
-  if (!canListen()) return;                       // turn-taking: deaf while the robot talks/thinks
-  if (!inSpeech && calib < 20) { noise = (noise * calib + rms) / (calib + 1); calib++; }
-  const thr = Math.max(0.012, noise * parseFloat($("sens").value));
-  const pcm = downsample(frame);
-  if (!inSpeech) {
-    preRoll.push(pcm); if (preRoll.length > 10) preRoll.shift();
-    if (rms > thr) speechFrames++; else { speechFrames = 0; noise = noise * 0.95 + rms * 0.05; }
-    if (speechFrames >= 4) {                       // ~120 ms of voice: speech started
-      inSpeech = true; silenceFrames = 0; voicedFrames = 0; clearTimeout(listenTimer);
-      $("hint").textContent = "عم بسمعك…"; setFace("listening");
-      pending = preRoll.slice(); preRoll = [];
-    }
-    return;
-  }
-  pending.push(pcm); voicedFrames++;
-  if (rms > thr) silenceFrames = 0; else silenceFrames++;
-  if (pending.length >= 3) flush();
-  if (silenceFrames >= 30 || voicedFrames * FRAME_MS > maxUtterance * 1000) {   // ~0.9 s silence: done
-    flush(); inSpeech = false; endSentAt = performance.now(); firstAudioAt = null;
-    send({type:"audio.end"}); $("hint").textContent = "عم بفكّر…"; state = "ANSWERING";
-  }
-}
-
-function flush() {
-  if (!pending.length) return;
-  const total = pending.reduce((n, a) => n + a.length, 0), all = new Int16Array(total);
-  let o = 0; for (const a of pending) { all.set(a, o); o += a.length; }
-  pending = [];
-  const bytes = new Uint8Array(all.buffer); let bin = "";
-  for (let i = 0; i < bytes.length; i += 0x8000) bin += String.fromCharCode.apply(null, bytes.subarray(i, i + 0x8000));
-  send({type:"audio.chunk", seq: Date.now(), sample_rate: TARGET_RATE, pcm16_b64: btoa(bin)});
-}
-
 // ---------- controls ----------
 $("start").onclick = async () => {
-  try { await initAudio(); } catch (e) { alert("ما قدرت أفتح المايك: " + e.message); return; }
-  await ctx.resume(); await connect();
+  try { await client.initAudio(); } catch (e) { alert("ما قدرت أفتح المايك: " + e.message); return; }
+  await client.ensureContext();
   $("subtitle").textContent = "";
-  send({type:"session.start", lang:"ar"});
+  await client.startSession("ar");
 };
-$("stop").onclick = () => send({type:"session.end", reason:"user_done"});
+$("stop").onclick = () => client.endSession("user_done");
 $("send").onclick = async () => {
   const t = $("typed").value.trim(); if (!t) return;
-  await connect(); endSentAt = performance.now(); firstAudioAt = null;
-  send({type:"text.input", text:t}); $("typed").value = "";
+  $("typed").value = "";
+  await client.sendText(t);
 };
 $("typed").addEventListener("keydown", e => { if (e.key === "Enter") $("send").click(); });
 

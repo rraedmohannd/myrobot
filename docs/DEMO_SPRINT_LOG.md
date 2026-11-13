@@ -18,3 +18,16 @@ Task file: `docs/DEMO_SPRINT.md`. Branch: `demo-sprint` (created from `master` a
   - Pending sources: Biomedical Engineering study plan (id 345) and Student Handbook 2025/2026 (id 346). **Neither is approved.**
   - Stale: "Faculty of Engineering & Design — departments and programs" (id 66), changed when Biomedical Engineering was added; needs re-review.
 - Added the "Don't forget … videos while the robot explains" section to `docs/PLAN.md`; added `backend/data/media/` to `.gitignore`.
+- Commit: `db30197`. Elapsed: about 20 min. Not pushed (no remote, see question 1).
+
+## M1 — Robot screen in the browser: `/robot`
+- New page `http://localhost:8000/robot` (1024×600 stage, scaled to the window, label "محاكاة لشاشة الروبوت").
+  - SVG/CSS face with one look per mode (idle, attentive, listening, processing, answering, finished, unavailable); it blinks; the mouth follows the robot's voice through a WebAudio analyser.
+  - Large right-to-left subtitles that follow the audio piece being spoken; card (title, ≤ 3 lines, source line); "متحدث N" badge; what the robot heard.
+  - WebSocket drop or 25 s without any message → "service unavailable" face and message, reconnect every 2 s.
+  - Start button or Space = `session.start`; `T` = hidden text input (microphone fallback); `Esc` = end; `F` = fullscreen. If the microphone cannot be opened, the conversation still starts and the page tells the visitor to press T.
+- Shared client `static/robot-client.js` (WebSocket, heartbeat, VAD, PCM16, audio queue, turn-taking), now used by both `/voice` and `/robot`. `/voice` keeps the same controls and log; it now also sends heartbeats.
+- Backend: `display.update.card` now carries `title`, `lines` (sentences of the answer, at most 3) and `sources`; built in `services/display.py` only from the answer and its sources; no card for `found=false`. `/static` is served locally (no CDN). `docs/PROTOCOL.md` updated.
+- Checked in headless Edge (screenshots of each mode, and a real session with the cached greeting: audio plays, mouth level 0.08–0.11, LISTENING afterwards). **Not checked: a real microphone conversation on `/robot` and `/voice`** — please try both once (see the summary).
+- Fonts: the page uses the system fonts (Segoe UI / Tahoma on the laptop). No font file was vendored; the Raspberry Pi will need an Arabic font installed (for example `fonts-noto`), or a font file added to `static/` later.
+- Tests: **69 passed** (3 new: card fields, no card when not found, pages + shared script served).

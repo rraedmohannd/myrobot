@@ -92,6 +92,12 @@ async def test_full_voice_conversation(db_session) -> None:
     assert PHRASES["filler_0"]["ar"] in said(tts)  # instant cached filler before the answer
     timing = next(m for m in sent if m["type"] == "turn.timings")
     assert timing["ack_ms"] is not None and timing["ack_ms"] <= timing["tts_ms"]
+    # screen card: built only from the answer and its sources (title, <= 3 lines, source titles)
+    card = next(m["card"] for m in sent if m["type"] == "display.update" and m.get("card"))
+    assert card["title"] == "كلية الهندسة والتصميم"  # no single program: faculty name
+    assert card["lines"] and len(card["lines"]) <= 3
+    assert all(line.rstrip("…") in answer["text"] for line in card["lines"])
+    assert card["sources"] == ["Dialogue test"]
     assert said(tts).endswith(PHRASES["follow_up"]["ar"])
     assert dm.state == "FOLLOW_UP"
 
@@ -158,3 +164,53 @@ def test_websocket_hello_and_heartbeat() -> None:
         assert ws.receive_json()["type"] == "heartbeat"
         ws.send_json({"type": "nonsense"})
         assert ws.receive_json()["code"] == "unknown_type"
+
+
+def test_card_uses_only_the_answer_and_its_sources() -> None:
+    from app.services.display import build_card, dominant_program
+
+    answer = "التخصص بدّه 162 ساعة معتمدة. فيه مواد عن الروبوتات؟ نعم. وكمان ذكاء اصطناعي. وجملة خامسة."
+    card = build_card(answer, ["Study Plan", "Study Plan", None], "ar", "هندسة الأنظمة الذكية")
+    assert card == {
+        "title": "هندسة الأنظمة الذكية",
+        "lines": ["التخصص بدّه 162 ساعة معتمدة.", "فيه مواد عن الروبوتات؟", "نعم."],
+        "sources": ["Study Plan"],
+    }
+    assert build_card("x " * 80, ["S"], "en")["lines"][0].endswith("…")
+    assert build_card("Answer.", ["S"], "en")["title"] == "Faculty of Engineering & Design"
+    assert build_card("Answer.", [], "en") is None  # no sources: no card
+
+    class P:
+        def __init__(self, program_id: int | None) -> None:
+            self.program_id = program_id
+
+    assert dominant_program([P(3), P(3), P(None)]) == 3
+    assert dominant_program([P(3), P(4)]) is None  # mixed programs
+    assert dominant_program([P(3), P(None), P(None)]) is None  # mostly general passages
+    assert dominant_program([]) is None
+
+
+async def test_not_found_answer_has_no_card(db_session) -> None:
+    await _seed(db_session)
+    sent: list[dict] = []
+
+    async def send(msg: dict) -> None:
+        sent.append(msg)
+
+    llm = FakeLLM({"answer": "ما عندي هاي المعلومة.", "found": False, "used": []})
+    dm = DialogueManager(send, OneSession(db_session), FakeEmbedder(), llm, FakeSTT([]), FakeTTS())
+    await dm.handle({"type": "text.input", "text": f"كم رسوم {UNIQUE}؟"})
+    assert any(m["type"] == "answer.text" and not m["found"] for m in sent)
+    assert not any(m.get("card") for m in sent if m["type"] == "display.update")
+
+
+async def test_robot_and_voice_pages_and_shared_client(client) -> None:
+    robot = await client.get("/robot")
+    assert robot.status_code == 200 and "محاكاة لشاشة الروبوت" in robot.text
+    voice = await client.get("/voice")
+    assert voice.status_code == 200
+    for page in (robot.text, voice.text):
+        assert "/static/robot-client.js" in page
+        assert "https://" not in page and "http://" not in page.replace("http://www.w3.org", "")
+    js = await client.get("/static/robot-client.js")
+    assert js.status_code == 200 and "class RobotClient" in js.text

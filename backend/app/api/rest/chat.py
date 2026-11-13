@@ -23,6 +23,7 @@ class SourceOut(BaseModel):
     title: str | None
     url: str
     category: str | None
+    program_id: int | None = None
 
 
 class ChatResponse(BaseModel):
