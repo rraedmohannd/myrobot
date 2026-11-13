@@ -59,3 +59,9 @@ app.dependency_overrides[get_llm] = lambda: FakeStreamingLLM()
 app.dependency_overrides[get_embedder] = lambda: FakeEmbedder()
 app.dependency_overrides[get_stt] = lambda: FakeSTT()
 app.dependency_overrides[get_tts] = lambda: PreviewTTS()
+
+
+@app.get("/preview-info", include_in_schema=False)
+async def preview_info() -> dict:
+    """Lets the soak test check that it talks to a backend with fake providers."""
+    return {"fake_providers": True}
