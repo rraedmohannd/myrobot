@@ -1,0 +1,140 @@
+{
+  "model": "gpt-6-luna",
+  "reasoning_effort": "low",
+  "streaming": true,
+  "tts_model": "gpt-4o-mini-tts",
+  "tts_voice": "coral",
+  "summary": {
+    "retrieval_ms": {
+      "median": 217.0,
+      "p90": 243.0,
+      "n": 8
+    },
+    "llm_first_ms": {
+      "median": 1578.0,
+      "p90": 2098.0,
+      "n": 8
+    },
+    "llm_ms": {
+      "median": 2601.5,
+      "p90": 2970.0,
+      "n": 8
+    },
+    "tts_first_ms": {
+      "median": 1938.0,
+      "p90": 2619.0,
+      "n": 8
+    },
+    "first_audio_ms": {
+      "median": 4169.5,
+      "p90": 4854.0,
+      "n": 8
+    }
+  },
+  "rows": [
+    {
+      "id": "ise-hours-ar",
+      "question": "كم ساعة معتمدة بدها هندسة الأنظمة الذكية؟",
+      "first_piece": "هندسة الأنظمة الذكية بدها 162 ساعة معتمدة بالمجموع.",
+      "pieces": 1,
+      "found": true,
+      "retrieval_ms": 1009,
+      "llm_first_ms": 1528,
+      "llm_ms": 2142,
+      "tts_first_ms": 2298,
+      "first_audio_ms": 4854,
+      "error": null
+    },
+    {
+      "id": "arch-hours-ar",
+      "question": "قديش ساعة هندسة العمارة؟",
+      "first_piece": "هندسة العمارة بتحتاج 165 ساعة معتمدة بالمجموع.",
+      "pieces": 1,
+      "found": true,
+      "retrieval_ms": 206,
+      "llm_first_ms": 1224,
+      "llm_ms": 1980,
+      "tts_first_ms": 1744,
+      "first_audio_ms": 3175,
+      "error": null
+    },
+    {
+      "id": "ise-careers-ar",
+      "question": "وين بيشتغلوا خريجين هندسة الأنظمة الذكية؟",
+      "first_piece": "خريجين هندسة الأنظمة الذكية بشتغلوا بقطاعات زي تكنولوجيا المعلومات والاتصالات،",
+      "pieces": 3,
+      "found": true,
+      "retrieval_ms": 243,
+      "llm_first_ms": 1847,
+      "llm_ms": 2970,
+      "tts_first_ms": 2772,
+      "first_audio_ms": 4864,
+      "error": null
+    },
+    {
+      "id": "ise-accredit-ar",
+      "question": "هل تخصص الأنظمة الذكية معتمد من نقابة المهندسين الأردنيين؟",
+      "first_piece": "آه، التخصص معتمد من نقابة المهندسين الأردنيين ضمن فرع هندسة الأنظمة والتحكم.",
+      "pieces": 1,
+      "found": true,
+      "retrieval_ms": 218,
+      "llm_first_ms": 2293,
+      "llm_ms": 2979,
+      "tts_first_ms": 1909,
+      "first_audio_ms": 4421,
+      "error": null
+    },
+    {
+      "id": "arch-years-ar",
+      "question": "كم سنة دراسة العمارة؟",
+      "first_piece": "دراسة هندسة العمارة مدتها الاعتيادية خمس سنوات، يعني عشرة فصول.",
+      "pieces": 1,
+      "found": true,
+      "retrieval_ms": 211,
+      "llm_first_ms": 1370,
+      "llm_ms": 2117,
+      "tts_first_ms": 2619,
+      "first_audio_ms": 4203,
+      "error": null
+    },
+    {
+      "id": "interior-training-ar",
+      "question": "التدريب الميداني بالتصميم الداخلي قديش؟",
+      "first_piece": "التدريب الميداني بالتصميم الداخلي ٦ ساعات معتمدة، وبشمل ٤٢٠ ساعة تدريب.",
+      "pieces": 1,
+      "found": true,
+      "retrieval_ms": 210,
+      "llm_first_ms": 2098,
+      "llm_ms": 2875,
+      "tts_first_ms": 1825,
+      "first_audio_ms": 4136,
+      "error": null
+    },
+    {
+      "id": "ise-careers-en",
+      "question": "Where do Intelligent Systems Engineering graduates work?",
+      "first_piece": "Graduates work in IT,",
+      "pieces": 3,
+      "found": true,
+      "retrieval_ms": 224,
+      "llm_first_ms": 1456,
+      "llm_ms": 2505,
+      "tts_first_ms": 1482,
+      "first_audio_ms": 3165,
+      "error": null
+    },
+    {
+      "id": "ise-vs-se-ar",
+      "question": "شو الفرق بين هندسة الأنظمة الذكية وهندسة البرمجيات؟",
+      "first_piece": "هندسة الأنظمة الذكية بتجمع الذكاء الاصطناعي والبرمجة مع الأنظمة المضمنة",
+      "pieces": 3,
+      "found": true,
+      "retrieval_ms": 216,
+      "llm_first_ms": 1628,
+      "llm_ms": 2698,
+      "tts_first_ms": 1967,
+      "first_audio_ms": 3813,
+      "error": null
+    }
+  ]
+}
