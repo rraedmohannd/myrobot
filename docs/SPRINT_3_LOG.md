@@ -106,7 +106,7 @@ The run was interrupted at about 20:00 by the usage limit of the Claude session 
   Streaming was about 0.7 s faster here, even with a slower LLM step. One pair of runs; the setting stays off until you have heard it (question 5).
 - OpenAI budget used: `evaluate` 1 of 2; `latency` 2 of 2; drafting 7 LLM calls of the 12 allowed; one embedding call for the FAQ calibration.
 - Final `docker compose exec backend pytest -q`: **222 passed, 0 failed** (165 at the start of the sprint). `node backend/tests/js/speaker_logic_test.mjs`: all checks passed.
-- Commit: S10_HASH. Pushed: `origin/sprint-3` (never `main` or `master`).
+- Commit: `e326d7a`. Pushed: `origin/sprint-3` (never `main` or `master`).
 
 # Summary for Mohannd
 
@@ -132,7 +132,7 @@ The run was interrupted at about 20:00 by the usage limit of the Claude session 
 | S7 login, privacy, backups | argon2id login, retention purge, `docs/PRIVACY.md`, backup scripts | `7c90a07` |
 | S8 report figures | `export-report`: CSVs and charts, simulated runs labelled | `a0dbf41`, `7c90a07`, `70cbf6e` |
 | S9 soak test | 30 minutes simulated: 88 conversations, 0 errors, +1.1 MB | `af6d193`, `6b992b4` |
-| S10 wrap-up | docs, evaluation 48/49 (49/49 after the checker fix), latency comparison | S10_HASH |
+| S10 wrap-up | docs, evaluation 48/49 (49/49 after the checker fix), latency comparison | `e326d7a` |
 
 ## What is not verified, said plainly
 - **No sprint 3 feature was tried with a real voice or a real robot.** Screens were checked in a headless browser with fake providers on a scratch database; the robot side is a software simulator.
