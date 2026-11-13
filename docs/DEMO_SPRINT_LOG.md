@@ -5,9 +5,7 @@ Task file: `docs/DEMO_SPRINT.md`. Branch: `demo-sprint` (created from `master` a
 **Start time: Fri 2026-11-13 16:31 (laptop clock, `date`).** Time budget: 4 hours → stop by about 20:31.
 
 ## Questions for Mohannd
-1. **Nothing was pushed: no git remote is configured in this folder** (`git remote -v` is empty, and the `gh` tool is not installed). `git push -u origin demo-sprint` answered "'origin' does not appear to be a git repository". I did not create or guess a remote. All work is committed locally on the branch `demo-sprint` (10 commits: `git log --oneline master..demo-sprint`). To push it yourself:
-   `git remote add origin <your GitHub repo URL>` then `git push -u origin demo-sprint`.
-   (DECISIONS says the repo was pushed to GitHub on 2026-11-06; that was probably done from another copy of the folder.)
+1. ~~Nothing was pushed: no git remote was configured.~~ **Resolved:** you gave me the repository URL after the sprint. `origin` is now `https://github.com/rraedmohannd/myrobot.git` and the branch **`demo-sprint` is pushed** (only that branch; nothing was pushed to `main` or `master`). The repository was empty, so GitHub shows `demo-sprint` as its default branch; `master` (the state before the sprint) is still only on your laptop. Push it too if you want it on GitHub: `git push origin master`.
 2. **The Student Handbook (source 346, 19 chunks) and the Biomedical Engineering plan (source 345, 13 chunks) are still `pending`, and the faculty-overview page (source 66) is `stale`.** The robot cannot use them until you review them in `/admin`. I did not approve anything. Until then: handbook and Biomedical questions get "I don't have this information", the Arabic "which programs" answer is incomplete, the robot may say Biomedical Engineering is "not listed" (wrong), and the golden set stays at 37/49.
 3. The local branch is called `master`, while the task file says `main`. Nothing was merged or pushed to either.
 4. **Reasoning effort:** `LLM_REASONING_EFFORT` now defaults to `low` (10/10 on the bench, and 37/38 on approved content in `evaluate`). If your `.env` has its own `LLM_REASONING_EFFORT=` line, that line wins; set it to `low` or delete it. To go back: `LLM_REASONING_EFFORT=` (empty) is not enough because the default is now `low`; use `medium`.
@@ -162,7 +160,7 @@ Task file: `docs/DEMO_SPRINT.md`. Branch: `demo-sprint` (created from `master` a
 | M7 camera | browser prototype, off by default |
 
 ## What is unfinished or not verified
-- **Not pushed** (question 1).
+- Pushed to `origin/demo-sprint` after you supplied the URL; the "Not pushed (no remote)" notes under each milestone describe the state during the sprint.
 - **No live voice test** with a microphone, and no live conversation through the WebSocket with the real OpenAI providers. The real providers were exercised by the `latency`, `bench` and `evaluate` commands only (including streaming).
 - **4 s latency target not reached** (about 4.7–5.2 s estimated from end of speech).
 - **Golden set 37/49**, below the 90 % target, because three sources wait for your review.
@@ -174,4 +172,4 @@ Task file: `docs/DEMO_SPRINT.md`. Branch: `demo-sprint` (created from `master` a
 - The Raspberry Pi will need an Arabic font installed; the pages use system fonts.
 
 ## Questions for Mohannd
-See the list at the top of this file (10 questions). The first two matter before the demo: the missing git remote, and the three sources waiting for review.
+See the list at the top of this file (10 questions). The one that matters before the demo is question 2: the three sources waiting for review.
