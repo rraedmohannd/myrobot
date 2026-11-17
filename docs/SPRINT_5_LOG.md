@@ -197,3 +197,103 @@ Because the goal is "no new code when the parts arrive", every command, flag, pa
 - **A real risk found on the way:** pyserial asserts DTR and RTS when it opens a port, and the DevKit's auto-reset circuit turns that into an ESP32 reset. Every `robotctl` run would have rebooted the ESP32, losing unsaved parameters and hiding a watchdog stop. The serial transport (used by `robotd` and `robotctl`) now releases both lines before opening the port, with a test, and `BRINGUP.md` has a step that confirms it on the real board (`uptime` must keep growing between two `diag` runs). **Not verified on hardware.** Commit `e70b4e3`.
 - Commits: `38414fe`, `dccbd06`, `48d1e14`, `e70b4e3`. Robot suite after the audit: 330 passed (331 with the transport test).
 - Not verifiable without hardware: whether closing the window really leaves the ESP32 running so the watchdog stops the tracks; `scp` with Windows paths; everything in sections 7–8 on a Pi; the real expected values (bias, µs per degree, metres per tick).
+
+---
+# Summary for Mohannd
+
+## What is done
+| Item | Result | Commits |
+|---|---|---|
+| S0 baseline | 255 / 186 / 100 + sim-check / JS; video scripts and renderer committed | `171767d` |
+| S1 pin plan and checker | `docs/PIN_PLAN.md` (proposal, option B recommended); `pins_from_table.py` is the only way pins reach the firmware; refuses boot-active pins on motor rows | `8a466dd`, `7902f1c`, `ce6d656`, `41e03b3` |
+| S2 firmware | protocol v2, runtime parameters in NVS, voltage compensation, diagnostics, I2C task and bus recovery, task watchdog, slip, bring-up modes, battery cut-off, MCP23017 triggers, CI pin builds for core 2.x and 3.x, fault injection, release build | `0a631ef`, `8077840`, `d7988ab`, `1ee66e3`, `4fd3233`, `d832c25`, `a5ca6ba`, `48d1e14` |
+| S2.8 safety review | independent review; 2 defects fixed by the reviewer, every other real finding fixed the same evening | `a57d603`, `1457e4d`, `e9ca7c9`, `82c65bc`, `9d1b51a` |
+| S3 robotd | calibration file and parameter push with hash check, gyro bias, battery rules, `stop_roaming`, 60 s backend rule, look-away, camera ownership, several backend addresses, control API for `robotctl` | `337a3a5`, `c04a051`, `c31913b`, `d55d101`, `3042400`, `f5accb0` |
+| S4 bring-up kit | `robotctl` (every calibration step), `docs/BRINGUP.md` (8 sections, 50 steps) | `6369793`, `a385590`, `e635bb3`, `975082b` |
+| S5 Pi install | lock file with hashes, `setup.sh --container-test` passed in an emulated arm64 trixie container, kiosk on labwc, `update.sh`, `flash_esp32.sh`, several backend addresses and the hotspot | `071c0fd`, `26825db`, `e29d922`, `a603f97`, `7a9ac76` |
+| S6 P1 | Pi health and black box and settings page (robotd), admin "Bring-up" tab, calibration records, power chart, `stop_roaming` button, `export-report` additions, `pid-step` / `square-test` / `hfov-cal` / `bundle`, evaluate 49/49 and latency | `7e1732b`, `15a9f20`, `9dd6e0e`, `75b04ca`, `748b4b6`, `ad80403`, `fccc435`, `b02015a` |
+| S7 AprilTag (P2) | experimental, off by default | `7fe5342`, `1fc7ae9` |
+| S8 mechanical (P2) | 6 parametric parts, STL + PNG; no dimension verified | `fff215f` |
+| S9 CI (P2) | backend, robot and firmware jobs on GitHub Actions | `975790a` |
+| `BRINGUP.md` audit | 26 problems in the bring-up steps fixed; the serial port no longer resets the ESP32 when it is opened | `38414fe`, `dccbd06`, `48d1e14`, `e70b4e3` |
+| End-to-end recheck | 17/17 twice; the simulated ESP32 mirrors the reviewed firmware rules | `b226c0b`, `fdd0b3f` |
+| Wrap-up | PLAN ("code complete, bring-up pending"), DECISIONS, HOW_TO_START, SERIAL_PROTOCOL §10, shellcheck, this log | `00831ff`, `c295da7` and the log commits |
+
+## Final run of every suite (2026-11-17, 23:37–23:40, after the last code change)
+| Suite | Command | Result (start of sprint) |
+|---|---|---|
+| Backend | `docker compose exec backend pytest -q` | **268 passed, 0 failed** (255) |
+| Robot (`robotd`, `visiond`, `robotctl`, serial protocol, AprilTag) | `cd robot && .venv\Scripts\python -m pytest -q` | **331 passed, 0 failed** (186) |
+| Pin checker | `python -m pytest firmware/tools/tests -q` | **29 passed** (new) |
+| Firmware native tests | `firmware/tools/test.sh` (PlatformIO in Docker) | **147 test cases: 147 succeeded** (100) |
+| Firmware `sim-check` with fault injection | same script | SUCCESS, "sim-check finished: 0 failure(s)" |
+| ESP32 compile checks | `esp32-compile-check`, `esp32-ci-pins` (Arduino core 2.0.17), `esp32-ci-pins-core3` (3.3.12) | all SUCCESS (flash 24.5 %, 25.9 %, 27.7 %) |
+| `esp32dev` without a pin table | `pio run -e esp32dev` | stops with "Pins are not confirmed…", as intended |
+| JS speaker logic | `node backend/tests/js/speaker_logic_test.mjs` | all checks passed |
+| Parameter header | `python -m scr_serial.gen_params_header --check` | up to date |
+| shellcheck 0.11.0 | every `.sh` in `firmware/tools`, `mechanical`, `robot/deploy`, `robot/scripts` | clean (one warning fixed, `c295da7`) |
+| GitHub Actions (first run, commit `0613025`) | `.github/workflows/ci.yml` | backend, robot 3.12, robot 3.13 and firmware jobs **all passed** |
+| Golden set / latency | `evaluate`, `latency --dialogue` | 49/49, 0 invented numbers; 3.1 s median text → first audio |
+
+Time used: about 1 h 30 min of the 5 hours (22:14 → about 23:45); the parts were worked on by parallel agents. Everything in `docs/SPRINT_5.md` (P0, P1 and P2) is done; the sprint stopped because nothing was left, not because time ran out.
+
+## Questions for Mohannd
+Every one of these has a default that is already in the code; nothing waits for your answer to work. Change a default only by changing a parameter, the calibration file or `robot.env` — none needs code.
+
+**Decide with your supervisor (before buying or wiring)**
+1. **TTS before 2027-01-06** — unchanged from sprint 4: decide by **2026-12-20** (`docs/PLAN.md`). The latency run of this sprint shows TTS is now the slowest stage (about 2 s of the 3.1 s median).
+2. **Pin plan option A or B.** Default **B**: an MCP23017 at 0x20 for the four ultrasonic triggers (`docs/PIN_PLAN.md`; option A does not fit without GPIO0/GPIO12). With B, buy one MCP23017 module, 4 × 1 kΩ + 4 × 2 kΩ resistors for the echo dividers and 4 × 10 kΩ pull-downs for the L298N ENA/ENB.
+3. **Motor driver wiring:** default L298N, one module per side, ENA/ENB jumpers removed and pulled down, the module's two channels joined. Is `V_DRIVER_DROP` = 2.0 V right for your L298N (measure it at the first motor test)?
+4. **Safety design (from the review):** the task watchdog leaves the last PWM running for up to 0.5 s (core 3.x) or 1 s (core 2.x) if the control task hangs. Do you want a hardware dead-man on the enable pins? Which core do you flash (default 2.x, the one that also runs the release script; 3.x is compiled in CI)?
+5. **Battery:** the firmware hard cut `BATTERY_CUTOFF_MV` stays 0 (off) until you set it from your pack and BMS data; a 2 s hold before the cut is the default. Should a lost INA219 force SAFE once the cut is set? Is the robotd warning at 10.5 V and "no new roaming below 9.9 V" right for a 30-minute demo (the placeholder table puts 9.9 V near 5 %)?
+6. **CI:** the GitHub job marks the curated knowledge approved **in its own throw-away database** so the knowledge tests can run. Nothing reaches your database and it is not a review. Keep it, or should those tests create their own approved test data instead?
+
+**Facts only you can check on the parts**
+7. Is the DevKit an **ESP32-WROOM-32** (printed on the can)? GPIO16/17 are not free on a WROVER.
+8. Do the Rover 5 encoders work at 3.3 V (bench measurement, BRINGUP section 1)? Are the level converters BSS138 4-channel modules?
+9. Which IMU breakout, and is AD0 low (0x68) or high (0x69)?
+10. Which webcam (horizontal field of view) and how is the servo mounted (limits, which way is left)? `servo-cal` and `hfov-cal` measure them.
+11. Which Raspberry Pi OS image will you flash? The lock file assumes the trixie desktop of 2026-10-06 with Python 3.13. Which touch device does the screen report (`cat /proc/bus/input/devices`)?
+12. At the demo: can the laptop run the Windows hotspot while it has internet (Ethernet or a phone), and is 192.168.137.1 the second `BACKEND_URL`?
+
+**Behaviour defaults to confirm (all configurable)**
+13. Robot behaviour from the defaults table: resume by itself only after a backend outage ≤ 60 s; a 0.3 s look-away is tolerated; `stop_roaming` = IDLE in place (it is also accepted while a return is paused — keep that?); engagement only from IDLE or ROAMING; `visiond` owns the webcam.
+14. A return already running continues below 9.9 V; the gyro re-calibrates after 120 s idle (also between conversations). Keep both?
+15. Settings page PIN: how many digits, and who knows it? (No PIN in `robot.env` = the page is disabled.)
+16. Calibration practice: flash and calibrate first from the laptop over USB (BRINGUP sections 1–6) as written? Keep both the pushed and the driven distance calibration for the report? Which duty, ramp and maximum-speed limits does your supervisor want?
+17. Do you want `pytest`/`ruff` on the Pi (they are in the lock file, about 15 MB)?
+18. Sprint 4 questions 2–4 keep their defaults (WAV accepted; stale sources stop answering; source 66 open).
+
+## What only Mohannd can do
+- Decide questions 1–6 with the supervisor; **buy the parts** (and the extra parts of option B).
+- **Wire** the robot, **fill in the pin table** in `docs/HARDWARE.md`, run `pins_from_table.py`, commit `pins_generated.h`.
+- Run **every step of `docs/BRINGUP.md`** on the real robot — the steps write the calibration values for you. Tick them in the admin "Bring-up" tab.
+- Do the **phone-camera test** (sprint 4 log) and later the same with the real webcam: `visiond` has never seen a face.
+- Floor tests: at least 10 **return trials measured with a tape**, the blocked-return, sensor-unplugged and backend-off tests, the 30-minute mixed test.
+- **Listen**: the voices (TTS decision), the streamed answers, the robot's speech on the real speaker.
+- Places and labs in the admin (still empty), real MEU photos and videos for the media library.
+- Measure the mechanical parts with calipers before printing (`mechanical/README.md`).
+
+## When the parts arrive — step by step
+Follow `docs/BRINGUP.md`; this is its outline. **No step says "write code".** Simulated results never count; only what you measure on the robot does.
+1. **Before power** (laptop, nothing on the battery): decide option A/B; buy the extra parts; check the DevKit is a WROOM-32; measure one encoder at 3.3 V; fit the ENA/ENB pull-downs; wire; fill in the pin table in `docs/HARDWARE.md`; `python firmware/tools/pins_from_table.py --check`, then without `--check`; commit `docs/HARDWARE.md` and `firmware/include/pins_generated.h`.
+2. **Flash** (ESP32 on the laptop's USB, battery off): `bash firmware/tools/build_release.sh`; flash with esptool as written; `robotctl diag --port COMx` (expect `PINS_CONFIRMED`, no `SIMULATED`), `--expect-version` → `SAME`; `robotctl status`.
+3. **Tracks off the ground**: `robotctl motor-test` per side (it raises the duty caps only for the test, after a second confirmation); accept the proposed motor/encoder inversions; check the watchdog stop by unplugging USB.
+4. **Encoders**: `robotctl encoder-check` (push each track by hand).
+5. **Sensors**: `robotctl diag` (I2C scan: 0x68/0x69, 0x40, 0x20), `ultrasonic-check --distance 0.50`, the local obstacle stop by hand, `gyro-cal`, `battery-cal --multimeter`, `servo-cal`.
+6. **Calibration**: `distance-cal --runs 5` (3 m tape → `METRES_PER_TICK`; closed-loop driving is refused until this exists), `rotate-test` (→ `GYRO_SCALE`), `pid-step` on the stand; `param save`.
+7. **Pi**: `bash robot/deploy/setup.sh`, set `BACKEND_URL`, `ROBOT_TOKEN`, the settings PIN; copy the calibration file to `/etc/smart-campus-robot/calibration.json`; reboot; check the kiosk, touch, speaker, microphone; flash from the Pi once with `flash_esp32.sh`; `hfov-cal`.
+8. **Floor**: short roaming at low speed with a hand on the switch; `square-test`; `return-trial` ×10 with the tape; blocked-return, sensor-unplugged and backend-off tests; the 30-minute test with the black box and the energy figure.
+
+## What is not verified, said plainly
+- **Nothing ran on real hardware.** No ESP32, Raspberry Pi, Rover 5, motor, encoder, IMU, INA219, ultrasonic sensor, servo, MCP23017, L298N, camera, screen, speaker or microphone was used. The firmware's ESP32 code was **compiled and linked, never executed** (drivers, task watchdog, I2C task and bus clear, NVS, PCNT on both cores, echo interrupts, "motor pins LOW first").
+- **Every robot number is a placeholder or a simulator output:** speeds, distances, PID gains, duty caps, `V_DRIVER_DROP`, battery table and thresholds, servo limits, field of view, slip and sign-fault thresholds, hysteresis, the AprilTag numbers. None may go into the report as a result.
+- **The bring-up tools ran only against the simulated ESP32**, with scripted operator input; `pid-step` and `square-test` numbers come from the simulator's idealised control loop. The release build and the esptool flash were never run with a real firmware (no pin table yet); the command shape was checked with the CI build.
+- **The Pi install ran in an emulated arm64 container, not on a Pi.** Not checked: boot, systemd, udev, the serial port, the kiosk on the real screen (labwc autostart, cursor, blanking, touch mapping, 1024×600), audio, `vcgencmd`, `wpctl`, `nmcli`, the hotspot, MediaPipe speed on a Pi.
+- **`visiond` has never seen a face**; AprilTag detection only on synthetic images.
+- **Pin facts not re-read today:** the ESP32 datasheet, WROOM-32 datasheet and errata (GPIO5 strapping role, ADC2 list, PCNT count); "GPIO 5/14/15 output signals at boot" is commonly reported, not from Espressif; the Rover 5 encoder supply range was not found in any source; several electrical figures (L298 input threshold, HC-SR04 with a 3.3 V trigger, MCP23017) are from memory.
+- **Register maps** (ICM-20948, INA219) were written from memory of the datasheets in sprint 4 and are still unchecked against the devices.
+- **The admin "Bring-up" tab and the new "Robot (live)" fields** were rendered against a mock server only; the settings page and the camera guard were never opened in a real browser or on a touch screen.
+- **Latency:** speech-to-text was not measured; the end-of-speech figure is an estimate. Nobody listened to the audio.
+- **CI:** the workflow ran once on GitHub (all four jobs green). Its backend job marks the curated knowledge approved in a throw-away database (question 6); it does not cover hardware, OpenAI, the arm64 container test or the admin page in a browser.
+- **Mechanical parts:** no dimension verified, nothing printed.
