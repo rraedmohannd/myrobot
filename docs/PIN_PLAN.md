@@ -115,6 +115,11 @@ Option A does not fit: 25 signals need 25 pins and the board has 24 even after s
 - **10 kΩ pull-down from each L298N ENA and ENB to GND** (4 resistors). Until the firmware drives the PWM line, the enables are low, so the tracks cannot move while the ESP32 boots, resets, is being flashed or is unplugged. The L298N module's ENA/ENB jumpers (to 5 V) **must be removed**, otherwise the motors run at full speed whenever IN1/IN2 differ.
 - **Motor outputs LOW as the very first thing in `setup()`** (S2.4; firmware's job): PWM and direction pins to OUTPUT LOW before the serial port, I2C or anything else.
 - None of the motor pins in the proposal is a strapping pin, so no motor signal can change how the chip boots, and the boot-time state of a strapping pin can never reach a motor.
+- **No motor line (the six `PIN_MOTOR_*` signals) on GPIO 1, 3, 5, 14 or 15** (firmware safety review, finding 4b). The checker refuses them on those rows. Why, and how sure:
+  - GPIO1 / GPIO3 are UART0; the ROM bootloader prints its boot messages on U0TXD (GPIO1) at every reset — **Espressif** ([BOOT], "MTDO / GPIO15": "silences boot messages printed by the ROM bootloader"; [IDF-GPIO] TXD/RXD).
+  - GPIO5 and GPIO15 are strapping pins with internal pull-ups at reset, so they sit high until `setup()` runs — **Espressif** ([BOOT] for GPIO15; [DS, not re-read] for GPIO5).
+  - GPIO5, GPIO14 and GPIO15 output a short PWM / pulse signal during boot — **commonly reported** by hobbyist pin guides (e.g. Random Nerd Tutorials' "ESP32 Pinout Reference"); **not found in Espressif documents and not verified** here. Treated as true to be safe.
+  - The proposal (§8) already puts no motor line on these pins (motors on 25, 26, 27, 33, 32, 23); GPIO14 and GPIO5/15 carry echo inputs only, so **no change to the proposed table was needed**.
 - Echoes on GPIO5/GPIO15: the HC-SR04 holds its echo low when idle (and the divider pulls it low when the sensor is unpowered), so at reset GPIO15 is low (ROM log silenced) and GPIO5 is low (SDIO timing, unused). Both are harmless; the table still asks for "yes" on those rows.
 
 ## 8. Proposed wiring table

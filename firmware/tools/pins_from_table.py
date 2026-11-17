@@ -42,6 +42,10 @@ FLASH_GPIOS = frozenset(range(6, 12))  # SPI flash of the module
 UART0_GPIOS = frozenset({1, 3})  # TX0 / RX0 = USB link to the Pi and the flashing port
 INPUT_ONLY_GPIOS = frozenset({34, 35, 36, 39})  # no output driver, no internal pull-up/down
 STRAPPING_GPIOS = frozenset({0, 2, 5, 12, 15})
+# Never on a motor line (safety review 4b): UART0 TX/RX carry the ROM boot log, GPIO5/15 are
+# strapping pins with pull-ups at reset, GPIO5/14/15 are commonly reported to output a signal
+# during boot (not in Espressif docs). See docs/PIN_PLAN.md section 7.
+MOTOR_BOOT_FORBIDDEN_GPIOS = frozenset({1, 3, 5, 14, 15})
 STRAPPING_NOTES = {
     0: "GPIO0 low at reset = download mode: the robot does not boot",
     2: "GPIO2 takes part in the boot-mode selection; many DevKits have an LED on it",
@@ -292,6 +296,13 @@ def check(table_text: str, pins_h_text: str) -> Result:
         gpio = int(mg.group(1))
         if gpio not in EXISTING_GPIOS:
             err(row, f"GPIO{gpio} does not exist on the ESP32 DevKit 38-pin")
+            continue
+        if row.name.startswith("PIN_MOTOR_") and gpio in MOTOR_BOOT_FORBIDDEN_GPIOS:
+            err(
+                row,
+                f"GPIO{gpio} outputs a signal / is a strapping or UART pin during boot; a motor "
+                "line there can move a track while the ESP32 boots (docs/PIN_PLAN.md)",
+            )
             continue
         if gpio in FLASH_GPIOS:
             err(row, f"GPIO{gpio} is a flash pin (6-11): never usable")

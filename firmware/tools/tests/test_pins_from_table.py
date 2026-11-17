@@ -94,6 +94,7 @@ def test_checksum_changes_with_the_table(tmp_path: Path) -> None:
         ("invalid_gpio.md", "GPIO24 does not exist"),
         ("expander_no_addr.md", "expander address"),
         ("expander_on_echo.md", "expander pins are allowed only"),
+        ("motor_boot_pin.md", "GPIO14 outputs a signal / is a strapping or UART pin during boot; a motor line there can move a track"),
         ("expander_on_dir.md", "X4: expander pins are allowed only on the four PIN_US_*_TRIG rows"),
     ],
 )
@@ -155,3 +156,19 @@ def test_no_table_is_exit_2(tmp_path: Path, capsys) -> None:
     table = tmp_path / "t.md"
     table.write_text("# nothing here\n", encoding="utf-8")
     assert pft.main(["--table", str(table), "--pins-h", str(PINS_H), "--check"]) == 2
+
+
+@pytest.mark.parametrize("gpio", [1, 3, 5, 14, 15])
+def test_motor_rows_refuse_boot_pins(gpio: int) -> None:
+    good = (FIXTURES / "good.md").read_text(encoding="utf-8")
+    assert good.count("| out | – | 23 | |") == 1
+    text = good.replace("| out | – | 23 | |", f"| out | – | {gpio} | yes |")  # even with "yes"
+    res = pft.check(text, PINS_H.read_text(encoding="utf-8"))
+    msgs = [e for e in res.errors if "PIN_MOTOR_RIGHT_DIR_B" in e]
+    assert any(f"GPIO{gpio} outputs a signal / is a strapping or UART pin during boot" in m for m in msgs)
+    assert not res.ok
+
+
+def test_boot_pins_still_allowed_for_non_motor_inputs() -> None:
+    # good.md uses GPIO14, 5 and 15 for echo inputs: accepted
+    assert pft.check((FIXTURES / "good.md").read_text(encoding="utf-8"), PINS_H.read_text(encoding="utf-8")).ok
