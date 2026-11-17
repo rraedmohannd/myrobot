@@ -33,15 +33,18 @@ class IEncoders {
 };
 
 struct ImuSample {
-  int32_t gyro_z_urad_s;  // raw: bias NOT removed, counter-clockwise positive
+  int32_t gyro_z_urad_s;  // raw: bias NOT removed, counter-clockwise positive (= gyro_urad_s[2])
   int16_t accel_mg[3];    // x forward, y left, z up
+  int32_t gyro_urad_s[3]; // raw rates about forward / left / up (bring-up stream IMU_RAW)
 };
 
+// On the ESP32 the I2C transfers run in their own task (never on the control task):
+// read() only copies the latest sample and returns false when it is stale or failed.
 class IImu {
  public:
   virtual ~IImu() = default;
   virtual bool begin() = 0;
-  virtual bool read(ImuSample* out) = 0;  // false = read error
+  virtual bool read(ImuSample* out) = 0;  // false = read error / no fresh sample
 };
 
 enum class EchoState : uint8_t {
@@ -67,11 +70,43 @@ class IServo {
   virtual void writePulseUs(uint16_t pulse_us) = 0;
 };
 
+// INA219, raw values: the application applies the runtime parameters INA219_SHUNT_OHMS,
+// BATTERY_VOLTAGE_SCALE, BATTERY_CURRENT_SCALE and INA219_INVERT_CURRENT.
 class IPowerSensor {
  public:
   virtual ~IPowerSensor() = default;
   virtual bool begin() = 0;
-  virtual bool read(uint16_t* bus_mv, int16_t* current_ma) = 0;  // positive = discharging
+  virtual bool read(uint16_t* bus_mv, int32_t* shunt_uv) = 0;  // false = no fresh reading
+};
+
+// Persistent parameter storage (NVS "Preferences" on the ESP32, in-memory stub off-target).
+class IParamStorage {
+ public:
+  virtual ~IParamStorage() = default;
+  virtual bool begin() = 0;
+  virtual bool read(uint16_t id, float* value) = 0;  // false = nothing stored for this id
+  virtual bool write(uint16_t id, float value) = 0;
+  virtual bool commit() = 0;
+};
+
+// System services for diagnostics and robustness. Every call is non-blocking; anything slow
+// (the I2C scan, the bus recovery) happens in another task on the ESP32.
+class ISystem {
+ public:
+  virtual ~ISystem() = default;
+  virtual uint8_t resetReason() = 0;  // proto::ResetReason
+  virtual uint32_t freeHeap() = 0;
+  // Control-loop period statistics measured by the ESP32 main (us): max and jitter (max - min)
+  // since the last call; they restart after each call.
+  virtual void loopStats(uint16_t* period_max_us, uint16_t* jitter_us) = 0;
+  // Ask for a new I2C scan (done in the I2C task, bounded in time) ...
+  virtual void requestI2cScan() = 0;
+  // ... true once it is finished; addresses of the last finished scan (7 bit, at most cap).
+  virtual bool i2cScanDone() = 0;
+  virtual uint8_t i2cScanResult(uint8_t* addr, uint8_t cap) = 0;
+  // Number of bus-clear attempts of the last I2C bus recovery, once per recovery (0 = none).
+  virtual uint8_t takeI2cRecovered() = 0;
+  virtual bool expanderPresent() = 0;  // MCP23017 of pin-plan option B answered
 };
 
 // The serial port to the Pi. Binary protocol frames only.
@@ -90,6 +125,8 @@ struct Hardware {
   IServo* servo = nullptr;
   IPowerSensor* power = nullptr;
   ILinkPort* link = nullptr;
+  IParamStorage* storage = nullptr;  // optional: without it, parameters are not persistent
+  ISystem* system = nullptr;         // optional: without it, DIAG reports zeros for these fields
 };
 
 }  // namespace hal

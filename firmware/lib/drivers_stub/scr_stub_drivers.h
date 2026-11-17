@@ -6,6 +6,7 @@
 #include <cstddef>
 #include <cstdint>
 #include <deque>
+#include <map>
 #include <vector>
 
 #include "scr_hal.h"
@@ -51,7 +52,7 @@ class StubImu : public hal::IImu {
  public:
   bool begin_result = true;
   bool read_result = true;
-  hal::ImuSample sample{0, {0, 0, 1000}};
+  hal::ImuSample sample{0, {0, 0, 1000}, {0, 0, 0}};
 
   bool begin() override { return begin_result; }
   bool read(hal::ImuSample* out) override {
@@ -111,15 +112,82 @@ class StubPower : public hal::IPowerSensor {
   bool begin_result = true;
   bool read_result = true;
   uint16_t mv = 12000;
-  int16_t ma = 500;
+  int16_t ma = 500;  // converted to the raw shunt voltage of the default 0.1 ohm shunt
 
   bool begin() override { return begin_result; }
-  bool read(uint16_t* bus_mv, int16_t* current_ma) override {
+  bool read(uint16_t* bus_mv, int32_t* shunt_uv) override {
     if (!read_result) return false;
     *bus_mv = mv;
-    *current_ma = ma;
+    *shunt_uv = static_cast<int32_t>(ma) * 100;  // mA * 0.1 ohm = 100 uV per mA
     return true;
   }
+};
+
+// In-memory "NVS". Keeps its content when the application object is destroyed, so a test can
+// simulate a reboot by building a new FirmwareApp on the same storage.
+class StubStorage : public hal::IParamStorage {
+ public:
+  bool begin_result = true;
+  bool write_result = true;
+  std::map<uint16_t, float> committed;
+  std::map<uint16_t, float> pending;
+  int commits = 0;
+
+  bool begin() override { return begin_result; }
+  bool read(uint16_t id, float* value) override {
+    auto it = committed.find(id);
+    if (it == committed.end()) return false;
+    *value = it->second;
+    return true;
+  }
+  bool write(uint16_t id, float value) override {
+    if (!write_result) return false;
+    pending[id] = value;
+    return true;
+  }
+  bool commit() override {
+    if (!write_result) return false;
+    for (const auto& kv : pending) committed[kv.first] = kv.second;
+    pending.clear();
+    ++commits;
+    return true;
+  }
+};
+
+// System services: everything settable by the test. SIMULATED values only.
+class StubSystem : public hal::ISystem {
+ public:
+  uint8_t reset_reason = 1;  // power-on
+  uint32_t free_heap = 123456;
+  uint16_t period_max_us = 10000;
+  uint16_t jitter_us = 0;
+  std::vector<uint8_t> i2c_found;
+  bool scan_done = true;
+  int scan_requests = 0;
+  uint8_t recovered_attempts = 0;  // > 0: one recovery is reported by the next take
+  bool expander = false;
+
+  uint8_t resetReason() override { return reset_reason; }
+  uint32_t freeHeap() override { return free_heap; }
+  void loopStats(uint16_t* max_us, uint16_t* jit_us) override {
+    *max_us = period_max_us;
+    *jit_us = jitter_us;
+  }
+  void requestI2cScan() override { ++scan_requests; }
+  bool i2cScanDone() override { return scan_done; }
+  uint8_t i2cScanResult(uint8_t* addr, uint8_t cap) override {
+    uint8_t n = 0;
+    for (uint8_t a : i2c_found) {
+      if (n < cap) addr[n++] = a;
+    }
+    return n;
+  }
+  uint8_t takeI2cRecovered() override {
+    const uint8_t a = recovered_attempts;
+    recovered_attempts = 0;
+    return a;
+  }
+  bool expanderPresent() override { return expander; }
 };
 
 class StubLink : public hal::ILinkPort {
@@ -149,6 +217,8 @@ struct StubRobot {
   StubServo servo;
   StubPower power;
   StubLink link;
+  StubStorage storage;
+  StubSystem system;
 
   float sim_ticks_per_s_at_full_duty = 4000.0f;  // arbitrary
   float sim_pos[4] = {0, 0, 0, 0};
@@ -162,6 +232,8 @@ struct StubRobot {
     hw.servo = &servo;
     hw.power = &power;
     hw.link = &link;
+    hw.storage = &storage;
+    hw.system = &system;
     return hw;
   }
 

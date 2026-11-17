@@ -51,6 +51,15 @@ float RampLimiter::update(float target, float dt_s) {
 }
 
 // ---- ServoController ------------------------------------------------------------------------
+void ServoController::setConfig(const ServoConfig& c) {
+  c_ = c;
+  if (commanded_) setTarget(target_);
+  const float lo = static_cast<float>(c_.min_cdeg);
+  const float hi = static_cast<float>(c_.max_cdeg);
+  if (current_ < lo) current_ = lo;
+  if (current_ > hi) current_ = hi;
+}
+
 void ServoController::setTarget(int16_t pan_cdeg) {
   if (pan_cdeg < c_.min_cdeg) pan_cdeg = c_.min_cdeg;
   if (pan_cdeg > c_.max_cdeg) pan_cdeg = c_.max_cdeg;
@@ -171,6 +180,91 @@ bool EncoderFaultDetector::update(uint32_t now_ms, float duty, int32_t delta_tic
     return true;
   }
   return false;
+}
+
+// ---- VoltageCompensator ---------------------------------------------------------------------
+void VoltageCompensator::update(float volts, bool valid, float dt_s) {
+  if (!valid || !(volts >= kPlausibleMinV && volts <= kPlausibleMaxV)) {
+    have_ = false;  // back to the conservative full-pack constant
+    v_ = kFullPackV;
+    return;
+  }
+  if (!have_ || volts >= v_) {
+    v_ = volts;  // first reading or a rise: follow at once (lower cap)
+  } else {
+    const float tau = c_.fall_tau_s > 0.0f ? c_.fall_tau_s : 0.0f;
+    const float a = tau > 0.0f ? (dt_s / (tau + dt_s)) : 1.0f;
+    v_ += a * (volts - v_);  // a fall: slowly
+  }
+  have_ = true;
+}
+
+float VoltageCompensator::dutyCap() const {
+  float absolute = c_.motor_max_duty;
+  if (!(absolute > 0.0f)) return 0.0f;  // also catches NaN
+  if (absolute > 1.0f) absolute = 1.0f;
+  float headroom = filteredVolts() - c_.v_driver_drop;
+  if (!(headroom > kMinHeadroomV)) headroom = kMinHeadroomV;
+  float cap = c_.motor_rated_v / headroom;
+  if (!(cap > 0.0f)) cap = 0.0f;
+  return cap < absolute ? cap : absolute;
+}
+
+// ---- SlipDetector ---------------------------------------------------------------------------
+bool SlipDetector::update(uint32_t now_ms, int32_t front_delta, int32_t rear_delta) {
+  if (!started_) {
+    started_ = true;
+    window_start_ms_ = now_ms;
+  }
+  front_ += front_delta;
+  rear_ += rear_delta;
+  if (now_ms - window_start_ms_ < c_.window_ms) return false;
+  const int32_t f = front_ < 0 ? -front_ : front_;
+  const int32_t r = rear_ < 0 ? -rear_ : rear_;
+  const int32_t m = f > r ? f : r;
+  int64_t diff = static_cast<int64_t>(front_) - static_cast<int64_t>(rear_);
+  if (diff < 0) diff = -diff;
+  front_ = 0;
+  rear_ = 0;
+  window_start_ms_ = now_ms;
+  const bool slip = m > c_.min_ticks && static_cast<float>(diff) > c_.ratio * static_cast<float>(m);
+  if (slip && !latched_) {
+    latched_ = true;
+    return true;
+  }
+  if (!slip) latched_ = false;  // re-armed
+  return false;
+}
+
+// ---- PCNT -----------------------------------------------------------------------------------
+int32_t pcntDelta(int16_t previous, int16_t now, int16_t limit) {
+  const int32_t lim = limit;
+  int32_t d = static_cast<int32_t>(now) - static_cast<int32_t>(previous);
+  if (d > lim / 2) d -= lim;   // wrapped downward through -limit -> 0
+  if (d < -(lim / 2)) d += lim;  // wrapped upward through +limit -> 0
+  return d;
+}
+
+int32_t wrapAdd(int32_t total, int32_t delta) {
+  return static_cast<int32_t>(static_cast<uint32_t>(total) + static_cast<uint32_t>(delta));
+}
+
+// ---- SoftTaskWatchdog -----------------------------------------------------------------------
+int SoftTaskWatchdog::add(uint32_t now_ms) {
+  if (count_ >= 4) return -1;
+  last_[count_] = now_ms;
+  return count_++;
+}
+
+void SoftTaskWatchdog::feed(int id, uint32_t now_ms) {
+  if (id >= 0 && id < count_) last_[id] = now_ms;
+}
+
+int SoftTaskWatchdog::expired(uint32_t now_ms) const {
+  for (int i = 0; i < count_; ++i) {
+    if (now_ms - last_[i] >= timeout_ms_) return i;
+  }
+  return -1;
 }
 
 }  // namespace scr

@@ -24,6 +24,7 @@ int8_t UltrasonicScheduler::nextPresent() {
   for (int tries = 0; tries < 4; ++tries) {
     const uint8_t idx = static_cast<uint8_t>(c_.order[order_pos_] & 3);
     order_pos_ = static_cast<uint8_t>((order_pos_ + 1) % 4);
+    if (order_pos_ == 0) ++rounds_;
     if (hw_->present(idx)) return static_cast<int8_t>(idx);
     mm_[idx] = proto::kUsAbsent;
   }
@@ -42,11 +43,13 @@ void UltrasonicScheduler::tick(uint32_t now_ms) {
         mm_[i] = mm > static_cast<float>(c_.max_range_mm) ? proto::kUsNoEcho
                                                           : static_cast<uint16_t>(mm + 0.5f);
         misses_[i] = 0;
+        answered_[i] = true;
         break;
       }
       case hal::EchoState::Timeout:
         mm_[i] = proto::kUsNoEcho;
         misses_[i] = 0;
+        answered_[i] = true;
         break;
       case hal::EchoState::NoRise:
         if (misses_[i] < 255) ++misses_[i];

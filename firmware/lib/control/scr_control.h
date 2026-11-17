@@ -24,6 +24,10 @@ class Pid {
   Pid() = default;
   explicit Pid(const PidGains& g) : g_(g) {}
   void setGains(const PidGains& g) { g_ = g; }
+  void setOutputLimits(float lo, float hi) {
+    g_.out_min = lo;
+    g_.out_max = hi;
+  }
   void reset();
   float update(float setpoint, float measured, float dt_s);
   float integral() const { return integral_; }
@@ -67,6 +71,8 @@ struct ServoConfig {
 class ServoController {
  public:
   explicit ServoController(const ServoConfig& c) : c_(c) {}
+  // New limits (runtime parameters): the target is clamped again, the current angle too.
+  void setConfig(const ServoConfig& c);
   void setTarget(int16_t pan_cdeg);  // clamped to the limits
   void update(float dt_s);           // moves the current angle toward the target
   int16_t targetCdeg() const { return target_; }
@@ -125,6 +131,7 @@ struct BatteryConfig {
 class BatteryMonitor {
  public:
   explicit BatteryMonitor(const BatteryConfig& c) : c_(c) {}
+  void setConfig(const BatteryConfig& c) { c_ = c; }
   // Returns true exactly once, when the low state is entered.
   bool update(uint32_t now_ms, uint16_t mv, bool sensor_ok);
   bool low() const { return low_; }
@@ -147,6 +154,7 @@ struct EncoderFaultConfig {
 class EncoderFaultDetector {
  public:
   explicit EncoderFaultDetector(const EncoderFaultConfig& c) : c_(c) {}
+  void setConfig(const EncoderFaultConfig& c) { c_ = c; }
   // duty of the track this encoder belongs to; delta = ticks since the last call.
   // Returns true exactly once per fault (re-armed when the encoder counts again).
   bool update(uint32_t now_ms, float duty, int32_t delta_ticks);
@@ -157,6 +165,97 @@ class EncoderFaultDetector {
   bool timing_ = false;
   bool faulty_ = false;
   uint32_t since_ms_ = 0;
+};
+
+// ---------------------------------------------------------------------------------------------
+// Motor voltage compensation (interface spec A8, sprint 4 question 6). The Rover 5 motors are
+// rated 7.2 V and the pack is a 3S Li-ion (12.6 V full). The duty cap keeps the average motor
+// voltage at or below the rating:
+//   duty_cap = min(MOTOR_MAX_DUTY, MOTOR_RATED_V / max(V_batt - V_DRIVER_DROP, 0.1 V))
+// V_batt is filtered ASYMMETRICALLY, on the safe side: a rise is followed at once (a higher
+// voltage lowers the cap immediately), a fall only slowly (a sag under load must not raise the
+// cap at once). Without a valid reading (no INA219, read error, implausible value) the full-pack
+// constant 12.6 V is used and fallback() is true (telemetry flag 13).
+struct VoltageCompConfig {
+  float motor_max_duty = 0.0f;     // absolute cap (parameter MOTOR_MAX_DUTY)
+  float motor_rated_v = 7.2f;      // MOTOR_RATED_V
+  float v_driver_drop = 2.0f;      // V_DRIVER_DROP
+  float fall_tau_s = 2.0f;         // time constant of the slow downward filter
+};
+
+class VoltageCompensator {
+ public:
+  static constexpr float kFullPackV = 12.6f;   // conservative constant without a reading
+  static constexpr float kMinHeadroomV = 0.1f; // the epsilon of A8
+  static constexpr float kPlausibleMinV = 3.0f;   // below: not a battery reading (USB only, error)
+  static constexpr float kPlausibleMaxV = 20.0f;
+
+  explicit VoltageCompensator(const VoltageCompConfig& c) : c_(c) {}
+  void setConfig(const VoltageCompConfig& c) { c_ = c; }
+  // One INA219 reading (already scaled), or valid = false when there is none.
+  void update(float volts, bool valid, float dt_s);
+  float dutyCap() const;          // 0..1
+  bool fallback() const { return !have_; }
+  float filteredVolts() const { return have_ ? v_ : kFullPackV; }
+
+ private:
+  VoltageCompConfig c_;
+  bool have_ = false;
+  float v_ = kFullPackV;
+};
+
+// ---------------------------------------------------------------------------------------------
+// Slip of one track side (interface spec A5, docs/ODOMETRY.md section 3): over a 0.5 s window,
+// |front - rear| ticks > ratio * max(|front|, |rear|) while max(|front|, |rear|) > min_ticks.
+// One event per episode; re-armed after a window without slip.
+struct SlipConfig {
+  float ratio = 0.25f;        // SLIP_RATIO
+  int32_t min_ticks = 30;     // SLIP_MIN_TICKS
+  uint32_t window_ms = 500;
+};
+
+class SlipDetector {
+ public:
+  explicit SlipDetector(const SlipConfig& c) : c_(c) {}
+  void setConfig(const SlipConfig& c) { c_ = c; }
+  // Ticks of this side's front and rear encoder since the last call. True exactly once at the
+  // end of the first window of a slip episode.
+  bool update(uint32_t now_ms, int32_t front_delta, int32_t rear_delta);
+  bool slipping() const { return latched_; }
+
+ private:
+  SlipConfig c_;
+  bool started_ = false;
+  uint32_t window_start_ms_ = 0;
+  int32_t front_ = 0;
+  int32_t rear_ = 0;
+  bool latched_ = false;
+};
+
+// ---------------------------------------------------------------------------------------------
+// ESP32 PCNT counters are 16 bit and reset to 0 when they reach the high or low limit (+-limit).
+// The count therefore moves on a circle of `limit` values. Given two successive readings, the
+// change is the shortest way round that circle (valid while fewer than limit/2 ticks happen
+// between two reads: at 100 Hz and limit 32767 that is 1.6 million ticks/s).
+int32_t pcntDelta(int16_t previous, int16_t now, int16_t limit);
+// Adds a delta to a cumulative 32-bit count with defined two's-complement wrap (no signed
+// overflow UB): the Pi sees int32 counts and takes differences modulo 2^32.
+int32_t wrapAdd(int32_t total, int32_t delta);
+
+// ---------------------------------------------------------------------------------------------
+// A software model of the task watchdog, for the sim-check fault injection and the tests (the
+// ESP32 itself uses esp_task_wdt). Each registered task must feed() within timeout_ms.
+class SoftTaskWatchdog {
+ public:
+  explicit SoftTaskWatchdog(uint32_t timeout_ms) : timeout_ms_(timeout_ms) {}
+  int add(uint32_t now_ms);          // returns the task id (0..3), -1 when full
+  void feed(int id, uint32_t now_ms);
+  int expired(uint32_t now_ms) const;  // id of a starved task, -1 = all fed
+
+ private:
+  uint32_t timeout_ms_;
+  uint32_t last_[4] = {0, 0, 0, 0};
+  int count_ = 0;
 };
 
 }  // namespace scr

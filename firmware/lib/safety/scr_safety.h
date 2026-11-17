@@ -46,6 +46,12 @@ struct SafetyEvent {
 class Safety {
  public:
   explicit Safety(const SafetyConfig& c) : c_(c) {}
+  // Runtime parameters OBSTACLE_THRESHOLD_MM / OBSTACLE_CLEAR_HYSTERESIS_MM (applied only while
+  // the tracks do not move: PARAM_SET is BUSY otherwise). The watchdog time stays compiled in.
+  void setObstacleConfig(uint16_t obstacle_mm, uint16_t clear_hysteresis_mm) {
+    c_.obstacle_mm = obstacle_mm;
+    c_.clear_hysteresis_mm = clear_hysteresis_mm;
+  }
 
   void begin(uint32_t now_ms);
 

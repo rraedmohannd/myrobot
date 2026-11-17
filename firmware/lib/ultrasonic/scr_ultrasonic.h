@@ -31,6 +31,9 @@ class UltrasonicScheduler {
   const uint16_t* distancesMm() const { return mm_; }
   bool anyFault() const;
   int8_t activeSensor() const { return active_; }
+  uint8_t misses(uint8_t i) const { return misses_[i & 3]; }  // consecutive "echo never started"
+  bool everAnswered(uint8_t i) const { return answered_[i & 3]; }  // echo started at least once
+  uint32_t rounds() const { return rounds_; }  // +1 each time the firing order starts over
 
  private:
   int8_t nextPresent();
@@ -40,6 +43,8 @@ class UltrasonicScheduler {
   bool hw_ok_ = false;
   uint16_t mm_[4];
   uint8_t misses_[4];
+  bool answered_[4] = {false, false, false, false};
+  uint32_t rounds_ = 0;
   int8_t active_ = -1;
   uint8_t order_pos_ = 0;
   uint32_t trigger_ms_ = 0;

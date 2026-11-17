@@ -100,6 +100,7 @@ void runDrivingScenario() {
   c.pid.kff = 2.5f;
   c.ramp_mm_s2 = 500.0f;
   c.max_speed_mm_s = 300;
+  c.motor_max_duty = 1.0f;      // SIMULATION ONLY (shipped default 0 = nothing moves)
   Sim sim(c);
   bool moved = false;
   bool stopped_by_obstacle = false;
