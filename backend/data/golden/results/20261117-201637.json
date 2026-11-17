@@ -1,0 +1,794 @@
+{
+  "model": "gpt-6-luna",
+  "started": "2026-11-17T20:16:37",
+  "total": 49,
+  "passed": 49,
+  "accuracy": 1.0,
+  "invented_numbers_total": 0,
+  "latency_median_ms": 2027,
+  "latency_p90_ms": 2628.0,
+  "results": [
+    {
+      "id": "ise-hours-ar",
+      "lang": "ar",
+      "kind": "answerable",
+      "question": "كم ساعة معتمدة بدها هندسة الأنظمة الذكية؟",
+      "answer": "هندسة الأنظمة الذكية بدها 162 ساعة معتمدة بالمجموع.",
+      "found": true,
+      "passed": true,
+      "reasons": [],
+      "invented_numbers": [],
+      "sources": [
+        "[1] Study Plan — B.Sc. Intelligent Systems Engineering 2025/2026 (official MEU PDF)"
+      ],
+      "total_ms": 7638,
+      "error": null
+    },
+    {
+      "id": "ise-hours-en",
+      "lang": "en",
+      "kind": "answerable",
+      "question": "How many credit hours is the Intelligent Systems Engineering degree?",
+      "answer": "The Intelligent Systems Engineering degree requires 162 credit hours in total.",
+      "found": true,
+      "passed": true,
+      "reasons": [],
+      "invented_numbers": [],
+      "sources": [
+        "[1] Study Plan — B.Sc. Intelligent Systems Engineering 2025/2026 (official MEU PDF)"
+      ],
+      "total_ms": 2581,
+      "error": null
+    },
+    {
+      "id": "faculty-programs-ar",
+      "lang": "ar",
+      "kind": "answerable",
+      "question": "شو التخصصات الموجودة بكلية الهندسة والتصميم؟",
+      "answer": "كلية الهندسة والتصميم فيها ستة تخصصات بكالوريوس: هندسة الطاقة المتجددة، هندسة الأنظمة الذكية، هندسة العمارة، الهندسة الطبية الحيوية، التصميم الجرافيكي، والتصميم الداخلي.",
+      "found": true,
+      "passed": true,
+      "reasons": [],
+      "invented_numbers": [],
+      "sources": [
+        "[1] دليل الطالب — Student's Handbook 2025/2026, Middle East University",
+        "[6] Faculty of Engineering & Design — departments and programs (MEU website + official study plans 2025/2026)"
+      ],
+      "total_ms": 3064,
+      "error": null
+    },
+    {
+      "id": "faculty-programs-en",
+      "lang": "en",
+      "kind": "answerable",
+      "question": "Which bachelor programs does the Faculty of Engineering & Design offer?",
+      "answer": "The Faculty of Engineering & Design offers six bachelor programs: Intelligent Systems Engineering, Renewable Energy Engineering, Architectural Engineering, Interior Design, Graphic Design, and Biomedical Engineering.",
+      "found": true,
+      "passed": true,
+      "reasons": [],
+      "invented_numbers": [],
+      "sources": [
+        "[1] Faculty of Engineering & Design — departments and programs (MEU website + official study plans 2025/2026)"
+      ],
+      "total_ms": 2422,
+      "error": null
+    },
+    {
+      "id": "arch-hours-ar",
+      "lang": "ar",
+      "kind": "answerable",
+      "question": "قديش ساعة هندسة العمارة؟",
+      "answer": "هندسة العمارة بتتطلب 165 ساعة معتمدة بالمجموع.",
+      "found": true,
+      "passed": true,
+      "reasons": [],
+      "invented_numbers": [],
+      "sources": [
+        "[4] Study Plan — B.Sc. Architectural Engineering 2025/2026 (official MEU PDF)"
+      ],
+      "total_ms": 2618,
+      "error": null
+    },
+    {
+      "id": "interior-hours-en",
+      "lang": "en",
+      "kind": "answerable",
+      "question": "How many credit hours do I need for Interior Design?",
+      "answer": "The study plan requires 141 credit hours in total.",
+      "found": true,
+      "passed": true,
+      "reasons": [],
+      "invented_numbers": [],
+      "sources": [
+        "[1] Study Plan — Bachelor of Interior Design 2025/2026 (official MEU PDF)"
+      ],
+      "total_ms": 251,
+      "error": null
+    },
+    {
+      "id": "graphic-hours-ar",
+      "lang": "ar",
+      "kind": "answerable",
+      "question": "التصميم الجرافيكي كم ساعة معتمدة؟",
+      "answer": "التصميم الجرافيكي بتطلب 135 ساعة معتمدة بالمجموع.",
+      "found": true,
+      "passed": true,
+      "reasons": [],
+      "invented_numbers": [],
+      "sources": [
+        "[2] Study Plan — Bachelor of Graphic Design 2025/2026 (official MEU PDF)"
+      ],
+      "total_ms": 1891,
+      "error": null
+    },
+    {
+      "id": "ree-hours-ar",
+      "lang": "ar",
+      "kind": "answerable",
+      "question": "هندسة الطاقة المتجددة كم ساعة؟",
+      "answer": "هندسة الطاقة المتجددة بتتطلب 162 ساعة معتمدة بالمجموع.",
+      "found": true,
+      "passed": true,
+      "reasons": [],
+      "invented_numbers": [],
+      "sources": [
+        "[1] Study Plan — B.Sc. Renewable Energy Engineering 2025/2026 (official MEU PDF)"
+      ],
+      "total_ms": 1920,
+      "error": null
+    },
+    {
+      "id": "ise-robots-ar",
+      "lang": "ar",
+      "kind": "answerable",
+      "question": "في مواد عن الروبوتات بتخصص الأنظمة الذكية؟",
+      "answer": "آه، في مواد مرتبطة بالروبوتات، منها برمجة الروبوت، وتفاعل الإنسان والروبوت كمادة اختيارية، وكمان الأنظمة المضمنة والحساسات والمشغّلات وإنترنت الأشياء.",
+      "found": true,
+      "passed": true,
+      "reasons": [],
+      "invented_numbers": [],
+      "sources": [
+        "[1] Study Plan — B.Sc. Intelligent Systems Engineering 2025/2026 (official MEU PDF)",
+        "[2] Study Plan — B.Sc. Intelligent Systems Engineering 2025/2026 (official MEU PDF)",
+        "[3] Study Plan — B.Sc. Intelligent Systems Engineering 2025/2026 (official MEU PDF)",
+        "[7] Study Plan — B.Sc. Intelligent Systems Engineering 2025/2026 (official MEU PDF)"
+      ],
+      "total_ms": 2628,
+      "error": null
+    },
+    {
+      "id": "ise-robot-course-en",
+      "lang": "en",
+      "kind": "answerable",
+      "question": "Is there a robot programming course in Intelligent Systems Engineering?",
+      "answer": "Yes. Intelligent Systems Engineering includes Robot Programming (1924704), a 3-credit-hour course requiring Embedded Systems first.",
+      "found": true,
+      "passed": true,
+      "reasons": [],
+      "invented_numbers": [],
+      "sources": [
+        "[2] Study Plan — B.Sc. Intelligent Systems Engineering 2025/2026 (official MEU PDF)",
+        "[3] Study Plan — B.Sc. Intelligent Systems Engineering 2025/2026 (official MEU PDF)"
+      ],
+      "total_ms": 2039,
+      "error": null
+    },
+    {
+      "id": "ise-robot-prereq-ar",
+      "lang": "ar",
+      "kind": "answerable",
+      "question": "شو المتطلب السابق لمادة برمجة الروبوت؟",
+      "answer": "المتطلب السابق لمادة برمجة الروبوت هو الأنظمة المضمنة.",
+      "found": true,
+      "passed": true,
+      "reasons": [],
+      "invented_numbers": [],
+      "sources": [
+        "[1] Study Plan — B.Sc. Intelligent Systems Engineering 2025/2026 (official MEU PDF)"
+      ],
+      "total_ms": 2041,
+      "error": null
+    },
+    {
+      "id": "ise-ml-prereq-en",
+      "lang": "en",
+      "kind": "answerable",
+      "question": "What is the prerequisite of Machine Learning in Intelligent Systems Engineering?",
+      "answer": "Machine Learning requires Data Science as a prerequisite.",
+      "found": true,
+      "passed": true,
+      "reasons": [],
+      "invented_numbers": [],
+      "sources": [
+        "[1] Study Plan — B.Sc. Intelligent Systems Engineering 2025/2026 (official MEU PDF)"
+      ],
+      "total_ms": 2075,
+      "error": null
+    },
+    {
+      "id": "ise-careers-ar",
+      "lang": "ar",
+      "kind": "answerable",
+      "question": "وين بيشتغلوا خريجين هندسة الأنظمة الذكية؟",
+      "answer": "خريجين هندسة الأنظمة الذكية بشتغلوا بمجالات زي تكنولوجيا المعلومات والاتصالات، السيارات الكهربائية والذاتية، الأمن، تحليل البيانات، المباني الذكية، النقل وخطوط الإنتاج الذكية. وكمان ممكن يأسسوا مشاريعهم الخاصة.",
+      "found": true,
+      "passed": true,
+      "reasons": [],
+      "invented_numbers": [],
+      "sources": [
+        "[1] Department Intelligent Systems Engineering — MEU website (English)"
+      ],
+      "total_ms": 2496,
+      "error": null
+    },
+    {
+      "id": "ise-careers-en",
+      "lang": "en",
+      "kind": "answerable",
+      "question": "Where do Intelligent Systems Engineering graduates work?",
+      "answer": "Work fields include information technology, telecommunications, electric cars and self-driving, as well as data analysis, smart buildings, transportation, and smart production lines.",
+      "found": true,
+      "passed": true,
+      "reasons": [],
+      "invented_numbers": [],
+      "sources": [
+        "[1] Department Intelligent Systems Engineering — MEU website (English)"
+      ],
+      "total_ms": 227,
+      "error": null
+    },
+    {
+      "id": "ise-accredit-ar",
+      "lang": "ar",
+      "kind": "answerable",
+      "question": "هل تخصص الأنظمة الذكية معتمد من نقابة المهندسين الأردنيين؟",
+      "answer": "آه، التخصص معتمد من نقابة المهندسين الأردنيين ضمن فرع هندسة الأنظمة والتحكم.",
+      "found": true,
+      "passed": true,
+      "reasons": [],
+      "invented_numbers": [],
+      "sources": [
+        "[1] Department Intelligent Systems Engineering — MEU website (English)"
+      ],
+      "total_ms": 2027,
+      "error": null
+    },
+    {
+      "id": "ise-accredit-en",
+      "lang": "en",
+      "kind": "answerable",
+      "question": "Is the Intelligent Systems Engineering program accredited?",
+      "answer": "According to the university, the program is accredited by the Federation of Arab Engineers, and the specialty is accredited by the Jordan Engineers Association under the Systems and Control Engineering branch.",
+      "found": true,
+      "passed": true,
+      "reasons": [],
+      "invented_numbers": [],
+      "sources": [
+        "[1] Department Intelligent Systems Engineering — MEU website (English)"
+      ],
+      "total_ms": 3,
+      "error": null
+    },
+    {
+      "id": "ree-founded-ar",
+      "lang": "ar",
+      "kind": "answerable",
+      "question": "إمتى تأسس قسم هندسة الطاقة المتجددة؟",
+      "answer": "تأسس قسم هندسة الطاقة المتجددة سنة 2014.",
+      "found": true,
+      "passed": true,
+      "reasons": [],
+      "invented_numbers": [],
+      "sources": [
+        "[1] Department of Renewable Energy Engineering — MEU website (English)"
+      ],
+      "total_ms": 1944,
+      "error": null
+    },
+    {
+      "id": "ree-tech-en",
+      "lang": "en",
+      "kind": "answerable",
+      "question": "What renewable technologies does the Renewable Energy Engineering program focus on?",
+      "answer": "The program focuses mainly on photovoltaic and concentrated solar power, and wind energy technologies.",
+      "found": true,
+      "passed": true,
+      "reasons": [],
+      "invented_numbers": [],
+      "sources": [
+        "[2] Department of Renewable Energy Engineering — MEU website (English)"
+      ],
+      "total_ms": 1904,
+      "error": null
+    },
+    {
+      "id": "ree-labs-ar",
+      "lang": "ar",
+      "kind": "answerable",
+      "question": "كم مختبر في قسم الطاقة المتجددة؟",
+      "answer": "القسم فيه أكثر من 12 مختبر متخصص بالطاقة المتجددة والحرارية.",
+      "found": true,
+      "passed": true,
+      "reasons": [],
+      "invented_numbers": [],
+      "sources": [
+        "[5] Department of Renewable Energy Engineering — MEU website (English)"
+      ],
+      "total_ms": 2474,
+      "error": null
+    },
+    {
+      "id": "arch-years-ar",
+      "lang": "ar",
+      "kind": "answerable",
+      "question": "كم سنة دراسة العمارة؟",
+      "answer": "دراسة هندسة العمارة مدتها الاعتيادية خمس سنين، يعني عشرة فصول.",
+      "found": true,
+      "passed": true,
+      "reasons": [],
+      "invented_numbers": [],
+      "sources": [
+        "[7] دليل الطالب — Student's Handbook 2025/2026, Middle East University"
+      ],
+      "total_ms": 2137,
+      "error": null
+    },
+    {
+      "id": "arch-founded-en",
+      "lang": "en",
+      "kind": "answerable",
+      "question": "When was the Department of Architecture founded?",
+      "answer": "The Department of Architecture was founded in the 2010/2011 academic year.",
+      "found": true,
+      "passed": true,
+      "reasons": [],
+      "invented_numbers": [],
+      "sources": [
+        "[1] Department of Architecture — MEU website (English)"
+      ],
+      "total_ms": 1898,
+      "error": null
+    },
+    {
+      "id": "arch-careers-ar",
+      "lang": "ar",
+      "kind": "answerable",
+      "question": "شو ممكن يشتغل خريج العمارة؟",
+      "answer": "خريج العمارة ممكن يشتغل بتصميم المباني، وتنسيق المواقع، والتصميم الحضري أو الداخلي، وكمان كمدير مشاريع مباني أو مهندس موقع. وفيه مجالات ثانية بالفن والتصميم، أو يكمل دراساته العليا.",
+      "found": true,
+      "passed": true,
+      "reasons": [],
+      "invented_numbers": [],
+      "sources": [
+        "[2] Department of Architecture — MEU website (English)"
+      ],
+      "total_ms": 2354,
+      "error": null
+    },
+    {
+      "id": "arch-training-en",
+      "lang": "en",
+      "kind": "answerable",
+      "question": "How long is the field practice in Architectural Engineering?",
+      "answer": "Field Practice involves 320 training hours and takes place after completing 110 credit hours.",
+      "found": true,
+      "passed": true,
+      "reasons": [],
+      "invented_numbers": [],
+      "sources": [
+        "[1] Study Plan — B.Sc. Architectural Engineering 2025/2026 (official MEU PDF)"
+      ],
+      "total_ms": 235,
+      "error": null
+    },
+    {
+      "id": "interior-training-ar",
+      "lang": "ar",
+      "kind": "answerable",
+      "question": "التدريب الميداني بالتصميم الداخلي قديش؟",
+      "answer": "التدريب الميداني ٦ ساعات معتمدة، وبشمل ٤٢٠ ساعة تدريب، بعد اجتياز ٩٠ ساعة معتمدة.",
+      "found": true,
+      "passed": true,
+      "reasons": [],
+      "invented_numbers": [],
+      "sources": [
+        "[1] Study Plan — Bachelor of Interior Design 2025/2026 (official MEU PDF)",
+        "[6] Study Plan — Bachelor of Interior Design 2025/2026 (official MEU PDF)"
+      ],
+      "total_ms": 2102,
+      "error": null
+    },
+    {
+      "id": "ise-head-en",
+      "lang": "en",
+      "kind": "answerable",
+      "question": "Who is the head of the Intelligent Systems Engineering department?",
+      "answer": "The head of the Intelligent Systems Engineering department is Dr. Mohammad Klaib.",
+      "found": true,
+      "passed": true,
+      "reasons": [],
+      "invented_numbers": [],
+      "sources": [
+        "[6] Study Plan — B.Sc. Intelligent Systems Engineering 2025/2026 (official MEU PDF)"
+      ],
+      "total_ms": 1909,
+      "error": null
+    },
+    {
+      "id": "dean-ar",
+      "lang": "ar",
+      "kind": "answerable",
+      "question": "مين عميد كلية الهندسة والتصميم؟",
+      "answer": "عميد كلية الهندسة والتصميم هو الأستاذ الدكتور أيمن عبد السلام عوض.",
+      "found": true,
+      "passed": true,
+      "reasons": [],
+      "invented_numbers": [],
+      "sources": [
+        "[1] Faculty of Engineering & Design — departments and programs (MEU website + official study plans 2025/2026)",
+        "[5] Study Plan — B.Sc. Architectural Engineering 2025/2026 (official MEU PDF)"
+      ],
+      "total_ms": 1887,
+      "error": null
+    },
+    {
+      "id": "graphic-animation-en",
+      "lang": "en",
+      "kind": "answerable",
+      "question": "Do Graphic Design students study animation?",
+      "answer": "Yes. Graphic Design students study 2D and 3D Animation as a required course.",
+      "found": true,
+      "passed": true,
+      "reasons": [],
+      "invented_numbers": [],
+      "sources": [
+        "[1] Study Plan — Bachelor of Graphic Design 2025/2026 (official MEU PDF)",
+        "[2] Study Plan — Bachelor of Graphic Design 2025/2026 (official MEU PDF)"
+      ],
+      "total_ms": 1906,
+      "error": null
+    },
+    {
+      "id": "graphic-history-ar",
+      "lang": "ar",
+      "kind": "answerable",
+      "question": "إمتى صار قسم التصميم الجرافيكي جزء من كلية العمارة والتصميم؟",
+      "answer": "صار قسم التصميم الجرافيكي جزء من كلية العمارة والتصميم بالسنة الأكاديمية 2010/2011.",
+      "found": true,
+      "passed": true,
+      "reasons": [],
+      "invented_numbers": [],
+      "sources": [
+        "[2] Department of Graphic Design — MEU website (English)"
+      ],
+      "total_ms": 1772,
+      "error": null
+    },
+    {
+      "id": "ise-vs-se-ar",
+      "lang": "ar",
+      "kind": "partial",
+      "question": "شو الفرق بين هندسة الأنظمة الذكية وهندسة البرمجيات؟",
+      "answer": "بكل احترام، بقدر أحكي عن كلية الهندسة والتصميم بس، وما بقدر أوصف أو أقارن تخصصات كليات أو جامعات ثانية. هندسة الأنظمة الذكية بتضم مواد بالذكاء الاصطناعي والروبوتات، وكمان أنظمة مضمنة وإنترنت الأشياء.",
+      "found": true,
+      "passed": true,
+      "reasons": [],
+      "invented_numbers": [],
+      "sources": [
+        "[1] نقطة ترويجية معتمدة"
+      ],
+      "total_ms": 5,
+      "error": null
+    },
+    {
+      "id": "ise-admission-avg-en",
+      "lang": "en",
+      "kind": "unanswerable",
+      "question": "What high school average do I need to get into Intelligent Systems Engineering?",
+      "answer": "I don’t have the required high school average information. Please check with the Admission and Registration Department.",
+      "found": false,
+      "passed": true,
+      "reasons": [],
+      "invented_numbers": [],
+      "sources": [],
+      "total_ms": 1917,
+      "error": null
+    },
+    {
+      "id": "ise-fee-ar",
+      "lang": "ar",
+      "kind": "unanswerable",
+      "question": "قديش سعر الساعة بهندسة الأنظمة الذكية؟",
+      "answer": "سعر الساعة لهندسة الأنظمة الذكية مش متوفر عندي. تقدر تسأل دائرة القبول والتسجيل عن الرسوم.",
+      "found": false,
+      "passed": true,
+      "reasons": [],
+      "invented_numbers": [],
+      "sources": [],
+      "total_ms": 2078,
+      "error": null
+    },
+    {
+      "id": "scholarships-ar",
+      "lang": "ar",
+      "kind": "partial",
+      "question": "في منح أو خصومات للطلاب الجدد بكلية الهندسة؟",
+      "answer": "آه، في منح تفوق رياضي للطلاب الجدد بالبكالوريوس، بس ما عندي تفاصيل عن التخصصات المشمولة أو نسبة المنحة لهالسنة. للاستفسار عن الخصومات والمنح الثانية، راجع دائرة القبول والتسجيل.",
+      "found": true,
+      "passed": true,
+      "reasons": [],
+      "invented_numbers": [],
+      "sources": [
+        "[2] دليل الطالب — Student's Handbook 2025/2026, Middle East University"
+      ],
+      "total_ms": 2585,
+      "error": null
+    },
+    {
+      "id": "arch-fees-en",
+      "lang": "en",
+      "kind": "unanswerable",
+      "question": "What are the tuition fees for Architecture?",
+      "answer": "I don’t have information about Architecture tuition fees. Please contact the Admission and Registration Department for details.",
+      "found": false,
+      "passed": true,
+      "reasons": [],
+      "invented_numbers": [],
+      "sources": [],
+      "total_ms": 2213,
+      "error": null
+    },
+    {
+      "id": "business-en",
+      "lang": "en",
+      "kind": "unanswerable",
+      "question": "Tell me about the Faculty of Business programs.",
+      "answer": "I can only provide information about the Faculty of Engineering & Design, not the Faculty of Business. Please contact the Admission and Registration Department for information about Business programs.",
+      "found": false,
+      "passed": true,
+      "reasons": [],
+      "invented_numbers": [],
+      "sources": [],
+      "total_ms": 2128,
+      "error": null
+    },
+    {
+      "id": "meu-founded-ar",
+      "lang": "ar",
+      "kind": "answerable",
+      "question": "إمتى تأسست جامعة الشرق الأوسط؟",
+      "answer": "تأسست جامعة الشرق الأوسط عام 2005.",
+      "found": true,
+      "passed": true,
+      "reasons": [],
+      "invented_numbers": [],
+      "sources": [
+        "[1] دليل الطالب — Student's Handbook 2025/2026, Middle East University"
+      ],
+      "total_ms": 1815,
+      "error": null
+    },
+    {
+      "id": "hb-max-load-ar",
+      "lang": "ar",
+      "kind": "answerable",
+      "question": "كم أكثر عدد ساعات بقدر أسجله بالفصل؟",
+      "answer": "بالعادة بتقدر تسجل لحد 18 ساعة بالفصل الأول أو الثاني، وبتوصل لـ21 ساعة إذا كنت متوقع تتخرج بهالفصل.",
+      "found": true,
+      "passed": true,
+      "reasons": [],
+      "invented_numbers": [],
+      "sources": [
+        "[2] دليل الطالب — Student's Handbook 2025/2026, Middle East University"
+      ],
+      "total_ms": 2386,
+      "error": null
+    },
+    {
+      "id": "hb-absence-ar",
+      "lang": "ar",
+      "kind": "answerable",
+      "question": "قديش نسبة الغياب المسموحة بالمادة؟",
+      "answer": "المسموح تتغيّب عن المادة لحد 15٪ من مجموع ساعاتها. وإذا بتمثّل الجامعة أو المملكة بنشاط رسمي، الحد بصير 20٪.",
+      "found": true,
+      "passed": true,
+      "reasons": [],
+      "invented_numbers": [],
+      "sources": [
+        "[1] دليل الطالب — Student's Handbook 2025/2026, Middle East University"
+      ],
+      "total_ms": 2679,
+      "error": null
+    },
+    {
+      "id": "hb-grad-gpa-en",
+      "lang": "en",
+      "kind": "answerable",
+      "question": "What is the minimum GPA needed to graduate?",
+      "answer": "You need a cumulative GPA of at least 2.00 to graduate with a bachelor’s degree.",
+      "found": true,
+      "passed": true,
+      "reasons": [],
+      "invented_numbers": [],
+      "sources": [
+        "[1] دليل الطالب — Student's Handbook 2025/2026, Middle East University"
+      ],
+      "total_ms": 216,
+      "error": null
+    },
+    {
+      "id": "hb-warning-en",
+      "lang": "en",
+      "kind": "answerable",
+      "question": "When does a student get an academic warning?",
+      "answer": "A student receives an academic warning if their cumulative GPA falls below 2.00 in any semester, except the summer semester. First-year students are not warned at the end of their first semester in the program.",
+      "found": true,
+      "passed": true,
+      "reasons": [],
+      "invented_numbers": [],
+      "sources": [
+        "[1] دليل الطالب — Student's Handbook 2025/2026, Middle East University"
+      ],
+      "total_ms": 6545,
+      "error": null
+    },
+    {
+      "id": "hb-eng-years-ar",
+      "lang": "ar",
+      "kind": "answerable",
+      "question": "كم سنة مدة دراسة تخصصات الهندسة؟",
+      "answer": "مدة الدراسة الاعتيادية لتخصصات الهندسة خمس سنوات، يعني عشرة فصول.",
+      "found": true,
+      "passed": true,
+      "reasons": [],
+      "invented_numbers": [],
+      "sources": [
+        "[5] دليل الطالب — Student's Handbook 2025/2026, Middle East University"
+      ],
+      "total_ms": 1899,
+      "error": null
+    },
+    {
+      "id": "hb-admission-phone-ar",
+      "lang": "ar",
+      "kind": "answerable",
+      "question": "شو رقم تلفون دائرة القبول والتسجيل؟",
+      "answer": "رقم الجامعة 06 4790222، ودائرة القبول والتسجيل تحويلاتها من 222 لغاية 232.",
+      "found": true,
+      "passed": true,
+      "reasons": [],
+      "invented_numbers": [],
+      "sources": [
+        "[1] دليل الطالب — Student's Handbook 2025/2026, Middle East University"
+      ],
+      "total_ms": 1796,
+      "error": null
+    },
+    {
+      "id": "hb-top-grant-ar",
+      "lang": "ar",
+      "kind": "answerable",
+      "question": "شو شروط منحة الطلبة المتفوقين أكاديميًا؟",
+      "answer": "منحة المتفوقين أكاديميًا بدها تكون دارس كل موادك بالجامعة، ومسجّل آخر فصلين دراسيين بعبء 15 ساعة على الأقل بكل فصل، ومجتاز 30 ساعة بعد فصلين دراسيين على الأقل. لازم تكون الأول بتخصصك لمستواك، ومعدلك التراكمي 3.65 أو أعلى، وما عليك عقوبة تأديبية.",
+      "found": true,
+      "passed": true,
+      "reasons": [],
+      "invented_numbers": [],
+      "sources": [
+        "[1] دليل الطالب — Student's Handbook 2025/2026, Middle East University"
+      ],
+      "total_ms": 2662,
+      "error": null
+    },
+    {
+      "id": "hb-campus-jobs-ar",
+      "lang": "ar",
+      "kind": "answerable",
+      "question": "في شغل للطلاب جوا الجامعة؟",
+      "answer": "آه، في فرص عمل للطلاب داخل الجامعة من خلال صندوق تشغيل الطلبة. لازم تكون مخلّص 30 ساعة بنجاح، ومعدلك 2.5 على الأقل، وما عليك عقوبة تأديبية.",
+      "found": true,
+      "passed": true,
+      "reasons": [],
+      "invented_numbers": [],
+      "sources": [
+        "[7] دليل الطالب — Student's Handbook 2025/2026, Middle East University"
+      ],
+      "total_ms": 2339,
+      "error": null
+    },
+    {
+      "id": "hb-grade-points-en",
+      "lang": "en",
+      "kind": "answerable",
+      "question": "How many points is an A- worth?",
+      "answer": "An A- is worth 3.75 points.",
+      "found": true,
+      "passed": true,
+      "reasons": [],
+      "invented_numbers": [],
+      "sources": [
+        "[1] دليل الطالب — Student's Handbook 2025/2026, Middle East University"
+      ],
+      "total_ms": 1722,
+      "error": null
+    },
+    {
+      "id": "hb-biomedical-en",
+      "lang": "en",
+      "kind": "answerable",
+      "question": "Does the Faculty of Engineering offer Biomedical Engineering?",
+      "answer": "Yes. The Faculty of Engineering & Design offers a B.Sc. in Biomedical Engineering.",
+      "found": true,
+      "passed": true,
+      "reasons": [],
+      "invented_numbers": [],
+      "sources": [
+        "[7] Faculty of Engineering & Design — departments and programs (MEU website + official study plans 2025/2026)"
+      ],
+      "total_ms": 1987,
+      "error": null
+    },
+    {
+      "id": "hb-housing-fee-en",
+      "lang": "en",
+      "kind": "unanswerable",
+      "question": "How much does student housing cost per semester?",
+      "answer": "The student handbook doesn’t specify the housing fee. Please contact the Admission and Registration Department for this information.",
+      "found": false,
+      "passed": true,
+      "reasons": [],
+      "invented_numbers": [],
+      "sources": [
+        "[3] دليل الطالب — Student's Handbook 2025/2026, Middle East University"
+      ],
+      "total_ms": 1995,
+      "error": null
+    },
+    {
+      "id": "arch-admission-avg-ar",
+      "lang": "ar",
+      "kind": "unanswerable",
+      "question": "شو معدل التوجيهي المطلوب لهندسة العمارة؟",
+      "answer": "معدل التوجيهي المطلوب لهندسة العمارة مش متوفر عندي، بتقدر تستفسر من دائرة القبول والتسجيل.",
+      "found": false,
+      "passed": true,
+      "reasons": [],
+      "invented_numbers": [],
+      "sources": [],
+      "total_ms": 2361,
+      "error": null
+    },
+    {
+      "id": "bme-hours-ar",
+      "lang": "ar",
+      "kind": "answerable",
+      "question": "كم ساعة معتمدة بدها الهندسة الطبية الحيوية؟",
+      "answer": "الهندسة الطبية الحيوية بدها 162 ساعة معتمدة بالمجموع.",
+      "found": true,
+      "passed": true,
+      "reasons": [],
+      "invented_numbers": [],
+      "sources": [
+        "[2] Study Plan — B.Sc. Biomedical Engineering 2025/2026 (official MEU plan)"
+      ],
+      "total_ms": 1847,
+      "error": null
+    },
+    {
+      "id": "bme-electives-en",
+      "lang": "en",
+      "kind": "answerable",
+      "question": "How many elective hours are in the Biomedical Engineering major?",
+      "answer": "The Biomedical Engineering major includes 9 elective credit hours.",
+      "found": true,
+      "passed": true,
+      "reasons": [],
+      "invented_numbers": [],
+      "sources": [
+        "[1] Study Plan — B.Sc. Biomedical Engineering 2025/2026 (official MEU plan)"
+      ],
+      "total_ms": 1910,
+      "error": null
+    }
+  ]
+}

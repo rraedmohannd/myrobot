@@ -1,0 +1,167 @@
+{
+  "mode": "dialogue",
+  "model": "gpt-6-luna",
+  "reasoning_effort": "low",
+  "audio_stream": true,
+  "tts_model": "gpt-4o-mini-tts",
+  "tts_voice": "coral",
+  "summary": {
+    "retrieval_ms": {
+      "median": 220.5,
+      "p90": 230.0,
+      "n": 8
+    },
+    "llm_first_ms": {
+      "median": 1068.5,
+      "p90": 1186.0,
+      "n": 6
+    },
+    "llm_ms": {
+      "median": 1928.0,
+      "p90": 2013.0,
+      "n": 6
+    },
+    "tts_first_ms": {
+      "median": null,
+      "p90": null,
+      "n": 0
+    },
+    "first_audio_ms": {
+      "median": 3124.5,
+      "p90": 3927.0,
+      "n": 8
+    },
+    "tts_stream_mp3_ms": {
+      "median": null,
+      "p90": null,
+      "n": 0
+    },
+    "tts_stream_pcm_ms": {
+      "median": null,
+      "p90": null,
+      "n": 0
+    }
+  },
+  "rows": [
+    {
+      "id": "ise-hours-ar",
+      "question": "كم ساعة معتمدة بدها هندسة الأنظمة الذكية؟",
+      "first_piece": "هندسة الأنظمة الذكية بدها 162 ساعة معتمدة بالمجموع.",
+      "pieces": 1,
+      "found": true,
+      "retrieval_ms": 401,
+      "llm_first_ms": 1370,
+      "llm_ms": 2013,
+      "tts_first_ms": null,
+      "first_audio_ms": 5199,
+      "tts_stream_mp3_ms": null,
+      "tts_stream_pcm_ms": null,
+      "error": null
+    },
+    {
+      "id": "arch-hours-ar",
+      "question": "قديش ساعة هندسة العمارة؟",
+      "first_piece": "هندسة العمارة بدها 165 ساعة معتمدة بالمجموع.",
+      "pieces": 1,
+      "found": true,
+      "retrieval_ms": 225,
+      "llm_first_ms": 1078,
+      "llm_ms": 1686,
+      "tts_first_ms": null,
+      "first_audio_ms": 3927,
+      "tts_stream_mp3_ms": null,
+      "tts_stream_pcm_ms": null,
+      "error": null
+    },
+    {
+      "id": "ise-careers-ar",
+      "question": "وين بيشتغلوا خريجين هندسة الأنظمة الذكية؟",
+      "first_piece": "بشتغلوا بمجالات زي تكنولوجيا المعلومات والاتصالات،",
+      "pieces": 3,
+      "found": true,
+      "retrieval_ms": 230,
+      "llm_first_ms": 1006,
+      "llm_ms": 2219,
+      "tts_first_ms": null,
+      "first_audio_ms": 2761,
+      "tts_stream_mp3_ms": null,
+      "tts_stream_pcm_ms": null,
+      "error": null
+    },
+    {
+      "id": "ise-accredit-ar",
+      "question": "هل تخصص الأنظمة الذكية معتمد من نقابة المهندسين الأردنيين؟",
+      "first_piece": "آه، التخصص معتمد من نقابة المهندسين",
+      "pieces": 2,
+      "found": true,
+      "retrieval_ms": 208,
+      "llm_first_ms": 1186,
+      "llm_ms": 1872,
+      "tts_first_ms": null,
+      "first_audio_ms": 3193,
+      "tts_stream_mp3_ms": null,
+      "tts_stream_pcm_ms": null,
+      "error": null
+    },
+    {
+      "id": "arch-years-ar",
+      "question": "كم سنة دراسة العمارة؟",
+      "first_piece": "دراسة هندسة العمارة مدتها الاعتيادية خمس سنوات،",
+      "pieces": 2,
+      "found": true,
+      "retrieval_ms": 212,
+      "llm_first_ms": 1059,
+      "llm_ms": 1672,
+      "tts_first_ms": null,
+      "first_audio_ms": 3056,
+      "tts_stream_mp3_ms": null,
+      "tts_stream_pcm_ms": null,
+      "error": null
+    },
+    {
+      "id": "interior-training-ar",
+      "question": "التدريب الميداني بالتصميم الداخلي قديش؟",
+      "first_piece": "التدريب الميداني بالتصميم الداخلي ٦ ساعات معتمدة،",
+      "pieces": 2,
+      "found": true,
+      "retrieval_ms": 218,
+      "llm_first_ms": 1037,
+      "llm_ms": 1984,
+      "tts_first_ms": null,
+      "first_audio_ms": 3435,
+      "tts_stream_mp3_ms": null,
+      "tts_stream_pcm_ms": null,
+      "error": null
+    },
+    {
+      "id": "ise-careers-en",
+      "question": "Where do Intelligent Systems Engineering graduates work?",
+      "first_piece": "Work fields include information technology,",
+      "pieces": 2,
+      "found": true,
+      "retrieval_ms": 223,
+      "llm_first_ms": null,
+      "llm_ms": null,
+      "tts_first_ms": null,
+      "first_audio_ms": 240,
+      "tts_stream_mp3_ms": null,
+      "tts_stream_pcm_ms": null,
+      "error": null
+    },
+    {
+      "id": "ise-vs-se-ar",
+      "question": "شو الفرق بين هندسة الأنظمة الذكية وهندسة البرمجيات؟",
+      "first_piece": "بكل احترام، بقدر أحكي عن كلية",
+      "pieces": 3,
+      "found": true,
+      "retrieval_ms": 5,
+      "llm_first_ms": null,
+      "llm_ms": null,
+      "tts_first_ms": null,
+      "first_audio_ms": 17,
+      "tts_stream_mp3_ms": null,
+      "tts_stream_pcm_ms": null,
+      "error": null
+    }
+  ]
+}
