@@ -5,7 +5,7 @@ import argparse
 from scr_serial import DriveMode
 
 from robotctl.operator import Refused
-from robotctl.session import MAX_TEST_DUTY, Session, StepError, enc_delta
+from robotctl.session import MAX_TEST_DUTY, Session, enc_delta
 from robotctl.steps import CHECK_FAILED
 
 ENC_KEYS = ("ENCODER_INVERT_FL", "ENCODER_INVERT_RL", "ENCODER_INVERT_FR", "ENCODER_INVERT_RR")
@@ -125,5 +125,7 @@ async def run_encoder_check(s: Session, args: argparse.Namespace) -> int:
         if not problems:
             s.say("encoder-check: every encoder counts up going forward")
     if problems:
-        raise StepError("encoder-check found problems: fix the wiring first (BRINGUP.md 4)")
+        # a check that found a problem: exit 4 like every other check (BRINGUP.md exit codes)
+        s.say("encoder-check: PROBLEMS found: fix the wiring first (BRINGUP.md section 4)")
+        return CHECK_FAILED
     return 0

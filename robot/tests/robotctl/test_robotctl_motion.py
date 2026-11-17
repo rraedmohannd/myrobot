@@ -172,7 +172,8 @@ async def test_encoder_check_proposes_an_inversion(run: Runner) -> None:
 async def test_encoder_check_finds_swapped_cables(run: Runner) -> None:
     hand = push({"push-left": "right", "push-right": "left"})  # pushing left moves the right
     code = await run(["encoder-check", "--hand-secs", "1.0"], hand=hand)
-    assert code == 5 and "swapped" in run.text
+    # a check that found a problem: exit 4 (BRINGUP.md exit codes), not 5 (nothing was driven)
+    assert code == 4 and "swapped" in run.text and "STOPPED" not in run.text
 
 
 # ------------------------------------------------------------------ distance-cal
