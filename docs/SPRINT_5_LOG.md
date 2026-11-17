@@ -122,3 +122,19 @@ The questions for Mohannd, what only he can do, the steps for when the parts arr
 - **Network** (S5.5): `BACKEND_URL` takes several comma-separated addresses tried in order; the Windows Mobile hotspot option (laptop at 192.168.137.1, firewall rule limited to 192.168.137.0/24) is in `docs/DEPLOY.md`.
 - Commits: `071c0fd`, `26825db`, `e29d922`, `a603f97`, `7a9ac76`.
 - **Not verified:** a real Pi boot, systemd units, the udev rule, the serial port, esptool on a real ESP32, the camera, visiond speed on a Pi, audio, everything on the screen, the hotspot with the Pi, the `uv` fallback.
+
+## S6.7 — One `evaluate` and one `latency` run (the whole OpenAI budget of this sprint)
+- **Evaluate** (golden set, 49 questions, first run since sprint 3 and since the retrieval rule of sprint 4 P0.1): **49/49 passed (100 %), 0 numbers outside the sources**, median 2027 ms, p90 2628 ms. Report: `backend/data/golden/results/20261117-201637.md`.
+- **Latency** (`latency --dialogue`, 8 questions through the conversation manager; LLM effort low; answer audio streamed as PCM, as your `.env` now has it; TTS `gpt-4o-mini-tts`/coral; speech-to-text **not** included). Saved: `backend/data/latency/20261117-201703.json`.
+
+  | stage | median | p90 |
+  |---|---|---|
+  | retrieval (embedding + search) | 220 ms | 230 ms |
+  | LLM until the first speakable piece | 1068 ms | 1186 ms |
+  | LLM whole answer | 1928 ms | 2013 ms |
+  | **question text → first answer audio** | **3124 ms** | **3927 ms** |
+
+  Two of the 8 questions were answered from approved curated content without the language model (`ise-careers-en` 240 ms, `ise-vs-se-ar` 17 ms) and are not in the LLM medians.
+- **Is the end of speech → first audio above 4 s?** Speech-to-text is not in this measurement. Sprint 2 estimated it at roughly 0.6–1.1 s, which would put the end of speech → first audio at about **3.7–4.2 s median and 4.5–5 s at p90: above the 4 s target at p90, around it at the median.** This is an estimate, not a measurement with a voice.
+- **Which stage is slow:** the text-to-speech of the first piece. Per question, the time from the first speakable LLM piece to the first answer audio was 1.5–3.4 s (median about 2.0 s); the LLM's first piece takes about 1.1 s and retrieval 0.2 s. The slowest rows (`ise-hours-ar` 5.2 s, `arch-hours-ar` 3.9 s) spent 2.6–3.4 s there. The TTS model is shut down on 2027-01-06 anyway, so measure again after the TTS decision (question 1).
+- OpenAI use in this sprint: these two runs only. No ElevenLabs call.
