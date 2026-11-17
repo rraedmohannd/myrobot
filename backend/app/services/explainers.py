@@ -20,6 +20,7 @@ from sqlalchemy import delete, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db.models import Chunk, Explainer, ExplainerSegment, Program, Source
+from app.knowledge.store import usable_chunk
 from app.services.numbers import numbers_in
 from app.services.media import approved_media_for_program
 from app.services.providers import LLM, ProviderError
@@ -215,7 +216,7 @@ async def program_context(session: AsyncSession, program: Program) -> ProgramCon
         select(Chunk.text, Chunk.category, Source.title)
         .join(Source, Source.id == Chunk.source_id)
         .where(
-            Chunk.review_status == "approved",
+            usable_chunk(),
             (Chunk.program_id == program.id)
             | (Chunk.program_id.is_(None) & Chunk.category.in_(GENERAL_CATEGORIES)),
         )
@@ -400,7 +401,7 @@ async def draft_explainer(
 async def _has_program_chunks(session: AsyncSession, program_id: int) -> bool:
     return (
         await session.scalar(
-            select(Chunk.id).where(Chunk.program_id == program_id, Chunk.review_status == "approved").limit(1)
+            select(Chunk.id).where(Chunk.program_id == program_id, usable_chunk()).limit(1)
         )
     ) is not None
 

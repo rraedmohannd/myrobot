@@ -9,10 +9,20 @@ When a source's content changes:
 
 from dataclasses import dataclass
 
-from sqlalchemy import delete, update
+from sqlalchemy import ColumnElement, and_, delete, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db.models import Chunk, Source
+
+
+def usable_chunk() -> ColumnElement[bool]:
+    """The one rule for "this chunk may be used": the chunk is approved AND its source is
+    approved. Retrieval (`services/rag.py`) applies the same rule in SQL. Filtering on the
+    chunk status alone let a rejected source keep answering (found on 2026-11-13)."""
+    return and_(
+        Chunk.review_status == "approved",
+        Chunk.source_id.in_(select(Source.id).where(Source.review_status == "approved")),
+    )
 
 
 @dataclass

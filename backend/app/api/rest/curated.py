@@ -15,6 +15,7 @@ from sqlalchemy import select, text
 
 from app.api.deps import SessionDep, require_admin
 from app.db.models import Chunk, Faq, Lab, Media, Pitch, Place, Program, Source
+from app.knowledge.store import usable_chunk
 from app.services import curated as cur
 from app.services.chat import speech_pieces
 from app.services.providers import ProviderError
@@ -284,8 +285,10 @@ async def _check_links(session, data: dict[str, Any]) -> None:
     if data.get("media_id") is not None and await session.get(Media, data["media_id"]) is None:
         raise HTTPException(422, "Unknown media_id")
     if data.get("contact_chunk_id") is not None:
-        chunk = await session.get(Chunk, data["contact_chunk_id"])
-        if chunk is None or chunk.review_status != "approved":
+        chunk = await session.scalar(
+            select(Chunk).where(Chunk.id == data["contact_chunk_id"], usable_chunk())
+        )
+        if chunk is None:
             raise HTTPException(422, "contact_chunk_id must be an approved passage")
     await _check_program(session, data.get("program_id"))
 
@@ -322,7 +325,7 @@ async def list_places(session: SessionDep) -> dict[str, Any]:
         await session.execute(
             select(Chunk.id, Chunk.text, Source.title)
             .join(Source, Source.id == Chunk.source_id)
-            .where(Chunk.review_status == "approved", Chunk.category == "contacts")
+            .where(usable_chunk(), Chunk.category == "contacts")
             .order_by(Chunk.id)
         )
     ).all()

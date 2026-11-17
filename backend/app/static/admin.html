@@ -282,7 +282,13 @@ async function loadOverview() {
   const maxTurns = Math.max(1, ...d.per_day.map(x => x.turns));
   const maxP90 = Math.max(1, ...Object.values(d.latency_ms).map(x => x.p90 || 0));
   const a = d.answers, sp = d.speakers;
+  const orphan = (d.knowledge_warnings || {}).approved_chunks_of_unapproved_sources || { chunks: 0, sources: [] };
+  const orphanCard = orphan.chunks ? `<div class="card" id="ovKnowledgeWarning" style="grid-column:1/-1;border:2px solid #c0392b"><h2>⚠ Warning — ${orphan.chunks} approved passage(s) belong to ${orphan.sources.length} source(s) that are not approved</h2>
+      <p>The robot does <b>not</b> answer from them (a passage is used only when the passage and its source are both approved). Open each source in “Review queue”: reject it again to switch its passages off for good, or approve it if the passages should answer.</p>
+      <table class="data"><tr><th class="num">Source id</th><th>Title</th><th>Source status</th><th class="num">Approved passages</th></tr>
+      ${orphan.sources.map(s => `<tr><td class="num">${s.id}</td><td>${esc(s.title || s.url)}</td><td>${esc(s.review_status)}</td><td class="num">${s.approved_chunks}</td></tr>`).join("")}</table></div>` : "";
   el("view-overview").innerHTML = `<div class="row" style="margin-bottom:12px"><label>Period <select id="ovDays">${[7, 14, 30, 90].map(n => `<option value="${n}" ${n === overviewDays ? "selected" : ""}>last ${n} days</option>`).join("")}</select></label></div><div class="grid">
+    ${orphanCard}
     <div class="card"><h2>Activity</h2>
       <div class="tiles">
         <div class="tile"><b>${d.today.sessions}</b><span>conversations today</span></div>

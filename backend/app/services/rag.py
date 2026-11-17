@@ -1,5 +1,10 @@
-"""Retrieval over APPROVED chunks only: full-text (Arabic + English stemming) + vector
-similarity, merged with reciprocal rank fusion (RRF)."""
+"""Retrieval over APPROVED chunks of APPROVED sources only: full-text (Arabic + English
+stemming) + vector similarity, merged with reciprocal rank fusion (RRF).
+
+A chunk answers only while its own status AND its source's status are 'approved'
+(`app.knowledge.store.usable_chunk` is the same rule for ORM queries). So rejecting a source,
+or a source going stale, switches off all its chunks at once, whatever their own status says.
+"""
 
 import time
 from dataclasses import dataclass
@@ -23,16 +28,17 @@ _TSQUERY = (
 
 FTS_SQL = text(f"""
     SELECT c.id
-    FROM chunks c, (SELECT {_TSQUERY} AS tq) q
-    WHERE c.review_status = 'approved' AND c.tsv @@ q.tq
+    FROM chunks c JOIN sources s ON s.id = c.source_id, (SELECT {_TSQUERY} AS tq) q
+    WHERE c.review_status = 'approved' AND s.review_status = 'approved' AND c.tsv @@ q.tq
     ORDER BY ts_rank_cd(c.tsv, q.tq) DESC, c.id
     LIMIT :k
 """)
 
 VECTOR_SQL = text("""
     SELECT c.id
-    FROM chunks c
-    WHERE c.review_status = 'approved' AND c.embedding IS NOT NULL
+    FROM chunks c JOIN sources s ON s.id = c.source_id
+    WHERE c.review_status = 'approved' AND s.review_status = 'approved'
+      AND c.embedding IS NOT NULL
     ORDER BY c.embedding <=> CAST(:e AS vector), c.id
     LIMIT :k
 """)
@@ -66,12 +72,15 @@ class Retrieval:
 
 
 async def embed_missing(session: AsyncSession, embedder: Embedder, batch: int = 64) -> int:
-    """Compute embeddings for approved chunks that have none (new, or edited since)."""
+    """Compute embeddings for approved chunks of approved sources that have none (new, or
+    edited since). Chunks of a source that is not approved are never sent to the provider."""
     rows = (
         await session.execute(
             text(
-                "SELECT id, text, search_hint FROM chunks WHERE review_status = 'approved' "
-                "AND embedding IS NULL ORDER BY id"
+                "SELECT c.id, c.text, c.search_hint FROM chunks c "
+                "JOIN sources s ON s.id = c.source_id "
+                "WHERE c.review_status = 'approved' AND s.review_status = 'approved' "
+                "AND c.embedding IS NULL ORDER BY c.id"
             )
         )
     ).all()

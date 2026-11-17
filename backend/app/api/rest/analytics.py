@@ -61,6 +61,31 @@ def _stats(values: list[int]) -> dict[str, float | int | None]:
 
 
 # ---------------- overview ----------------
+async def knowledge_warnings(session) -> dict[str, Any]:
+    """Approved chunks whose source is not approved (rejected, stale or pending). Retrieval
+    ignores them, so this is not a leak, but it means the review state is inconsistent and
+    the reviewer should look: reject the chunks, or review the source again."""
+    rows = (
+        await session.execute(
+            select(Source.id, Source.title, Source.url, Source.review_status, func.count(Chunk.id))
+            .join(Chunk, Chunk.source_id == Source.id)
+            .where(Chunk.review_status == "approved", Source.review_status != "approved")
+            .group_by(Source.id)
+            .order_by(Source.id)
+        )
+    ).all()
+    sources = [
+        {"id": sid, "title": title, "url": url, "review_status": st, "approved_chunks": n}
+        for sid, title, url, st, n in rows
+    ]
+    return {
+        "approved_chunks_of_unapproved_sources": {
+            "chunks": sum(s["approved_chunks"] for s in sources),
+            "sources": sources,
+        }
+    }
+
+
 async def _counts(session, since: datetime) -> dict[str, int]:
     sessions = await session.scalar(
         select(func.count()).select_from(Session).where(Session.started_at >= since)
@@ -139,6 +164,7 @@ async def overview(session: SessionDep, days: int = Query(default=7, ge=1, le=90
             "max_per_session": max(per_session) if per_session else None,
             "distribution": dict(sorted(distribution.items())),
         },
+        "knowledge_warnings": await knowledge_warnings(session),
     }
 
 

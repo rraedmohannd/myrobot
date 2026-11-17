@@ -1,6 +1,7 @@
 """Review queue API: list crawled sources, read their chunks, approve/reject/edit.
 
-Only approved chunks will ever be used by the robot (B3 retrieval filters on it).
+Only approved chunks of approved sources will ever be used by the robot (retrieval filters
+on both statuses).
 """
 
 from datetime import datetime
@@ -166,7 +167,10 @@ async def get_source(source_id: int, session: SessionDep) -> SourceDetail:
 @router.post("/sources/{source_id}/review", response_model=SourceDetail)
 async def review_source(source_id: int, body: ReviewDecision, session: SessionDep) -> SourceDetail:
     """approve: pending chunks -> approved, superseded stale chunks deleted.
-    reject: pending chunks -> rejected (never used)."""
+    reject: every chunk that could answer or be approved later (pending and approved, also
+    ones approved one by one) -> rejected. Stale chunks are already never used and stay as
+    they are. Retrieval also checks the source status, so a rejected source cannot answer
+    even if one of its chunks is set back to approved by hand."""
     src = await _get_source(session, source_id)
     if body.decision == "approve":
         src.review_status = "approved"
@@ -182,7 +186,7 @@ async def review_source(source_id: int, body: ReviewDecision, session: SessionDe
         src.review_status = "rejected"
         await session.execute(
             update(Chunk)
-            .where(Chunk.source_id == src.id, Chunk.review_status == "pending")
+            .where(Chunk.source_id == src.id, Chunk.review_status.in_(("pending", "approved")))
             .values(review_status="rejected")
         )
     await session.commit()

@@ -1,5 +1,6 @@
 """Retrieval, grounded chat service and /api/chat with fake providers (rolled-back DB)."""
 
+import pytest
 from sqlalchemy import select, text
 
 from app.db.models import Chunk, Source, Turn
@@ -220,3 +221,74 @@ def test_top_hits_of_each_search_are_never_dropped() -> None:
     capped = select_passages(ranked, {cid: "courses" for cid in ranked}, [fts, vec], 8, 0)
     assert len(capped) == 3
     assert select_passages([], {}, [[], []], 8, 2) == []
+
+
+# ---------- sprint 4 P0.1: the source status switches its chunks off ----------
+async def _seed_unapproved_source(db_session, status: str, word: str) -> tuple[Source, Chunk]:
+    """An APPROVED chunk (with an embedding) under a source that is approved for now."""
+    src = Source(url=f"test-doc://rag-{status}-{word}", title="Old list", review_status="approved")
+    db_session.add(src)
+    await db_session.flush()
+    chunk = Chunk(source_id=src.id, lang="en", review_status="approved",
+                  text=f"The {word} {UNIQUE2} program requires 777 credit hours.")  # fmt: skip
+    db_session.add(chunk)
+    await db_session.commit()
+    return src, chunk
+
+
+@pytest.mark.parametrize("status", ["rejected", "stale", "pending"])
+async def test_approved_chunk_of_unapproved_source_is_never_retrieved(db_session, status) -> None:
+    """The bug of 2026-11-13: source 33 was rejected, its approved chunk 48 kept answering."""
+    word = f"glimmerfax{status}"
+    emb = FakeEmbedder()
+    src, chunk = await _seed_unapproved_source(db_session, status, word)
+    await embed_missing(db_session, emb)
+    before = await retrieve(db_session, emb, f"{word} {UNIQUE2}?")
+    hit = next(p for p in before.passages if p.chunk_id == chunk.id)
+    assert hit.in_fts and hit.in_vector  # found by both searches while the source is approved
+
+    src.review_status = status  # the chunk itself stays 'approved' and keeps its embedding
+    await db_session.commit()
+    after = await retrieve(db_session, emb, f"{word} {UNIQUE2}?", top_k=50)
+    assert chunk.id not in [p.chunk_id for p in after.passages]
+
+    # ... and the whole answer path does not use it either
+    r = await answer_question(db_session, emb, FakeLLM(), f"{word} {UNIQUE2}?")
+    assert chunk.id not in [s.chunk_id for s in r.sources]
+    assert "777" not in r.answer
+
+
+async def test_embed_missing_skips_chunks_of_unapproved_sources(db_session) -> None:
+    src = Source(url="test-doc://rag-rejected-embed", title="Old list", review_status="rejected")
+    db_session.add(src)
+    await db_session.flush()
+    chunk = Chunk(source_id=src.id, lang="en", review_status="approved",
+                  text=f"The wobblequark {UNIQUE2} program requires 777 credit hours.")  # fmt: skip
+    db_session.add(chunk)
+    await db_session.commit()
+
+    class Recording(FakeEmbedder):
+        seen: list[str] = []
+
+        async def embed(self, texts: list[str]) -> list[list[float]]:
+            self.seen += texts
+            return await super().embed(texts)
+
+    emb = Recording()
+    await embed_missing(db_session, emb)
+    assert not any("wobblequark" in t for t in emb.seen)  # never sent to the provider
+    has_vector = await db_session.scalar(
+        text("SELECT embedding IS NOT NULL FROM chunks WHERE id = :id"), {"id": chunk.id}
+    )
+    assert has_vector is False
+
+
+async def test_curated_checks_ignore_chunks_of_unapproved_sources(db_session) -> None:
+    """Numbers of a rejected source do not make a FAQ or pitch number 'known'."""
+    from app.services.curated import known_numbers
+
+    src, _ = await _seed_unapproved_source(db_session, "rejected", "plinthavox")
+    assert "777" in await known_numbers(db_session, None)
+    src.review_status = "rejected"
+    await db_session.commit()
+    assert "777" not in await known_numbers(db_session, None)

@@ -26,6 +26,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import get_settings
 from app.db.models import Chunk, Faq, Lab, Media, Pitch, Place, Program, Source
+from app.knowledge.store import usable_chunk
 from app.db.types import to_pgvector
 from app.services.chat_types import ChatSource
 from app.services.explainers import (
@@ -351,11 +352,12 @@ async def place_answer(session: AsyncSession, question: str, lang: str) -> Curat
         if not body:
             return None  # the name alone is not a direction
         chunk = await session.get(Chunk, item.contact_chunk_id) if item.contact_chunk_id else None
-        if chunk is not None and chunk.review_status == "approved":
+        src = await session.get(Source, chunk.source_id) if chunk is not None else None
+        usable = chunk is not None and chunk.review_status == "approved"
+        if usable and src is not None and src.review_status == "approved":
             found = contact_lines(chunk.text, _names(item.name_ar, item.name_en, item.keywords, item.related_office))
             if found:
                 lines += found
-                src = await session.get(Source, chunk.source_id)
                 sources.append(ChatSource(n=2, chunk_id=chunk.id, title=src.title if src else None,
                                           url=src.url if src else "", category=chunk.category))  # fmt: skip
     else:
@@ -370,7 +372,7 @@ async def place_answer(session: AsyncSession, question: str, lang: str) -> Curat
 async def known_numbers(session: AsyncSession, program_id: int | None) -> set[str]:
     """Numbers written in the approved content a curated text may rely on: the program's own
     passages plus the general (handbook) ones; for a general text, every general passage."""
-    query = select(Chunk.text).where(Chunk.review_status == "approved")
+    query = select(Chunk.text).where(usable_chunk())
     if program_id is not None:
         query = query.where((Chunk.program_id == program_id) | Chunk.program_id.is_(None))
     else:
@@ -490,7 +492,7 @@ async def _general_passages(session: AsyncSession) -> list[tuple[int, str, str]]
     rows = await session.execute(
         select(Chunk.id, Chunk.text, Chunk.category, Source.title, Chunk.source_id)
         .join(Source, Source.id == Chunk.source_id)
-        .where(Chunk.review_status == "approved", Chunk.program_id.is_(None), Chunk.category.is_not(None))
+        .where(usable_chunk(), Chunk.program_id.is_(None), Chunk.category.is_not(None))
         .order_by(Chunk.source_id, Chunk.position, Chunk.id)
     )
     return [(r.source_id, f"{r.title}; {r.category}", r.text) for r in rows.all()]
@@ -501,7 +503,7 @@ async def _program_passages(session: AsyncSession, program: Program) -> list[tup
         select(Chunk.text, Chunk.category, Source.title, Chunk.source_id)
         .join(Source, Source.id == Chunk.source_id)
         .where(
-            Chunk.review_status == "approved",
+            usable_chunk(),
             (Chunk.program_id == program.id)
             | (Chunk.program_id.is_(None) & Chunk.category.in_(GENERAL_CATEGORIES)),
         )
