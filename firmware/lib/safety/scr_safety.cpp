@@ -19,6 +19,13 @@ bool Safety::frontBlocked(const uint16_t us_mm[4], uint16_t threshold_mm, int16_
     if (nearest_mm) *nearest_mm = -1;
     return true;  // rule 5: no working front sensor counts as blocked
   }
+  // Stricter than rule 5 (coordinator's decision after the safety review, 2026-11-17): the
+  // CENTRE front sensor absent or faulty blocks forward driving even when the side sensors work
+  // (the sides do not see a narrow obstacle straight ahead).
+  if (!validDistance(us_mm[1])) {
+    if (nearest_mm) *nearest_mm = toArg(nearest);
+    return true;
+  }
   if (nearest_mm) *nearest_mm = toArg(nearest);
   return nearest < threshold_mm;
 }

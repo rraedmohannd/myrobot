@@ -187,7 +187,9 @@ class VoltageCompensator {
  public:
   static constexpr float kFullPackV = 12.6f;   // conservative constant without a reading
   static constexpr float kMinHeadroomV = 0.1f; // the epsilon of A8
-  static constexpr float kPlausibleMinV = 3.0f;   // below: not a battery reading (USB only, error)
+  // Below this a 3S pack cannot legitimately read while running (3 x 3.0 V cells): treated as no
+  // reading (USB power only, sensor error, wiring) -> the 12.6 V fallback and flag 13.
+  static constexpr float kPlausibleMinV = 9.0f;
   static constexpr float kPlausibleMaxV = 20.0f;
 
   explicit VoltageCompensator(const VoltageCompConfig& c) : c_(c) {}

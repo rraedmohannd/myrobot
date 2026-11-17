@@ -9,7 +9,8 @@
 //  3. Reversing (left + right < 0) needs rear sensing: rejected when the rear sensor is absent or
 //     faulty; stopped (REAR_OBSTACLE_STOP) when the rear distance is under the threshold.
 //  4. Power-on state is SAFE; drivers stay disabled until MODE DRIVE (or TEST).
-//  5. Front sensors all absent/faulty count as "blocked".
+//  5. Front sensors all absent/faulty count as "blocked"; so does the CENTRE front sensor alone
+//     being absent/faulty (stricter than the protocol document; coordinator, 2026-11-17).
 //
 // Decisions where the document is silent (reported to the coordinator, see firmware/README.md):
 //  - A rejected DRIVE also sets the targets to zero: an older DRIVE never keeps running after the
