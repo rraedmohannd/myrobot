@@ -35,6 +35,25 @@ Native unit tests and a `sim` build environment must compile without pins.
 
 ---
 
+## P0 — Sprint 3 leftovers (do these first, about 30–45 min)
+`docs/SPRINT_3.md` was updated while sprint 3 was running, so three items were never done. Do them first on `sprint-4`, each in its own commit with tests:
+
+1. **Rejecting a source must switch off all its chunks.**
+   - **The bug.** `POST /api/admin/sources/{id}/review {"decision":"reject"}` only rejects **pending** chunks, and retrieval (`app/services/rag.py`) filters on the chunk status alone. So a rejected source whose chunks were already approved keeps answering.
+   - **When it was found.** On 2026-11-13, source 33 (old Civil Engineering list) was rejected but its chunk 48 still answered. Chunks 45 and 48 were then rejected by hand.
+   - **Fix.**
+     - Rejecting a source rejects **all** its chunks.
+     - Retrieval (full-text, vector and `embed_missing`) also requires `sources.review_status = 'approved'`.
+     - The admin overview warns about approved chunks of non-approved sources.
+   - **Test:** an approved chunk of a rejected source is never retrieved.
+2. **TTS model shutdown on 2027-01-06.** OpenAI's deprecations page lists `gpt-4o-mini-tts` with shutdown on Jan 6, 2027, replaced by `gpt-realtime-2.1-mini`. Do sprint 3 section **S5b** exactly as written in `docs/SPRINT_3.md`:
+   - an `openai_realtime` adapter and an `elevenlabs` adapter behind the TTS interface;
+   - the default stays `gpt-4o-mini-tts`;
+   - **no ElevenLabs calls** (the student's credits);
+   - at most 5 short real phrases for `openai_realtime`, with time to first audio and accent noted in the log;
+   - a dated decision question in `docs/PLAN.md`.
+3. **Formatting pass.** Run `ruff format` and fix the long lines in a separate commit that changes nothing else. If needed, set the line length in `pyproject.toml` and document it. Tests must pass before and after.
+
 ## R0 — Architecture document (`docs/ROBOT_SOFTWARE.md`)
 Decide and document the following (short and clear, with a diagram in text):
 - **Processes on the Pi.**
@@ -152,7 +171,7 @@ Decide and document the following (short and clear, with a diagram in text):
 - **Checklist for when the parts arrive:** wiring, filling in `pins.h`, defining `PINS_CONFIRMED`, the first motor test with the wheels off the ground, encoder direction checks, gyro calibration, and `metres_per_tick` calibration from docs/ODOMETRY.md §5.
 
 ## Done when
-- R0–R7 are complete and logged with commit hashes.
+- P0 and R0–R7 are complete and logged with commit hashes.
 - All test suites pass.
 - The firmware compiles for `native` and `sim-check`.
 - The laptop end-to-end simulation is documented.
