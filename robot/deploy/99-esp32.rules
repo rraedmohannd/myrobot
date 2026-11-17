@@ -1,0 +1,10 @@
+# Stable name /dev/esp32 for the ESP32 DevKit's USB-UART bridge (robot/deploy/setup.sh installs
+# this file in /etc/udev/rules.d/).
+#
+# DevKit boards carry one of two common bridge chips. Check which one yours has with `lsusb`
+# after plugging it in, and delete the line that does not apply (both may stay if nothing else
+# on the robot uses these chips):
+#   Silicon Labs CP210x  -> 10c4:ea60
+#   WCH CH340            -> 1a86:7523
+SUBSYSTEM=="tty", ATTRS{idVendor}=="10c4", ATTRS{idProduct}=="ea60", SYMLINK+="esp32", GROUP="dialout", MODE="0660"
+SUBSYSTEM=="tty", ATTRS{idVendor}=="1a86", ATTRS{idProduct}=="7523", SYMLINK+="esp32", GROUP="dialout", MODE="0660"

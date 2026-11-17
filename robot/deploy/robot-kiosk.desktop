@@ -1,0 +1,6 @@
+[Desktop Entry]
+Type=Application
+Name=Smart Campus Robot screen
+Comment=Chromium kiosk with the robot page (http://localhost)
+Exec=@REPO@/robot/deploy/kiosk.sh
+X-GNOME-Autostart-enabled=true

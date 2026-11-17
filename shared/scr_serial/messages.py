@@ -70,7 +70,7 @@ class AckStatus(IntEnum):
     BAD_ARGUMENT = 2
     BUSY = 3  # e.g. CALIBRATE_GYRO while moving
     UNKNOWN_TYPE = 4
-    REJECTED_SAFETY = 5  # e.g. forward DRIVE while the front is blocked; reverse with no rear sensor
+    REJECTED_SAFETY = 5  # forward DRIVE while the front is blocked; reverse without rear sensing
 
 
 def _clamp_i16(value: float) -> int:

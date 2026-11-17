@@ -1,0 +1,22 @@
+[Unit]
+Description=Smart Campus Robot - visiond (camera, faces, engagement, pan servo target)
+After=robotd.service
+Wants=robotd.service
+
+[Service]
+Type=simple
+User=@USER@
+WorkingDirectory=@REPO@/robot
+EnvironmentFile=/etc/smart-campus-robot/robot.env
+Environment=PYTHONUNBUFFERED=1
+ExecStart=@REPO@/robot/.venv/bin/python -m visiond
+Restart=always
+RestartSec=3
+# Vision is CPU heavy: keep it from starving robotd.
+Nice=5
+# Logs: `journalctl -u visiond`. visiond never writes frames or face data anywhere.
+LogsDirectory=smart-campus-robot
+Environment=LOG_DIR=/var/log/smart-campus-robot
+
+[Install]
+WantedBy=multi-user.target

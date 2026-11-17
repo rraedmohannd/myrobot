@@ -1,0 +1,21 @@
+[Unit]
+Description=Smart Campus Robot - robotd (serial link, odometry, navigation, supervisor, local UI)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=@USER@
+WorkingDirectory=@REPO@/robot
+EnvironmentFile=/etc/smart-campus-robot/robot.env
+Environment=PYTHONUNBUFFERED=1
+ExecStart=@REPO@/robot/.venv/bin/python -m robotd
+# The motors do not depend on this restart: the ESP32 stops by itself 300 ms after robotd dies.
+Restart=always
+RestartSec=2
+# Logs: `journalctl -u robotd`; files written by robotd itself go to /var/log/smart-campus-robot
+LogsDirectory=smart-campus-robot
+Environment=LOG_DIR=/var/log/smart-campus-robot
+
+[Install]
+WantedBy=multi-user.target
