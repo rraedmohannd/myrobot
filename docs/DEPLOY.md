@@ -31,6 +31,34 @@ The robot must find the laptop at the same address every time.
 
 University networks often block devices from talking to each other ("client isolation"). If the phone test in step 5 fails although the firewall rule exists, use your own router or hotspot for the demo.
 
+### Several addresses for the robot (`BACKEND_URL`)
+On the Pi, `BACKEND_URL` in `/etc/smart-campus-robot/robot.env` may list several addresses, separated by commas and without spaces. `robotd` tries them **in order** and uses the first one that connects (implemented in `robotd`, sprint 5):
+```
+BACKEND_URL=ws://192.168.137.1:8000/ws/robot,ws://192.168.1.20:8000/ws/robot
+```
+- Put the most reliable network first: at the demo, usually the laptop's own hotspot (below), then the laptop's address on the site's Wi-Fi.
+- Do not add `?token=` to the addresses: `robotd` adds `ROBOT_TOKEN` to each one.
+- After editing: `sudo systemctl restart robotd`, then `journalctl -u robotd -f` shows which address it connected to.
+
+### Option: the laptop's own hotspot (Windows "Mobile hotspot")
+This avoids the site's network entirely between the robot and the laptop (no client isolation, no unknown router). The laptop still needs internet for speech and answers, through its Wi-Fi or an Ethernet cable.
+1. Laptop: Settings → Network & internet → **Mobile hotspot** → share the internet connection, note the network name and password, switch it **On**. "Power saving" (turn off when no device is connected) should be **off** for the demo.
+2. The laptop's address on its hotspot is normally `192.168.137.1`. Check it with `ipconfig` (the adapter called "Local Area Connection* …" while the hotspot is on).
+3. Firewall: the rule in section 3 is still needed. The hotspot network may not be classified as "Private", so allow port 8000 for the hotspot's address range only (PowerShell as Administrator):
+   ```powershell
+   New-NetFirewallRule -DisplayName "Smart Campus Robot backend (hotspot)" -Direction Inbound -Protocol TCP -LocalPort 8000 -RemoteAddress 192.168.137.0/24 -Action Allow -Profile Any
+   ```
+   Remove it after the demo: `Remove-NetFirewallRule -DisplayName "Smart Campus Robot backend (hotspot)"`.
+4. The Pi joins the hotspot (Raspberry Pi OS uses NetworkManager). Once, with a keyboard or over SSH:
+   ```bash
+   sudo nmcli device wifi connect "<hotspot name>" password "<hotspot password>"
+   sudo nmcli connection modify "<hotspot name>" connection.autoconnect-priority 10   # preferred over other known networks
+   ```
+5. On the Pi: `BACKEND_URL=ws://192.168.137.1:8000/ws/robot,...` (first in the list), and on the laptop `PUBLIC_BASE_URL=http://192.168.137.1:8000` in `.env` if the admin QR code should point there.
+6. Test: on the Pi `curl -s http://192.168.137.1:8000/health`.
+
+Not tried yet: the Windows hotspot with the Pi, and how many devices the laptop's Wi-Fi card allows while it also uses Wi-Fi for internet (some cards cannot do both; then use an Ethernet cable or a phone hotspot for the laptop's internet).
+
 ## 3. Windows firewall: allow port 8000
 Run **PowerShell as Administrator** once:
 ```powershell
