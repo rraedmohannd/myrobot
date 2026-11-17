@@ -29,12 +29,18 @@ dev = [
     "ruff>=0.8",
 ]
 
+# Commands on the Pi (robot/.venv/bin/...); `python -m robotd|visiond|robotctl` works as well
+[project.scripts]
+robotd = "robotd.__main__:main"
+visiond = "visiond.__main__:main"
+robotctl = "robotctl.cli:main"
+
 [build-system]
 requires = ["setuptools>=70"]
 build-backend = "setuptools.build_meta"
 
 [tool.setuptools.packages.find]
-include = ["robotd*", "visiond*"]
+include = ["robotd*", "visiond*", "robotctl*"]
 
 [tool.setuptools.package-data]
 robotd = ["ui/*.js"]
