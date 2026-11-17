@@ -19,7 +19,7 @@ from robotctl.session import Session, StepError
 from robotctl.steps import CHECK_FAILED
 from robotd import calibration
 
-IMU_ADDRS = (0x68, 0x69)  # MPU-6050 / ICM: AD0 low / high
+IMU_ADDRS = (0x68, 0x69)  # ICM-20948 (or MPU-6050): AD0 low / high
 INA219_ADDR = 0x40
 EXPANDER_DEFAULT = 0x20  # MCP23017, docs/PIN_PLAN.md option B (recommended), A2..A0 low
 EXPANDER_RANGE = range(0x20, 0x28)
@@ -148,7 +148,7 @@ async def run_diag(s: Session, args: argparse.Namespace) -> int:
     rows: list[tuple[str, str, bool]] = []
     imu = [a for a in IMU_ADDRS if a in found]
     rows.append(
-        ("IMU (MPU-6050) 0x68/0x69", ", ".join(f"0x{a:02X}" for a in imu) or "-", bool(imu))
+        ("IMU (ICM-20948) 0x68/0x69", ", ".join(f"0x{a:02X}" for a in imu) or "-", bool(imu))
     )
     rows.append(("INA219 0x40", "0x40" if INA219_ADDR in found else "-", INA219_ADDR in found))
     expected = {*IMU_ADDRS, INA219_ADDR}
@@ -184,7 +184,21 @@ async def run_diag(s: Session, args: argparse.Namespace) -> int:
         "unexpected": [f"0x{a:02X}" for a in unexpected], "problems": problems,
         "sensors": [f.name for f in Sensors if f in d.sensors],
     }  # fmt: skip
+    if args.no_expander or args.expander is not None:
+        s.record(
+            "diag", {"expander_addr": expander or 0},
+            method="pin plan option " + ("A (no expander)" if expander is None
+                                         else f"B (MCP23017 at 0x{expander:02X})"),
+            raw={"i2c": result["i2c"]},
+        )  # fmt: skip
     s.log("diag", result)
+    if args.expect_version:
+        same = d.version_text == args.expect_version.strip()
+        s.say(f"firmware version {d.version_text}, expected {args.expect_version}: "
+              + ("SAME" if same else "DIFFERENT"))  # fmt: skip
+        if problems or unexpected:
+            s.say("  (the problems above are reported; the exit code checks only the version)")
+        return 0 if same else CHECK_FAILED
     if problems or unexpected:
         s.say("diag: PROBLEMS: " + "; ".join(problems + [f"unexpected {u}" for u in
                                                          result["unexpected"]]))  # fmt: skip

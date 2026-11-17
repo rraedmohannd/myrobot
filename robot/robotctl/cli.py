@@ -2,7 +2,8 @@
 
 Connection (pick one; default: robotd's control API on this Pi):
   --ctl ws://127.0.0.1:8765/ws/ctl   robotd is running (it must be IDLE)
-  --port /dev/esp32                  robotd is stopped (sudo systemctl stop robotd)
+  --port /dev/esp32                  robotd is stopped (sudo systemctl stop robotd); also taken
+                                     from ROBOTD_SERIAL_PORT when no --ctl is given
   --sim-tcp 127.0.0.1:8766           the SIMULATED ESP32 (python -m robotd.sim_esp32)
 
 Exit codes: 0 done, 2 refused (nothing moved), 3 link problem, 4 a check found a problem,
@@ -113,6 +114,11 @@ def build_parser() -> argparse.ArgumentParser:
     p = add("diag", "DIAG_REPORT and the I2C scan against the expected addresses")
     p.add_argument("--expander", help="I2C address of the MCP23017 (default 0x20, option B)")
     p.add_argument("--no-expander", action="store_true", help="pin plan option A: no expander")
+    p.add_argument(
+        "--expect-version",
+        help="X.Y.Z: exit 0 only if the firmware has it "
+        "(used by deploy/flash_esp32.sh and deploy/update.sh)",
+    )
     p = add("param", "read, set or save firmware parameters by hand")
     p.add_argument("action", choices=("get", "set", "save"))
     p.add_argument("name", nargs="?")
@@ -195,10 +201,11 @@ def make_device(args: argparse.Namespace) -> Device:
 
         host, _, port = args.sim_tcp.rpartition(":")
         return DirectDevice(TcpTransport(host or "127.0.0.1", int(port)), simulated=True)
-    if args.port:
+    port = args.port or (None if args.ctl else os.environ.get("ROBOTD_SERIAL_PORT"))
+    if port:
         from robotd.transport import SerialTransport
 
-        return DirectDevice(SerialTransport(args.port), simulated=False)
+        return DirectDevice(SerialTransport(port), simulated=False)
     url = args.ctl or f"ws://127.0.0.1:{os.environ.get('ROBOTD_UI_PORT', '8765')}/ws/ctl"
     return CtlDevice(url)
 

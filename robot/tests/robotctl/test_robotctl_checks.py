@@ -41,7 +41,7 @@ async def test_diag_option_a_and_full_scan(run: Runner) -> None:
     assert "expander" not in run.text.split("I2C scan")[1].split("\n")[1]
     sim = SimEsp32(SimEsp32Config(i2c_addresses=(0x20, 0x40, 0x69, 0x3C)))
     run.lines.clear()
-    code = await run(["diag"], sim=sim)
+    code = await run(["diag", "--expander", "0x20"], sim=sim)
     assert code == 4
     assert "OK      I2C expander" in run.text and "UNEXPECTED: 0x3C" in run.text
 
@@ -168,3 +168,11 @@ async def test_simulated_result_never_goes_into_a_real_file(run: Runner) -> None
     code = await run(["gyro-cal"])
     assert code == 6 and "refusing to write a SIMULATED result" in run.text
     assert run.cal.read_text(encoding="utf-8") == before
+
+
+async def test_diag_expect_version_and_records_the_option(run: Runner) -> None:
+    assert await run(["diag", "--expect-version", "0.5.0"]) == 0  # problems reported, version ok
+    assert "SAME" in run.text
+    assert await run(["diag", "--expect-version", "1.0.0"]) == 4
+    await run(["diag", "--no-expander"])
+    assert values(run)["expander_addr"]["value"] == 0
