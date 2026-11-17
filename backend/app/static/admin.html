@@ -849,14 +849,14 @@ async function loadBringup() {
           <input type="text" placeholder="note (value, observation)" value="${esc(st.note || "")}"></div>`).join("")}`).join("")}`
       : `<div class="offline">docs/BRINGUP.md is missing<div class="muted" style="font-weight:400;margin-top:6px">The backend looked for <code>${esc(c.path)}</code>. When the file exists, its checklist appears here.</div></div>`}
     </div>
-    <div class="card"><h2>Calibration records</h2>
+    <div class="card" style="grid-column:1/-1;overflow-x:auto"><h2>Calibration records</h2>
       <p class="muted">${esc(d.calibration.note)}</p>
       ${calibrationTable(d.calibration.real, false)}
       <h3>Simulated calibration records</h3>
       ${d.calibration.simulated.length ? `<div class="banner">⚠ ${esc(d.calibration.simulated_label)}. Written by tests or against the simulated ESP32; never report these values.</div>` : ""}
       ${calibrationTable(d.calibration.simulated, true)}
     </div>
-    <div class="card"><h2>Power — battery V, A and Wh over a run</h2>
+    <div class="card" style="grid-column:1/-1"><h2>Power — battery V, A and Wh over a run</h2>
       ${d.power_runs.length ? `<div class="row"><label>Run <select id="buRun">${d.power_runs.map(r => `<option value="${r.id}">run ${r.id}${r.is_simulated ? " — SIMULATED" : " — physical"} · ${when(r.started_at)} · ${r.power_samples} samples</option>`).join("")}</select></label></div><div id="buPower"></div>`
         : `<p class="muted">No run has power values yet. They come from the battery monitor (INA219) in the telemetry samples of real runs.</p>`}
     </div></div>`;
