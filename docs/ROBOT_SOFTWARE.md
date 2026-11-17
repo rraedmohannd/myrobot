@@ -41,7 +41,7 @@ Why two connections to the backend (page and `robotd`): the conversation needs t
 |---|---|---|
 | `/ws/vision` | visiond → robotd, ~10 Hz | `vision.state {t_ms, camera_ok, faces[] {id, box, facing, yaw_deg, pitch_deg, mouth, speaking}, selected_id, engaged, active_speaker_id, overlap, servo_target_deg}` |
 | `/ws/vision` | robotd → visiond | `vad {speaking}` (from the page's voice detector), `servo {pan_deg}` (the angle actually commanded) |
-| `/ws/ui` | robotd → page | `local.engage`, `local.vision {face_track_id, overlap, engaged, faces}`, `local.state {state, backend_ok, is_simulated}` |
+| `/ws/ui` | robotd → page | `local.engage`, `local.vision {face_track_id, overlap, engaged, faces (a count)}`, `local.state {state, backend_ok, is_simulated}` |
 | `/ws/ui` | page → robotd | `local.vad {speaking}`, `local.conversation {active}` |
 
 ## 3. States
@@ -55,18 +55,18 @@ Why two connections to the backend (page and `robotd`): the conversation needs t
       │        return_failed     │  ▲                                  (also from IDLE: back to IDLE)
       │                    pause │  │ resume
       │                          ▼  │
-      │                         PAUSED          any state ── fault ──► FAULT ── fault cleared ──► IDLE
+      │                         PAUSED          any state ── fault ──► FAULT ── fault cleared ──► PAUSED / IDLE
       └──────────────────────────┘ (return_done / operator)
 ```
 | State | Tracks | Leaves when |
 |---|---|---|
 | IDLE | stopped | `start_roaming` accepted; a person engages → ENGAGED |
-| ROAMING | slow reactive roaming | a person engages; `pause`; `return_to_start`; backend lost → IDLE; fault |
+| ROAMING | slow reactive roaming | a person engages; `pause`; `return_to_start`; backend lost → PAUSED; fault |
 | ENGAGED | stopped; the camera turns to the person | the page reports the conversation started → CONVERSATION; the person leaves or nothing starts within the timeout → previous state |
 | CONVERSATION | stopped | the page reports the conversation ended → recheck the path, then the previous state (ROAMING continues only if a direction is free) |
 | RETURNING | return-to-start controller | `return_done` / `return_failed` → IDLE; `pause` |
-| PAUSED | stopped | `resume` → the state it paused; `return_to_start` |
-| FAULT | stopped, `MODE SAFE` | the fault is gone (and an operator command, for motor faults) |
+| PAUSED | stopped | `resume` → the state it paused; `return_to_start`; paused by a lost backend: resumes by itself when the backend is back |
+| FAULT | stopped | the fault is gone → PAUSED if it was moving (it waits for `resume`; the robot never starts moving by itself after a fault), else IDLE |
 
 **Engagement.** The robot stops when a person has faced it for N seconds (1.5 s, the browser prototype's value). The camera then turns to that person (pan servo, not the base), the page greets and the conversation runs. Afterwards the robot rechecks the path with the ultrasonic sensors before it moves again.
 
@@ -74,9 +74,11 @@ Why two connections to the backend (page and `robotd`): the conversation needs t
 
 **Return-to-start.** docs/ODOMETRY.md §4: the direct vector first, breadcrumbs in reverse when the direct path is blocked, arrival tolerance 0.15 m (proposed), `return_done` / `return_failed {reason}`. Recorded motor commands are never replayed backwards.
 
-**Commands are requests.** `start_roaming`, `pause`, `resume`, `return_to_start`, `set_mode` from the admin page are accepted or refused with a reason (conversation in progress, fault active, low battery, wrong state), always answered with `robot.command.ack`.
+**Commands are requests.** `start_roaming`, `pause`, `resume`, `return_to_start`, `set_mode` from the admin page are accepted or refused with a reason (conversation in progress, fault active, low battery, wrong state, front blocked), always answered with `robot.command.ack`.
 
-**Backend lost.** `robotd` stops roaming (→ IDLE), the page shows "الخدمة غير متوفرة حالياً / service unavailable", telemetry is buffered (bounded) and both reconnect on their own. Stopping never waited for the backend in the first place.
+**Faults.** FAULT comes from: no telemetry for 500 ms, IMU or encoder fault flags, all front sensors absent, low battery. A watchdog stop on the ESP32 is recorded as `comm_loss {link: esp32}`, not as a fault.
+
+**Backend lost.** `robotd` stops roaming (ROAMING → PAUSED, reason `backend_lost`; it resumes by itself when the backend is back), a return-to-start in progress continues because it needs nothing from the backend, no new engagement starts, the page shows "الخدمة غير متوفرة حالياً / service unavailable", telemetry is buffered (bounded) and both reconnect on their own. Stopping never waited for the backend in the first place.
 
 ## 4. Simulation (rule 5)
 - `robotd --sim` runs against a **simulated ESP32** (same serial protocol over a local TCP socket; simulated encoders, gyro and ultrasonics in a 6 × 5 m room). Every telemetry frame carries the `SIMULATED` flag; `robotd` then sends `is_simulated: true` in `robot.status` and `run.start`, logs "SIMULATED", and the page and the admin show a SIMULATED label. Simulated runs can never receive return trials.
@@ -92,3 +94,17 @@ Why two connections to the backend (page and `robotd`): the conversation needs t
 | `robot/robotd/`, `robot/visiond/`, `robot/tests/` | Pi runtime and its tests |
 | `robot/deploy/` | Raspberry Pi OS setup, systemd units, kiosk, udev rule |
 | `firmware/` | ESP32 firmware (PlatformIO), native tests, `sim-check` build |
+
+## 6. Navigation distances (placeholders, to be tuned on the floor)
+| What | Value |
+|---|---|
+| Roam speed | 0.20 m/s |
+| Turn away when the nearest front reading is under | 0.45 m |
+| A direction counts as free above | 0.70 m |
+| Never push forward under | 0.28 m (the ESP32's own stop is at 0.25 m) |
+| Back off 0.15 m | only when the obstacle is under 0.22 m **and** the rear sensor works and shows more than 0.40 m |
+| Breadcrumbs | every 0.3 m or on a heading change; a crumb within 0.25 m of an older one cuts the loop |
+| Arrival tolerance | 0.15 m (proposed in docs/ODOMETRY.md, to be approved by the supervisor) |
+| Vision counts as absent after | 1.5 s without `vision.state` |
+
+None of these is a measurement. `robot/robotd/config.py` holds them.

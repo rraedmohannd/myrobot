@@ -105,6 +105,48 @@ docker compose up -d
 4. **التحكم بالروبوت (محاكاة):** بـ PowerShell: `docker compose exec backend python -m app.ingestion.cli simulate-robot --seconds 180`. بالـ admin ← **Robot (live)**: الحالة، البطارية، الحساسات، المسار، وشريط **SIMULATED**. اضغط "Start roaming" ← تأكيد ← بيطلع رد الروبوت (accepted). اضغط "Start roaming" كمان مرة ← **refused** مع السبب. احكي: "الأوامر طلبات. الروبوت هو اللي بيقرر محلياً، والأمان ما بيعتمد على الـ backend."
 5. **إنترنت ضعيف (اختياري، خطر شوي بالعرض):** افصل الإنترنت واسأل سؤال مكتوب (T). الروبوت بيحكي جملة مخزنة "الإنترنت ضعيف هسا…" وبيطلع QR لصفحة الكلية وأزرار عروض التخصصات، والعروض بتشتغل لأنها مخزنة. رجّع الإنترنت.
 
+## Part 1d — Robot software in simulation (sprint 4; optional, about 3 minutes)
+
+**شو تحكي:** "القطع لسا ما وصلت، فهذا الجزء كله **محاكاة**: الـ ESP32 برنامج (simulated ESP32)، والروبوت بيتحرك بغرفة وهمية 6×5 متر. اللي بنشوفه هو إن برامج الروبوت (`robotd` و`visiond`) والـ backend والشاشة بيشتغلوا مع بعض. ولا رقم هون نتيجة فحص حقيقي."
+
+> **What was actually tried (2026-11-17):** this scenario ran with a **scripted stand-in for the camera** (`fake_vision.py`), a headless browser, a preview backend with fake AI providers and a scratch database. The phone-camera path, the real backend on port 8000 and a normal browser window were **not** tried. Rehearse this part before showing it.
+
+### Start (two extra terminals)
+```powershell
+cd C:\Users\hanan\Documents\smart-campus-robot\robot
+.venv\Scripts\python -m robotd --sim --backend ws://localhost:8000/ws/robot
+```
+```powershell
+cd C:\Users\hanan\Documents\smart-campus-robot\robot
+.venv\Scripts\python -m visiond --source http://<phone-ip>:8080/video --console --sim-servo
+```
+- أول مرة: جهّز البيئة حسب `robot/README.md` (قسم "On the laptop").
+- إذا `ROBOT_TOKEN` معبّى بملف `.env`، حطه قبل تشغيل robotd: `$env:ROBOT_TOKEN = "..."`.
+- بدون تلفون: بدل visiond شغّل `.venv\Scripts\python scripts\fake_vision.py --hold 12` (زائر وهمي مكتوب عليه SIMULATED، مش كاميرا).
+- افتح `http://localhost:8765/` (شاشة الروبوت من robotd نفسه)، اسمح للمايك واضغط مرة على الصفحة عشان الصوت يشتغل. لازم تشوف فوق الشارة البرتقالية **"محاكاة · SIMULATED"**.
+
+### What to show
+1. بلوحة الإدارة ← **Robot (live)** ← **Start roaming**. الحالة بتصير `ROAMING` والموقع بيتغير (محاكاة).
+2. وقّف قدام كاميرا التلفون وطّلع فيها حوالي ثانية ونص: الروبوت بيوقف (`ENGAGED`)، والشاشة بترحّب لحالها (`CONVERSATION`). حرّك حالك يمين وشمال: بسطر visiond بيتغير `target` (زاوية الكاميرا — السيرفو محاكاة).
+3. اسأل سؤال (أو اضغط `T` واكتبه). وإنت بتحكي جرّب **Return to start** من الإدارة: الروبوت بيرفض ("a conversation is in progress") — الأوامر طلبات والروبوت هو اللي بيقرر.
+4. اسكت 10 ثواني: الروبوت بيودّع وبيرجع `ROAMING` لحاله.
+5. **Return to start** ← `RETURNING` ← `IDLE`.
+6. **Robot runs** ← اضغط على آخر تشغيل: المسار مرسوم وفوقه **"⚠ SIMULATED — not a physical result"**.
+7. (اختياري) وقّف الـ backend والروبوت ماشي: `docker compose stop backend`. الروبوت بيوقف فوراً (`PAUSED`) والشاشة بتكتب "الخدمة مش متاحة". `docker compose start backend` ← بيرجع يكمل لحاله.
+
+### Automatic check (no browser, fake AI providers, scratch database only)
+```powershell
+$env:E2E_ADMIN_TOKEN = "<throwaway token of the preview backend>"
+.venv\Scripts\python scripts\e2e_sim.py --backend http://localhost:8001
+```
+بيطبع سطر PASS/FAIL لكل خطوة وبيرفض يشتغل على الـ backend الحقيقي (لازم preview backend على قاعدة بيانات تجريبية، زي ما مكتوب بـ `backend/tests/preview_app.py`).
+
+### Say honestly
+- كل هذا محاكاة على اللابتوب: ولا إشي منه اشتغل على Raspberry Pi أو ESP32 أو Rover 5.
+- كاميرا التلفون وضع تطوير، مش فحص لكاميرا الروبوت. الأرقام (السرعة، المسافة، زمن الرجوع) من المحاكي، ممنوع تنكتب كنتائج.
+- التشغيلات المحاكاة ما بتاخذ "return trial" أبداً.
+- على الـ backend الحقيقي (8000): المحادثة بتصرف من رصيد OpenAI، والتشغيل بينحفظ بقاعدة بياناتك وعليه علامة SIMULATED.
+
 ## Part 2 — The test bench: `/voice` (about 2 minutes)
 
 **شو تحكي:** "هاي صفحة الفحص، نفس الكود (ملف `robot-client.js` مشترك)."
