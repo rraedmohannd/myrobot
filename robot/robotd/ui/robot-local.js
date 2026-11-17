@@ -88,5 +88,16 @@
     },
   };
 
+  // ---- hidden gesture: press the top-right corner for 3 s -> settings page (PIN on the server) ----
+  let pressTimer = null;
+  addEventListener("pointerdown", e => {
+    if (e.clientX > innerWidth - 90 && e.clientY < 90) {
+      pressTimer = setTimeout(() => { location.href = "/local/settings"; }, 3000);
+    }
+  }, true);
+  for (const ev of ["pointerup", "pointercancel", "pointerleave"]) {
+    addEventListener(ev, () => { clearTimeout(pressTimer); pressTimer = null; }, true);
+  }
+
   connect();
 })();

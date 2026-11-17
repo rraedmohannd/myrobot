@@ -10,6 +10,7 @@
   local.conversation).
 - `WS /ws/vision`: visiond connects here (vision.state in; vad / servo out). No image data.
 - `WS /ws/ctl`: robotctl (robotd.ctl, localhost only).
+- `/local/settings...`: the settings page behind a PIN (robotd.settings, localhost only).
 
 The server listens on 127.0.0.1 by default: the injected token never leaves the robot.
 """
@@ -29,6 +30,7 @@ from aiohttp import web
 
 from robotd.config import Config
 from robotd.core import Brain
+from robotd.settings import SettingsApi
 
 if TYPE_CHECKING:
     from robotd.ctl import CtlHub
@@ -80,7 +82,9 @@ class UiServer:
         self.port = cfg.ui_port
         self._runner: web.AppRunner | None = None
         self._http: aiohttp.ClientSession | None = None
+        self.settings = SettingsApi(cfg, brain, clock)
         app = web.Application()
+        app.add_routes(self.settings.routes())  # before /local/{name}
         app.add_routes([
             web.get("/", self._page), web.get("/robot", self._page),
             web.get("/local/status", self._status),

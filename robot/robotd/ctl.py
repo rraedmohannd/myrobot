@@ -159,8 +159,23 @@ class CtlHub:
             "telemetry_hash": f"{b.frame.param_hash:08x}" if b.frame is not None else None,
             "calibration_problem": b.cal_problem, "link": b.link.stats(),
             "gyro_bias_residual": round(b.gyro_bias_residual, 5),
+            "vision": self.vision(),
         })  # fmt: skip
         return out
+
+    def vision(self) -> dict[str, Any] | None:
+        """The last `vision.state` from visiond (ids, boxes, flags; never an image), with its
+        age, for robotctl hfov-cal. None when no visiond is connected or nothing came yet."""
+        b = self.brain
+        if not b.vision_connected or b.vision is None:
+            return None
+        v = b.vision
+        return {
+            "faces": v.get("faces") or [], "selected_id": v.get("selected_id"),
+            "camera_ok": bool(v.get("camera_ok")), "engaged": bool(v.get("engaged")),
+            "servo_target_deg": v.get("servo_target_deg"),
+            "age_ms": int(max(0.0, self._clock() - b.vision_at) * 1000),
+        }  # fmt: skip
 
     # ---------------- the WebSocket ----------------
     async def handle(self, request: web.Request) -> web.WebSocketResponse:

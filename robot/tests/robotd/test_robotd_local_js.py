@@ -14,11 +14,14 @@ SCRIPT = Path(robotd.__file__).parent / "ui" / "robot-local.js"
 
 HARNESS = r"""
 const fs = require("fs"), vm = require("vm");
-const sockets = [], handlers = {}, sent = [];
+const sockets = [], handlers = {}, sent = [], timers = [], cleared = [], winHandlers = {};
 let now = 1000, started = 0;
 const badge = {style: {}, hidden: true, textContent: ""};
 const ctx = {
-  console, setTimeout: () => 0,
+  console, setTimeout: (fn, ms) => { timers.push({fn, ms}); return timers.length; },
+  clearTimeout: id => { if (id) cleared.push(id); },
+  addEventListener: (name, fn) => { (winHandlers[name] = winHandlers[name] || []).push(fn); },
+  innerWidth: 1024,
   performance: {now: () => now},
   location: {protocol: "http:", host: "localhost:8765"},
   document: {createElement: () => badge, body: {appendChild() {}, dataset: {}}},
@@ -59,6 +62,16 @@ emit("message", {type: "session.started"});
 emit("conn", "lost");
 ws.onclose();
 out.badgeOffline = badge.textContent;
+const fire = (name, x, y) => (winHandlers[name] || []).forEach(fn => fn({clientX: x, clientY: y}));
+const before = timers.length;
+fire("pointerdown", 500, 300);                                 // middle of the screen: nothing
+out.middleTimers = timers.length - before;
+fire("pointerdown", 1000, 20); fire("pointerup", 1000, 20);    // a short tap in the corner
+out.tapCleared = cleared.includes(timers.length);
+fire("pointerdown", 1000, 20);                                 // held for 3 s
+const held = timers[timers.length - 1];
+out.holdMs = held.ms; held.fn();
+out.href = ctx.location.href;
 out.sent = sent;
 console.log(JSON.stringify(out));
 """
@@ -85,6 +98,9 @@ def test_robot_local_js_logic(tmp_path: Path) -> None:
     assert out["audioEndSilentFace"] == {"overlap": False}
     assert out["fallback"] == {"face_track_id": 99}  # back to the page's camera
     assert "robotd offline" in out["badgeOffline"]
+    # hidden gesture: only a 3 s press on the top-right corner opens the settings page
+    assert out["middleTimers"] == 0 and out["tapCleared"] is True
+    assert out["holdMs"] == 3000 and out["href"] == "/local/settings"
     assert out["sent"] == [
         {"type": "local.conversation", "active": False},
         {"type": "local.conversation", "active": True},

@@ -157,3 +157,33 @@ def test_message_conversion_both_ways() -> None:
         build_message("PARAM_SET", {"id": 1})
     with pytest.raises(ValueError, match="not allowed"):
         build_message("HEARTBEAT", {})
+
+
+async def test_ctl_status_carries_the_last_vision_state(app: RobotApp) -> None:
+    base = f"http://127.0.0.1:{app.ui.port}"
+    state = {
+        "type": "vision.state", "t_ms": 1, "camera_ok": True,
+        "faces": [{"id": 3, "box": [0.6, 0.3, 0.2, 0.3], "facing": True, "yaw_deg": 4.0,
+                   "pitch_deg": 0.0, "mouth": 0.0, "speaking": False}],
+        "selected_id": 3, "engaged": False, "active_speaker_id": None, "overlap": False,
+        "servo_target_deg": 5.0,
+    }  # fmt: skip
+
+    def last_status(ctl: Ctl) -> dict[str, Any]:
+        return [m for m in ctl.got if m["type"] == "ctl.status"][-1]
+
+    async with aiohttp.ClientSession() as session:
+        ws = await session.ws_connect(base + "/ws/ctl")
+        ctl = Ctl(ws)
+        assert await wait_for(lambda: any(m["type"] == "ctl.status" for m in ctl.got))
+        assert last_status(ctl)["vision"] is None  # no visiond
+        vision = await session.ws_connect(base + "/ws/vision")
+        await vision.send_json(state)
+        assert await wait_for(lambda: last_status(ctl)["vision"] is not None)
+        seen = last_status(ctl)["vision"]
+        assert seen["faces"][0]["box"] == [0.6, 0.3, 0.2, 0.3] and seen["selected_id"] == 3
+        assert seen["camera_ok"] is True and 0 <= seen["age_ms"] < 2000
+        await vision.close()
+        assert await wait_for(lambda: last_status(ctl)["vision"] is None)
+        await ws.close()
+        ctl.task.cancel()

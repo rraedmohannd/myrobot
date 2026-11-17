@@ -351,6 +351,11 @@ class Brain:
         else:
             self._event(f"esp32_{code.name.lower()}", {"arg": ev.arg})
 
+    @property
+    def vision_at(self) -> float:
+        """When the last vision.state arrived (clock seconds)."""
+        return self._vision_at
+
     def on_vision(self, msg: dict[str, Any], now_s: float) -> None:
         """A `vision.state` message from visiond (no image data, ever)."""
         if msg.get("type") != "vision.state":

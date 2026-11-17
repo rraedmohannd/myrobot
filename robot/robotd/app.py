@@ -17,6 +17,7 @@ from robotd.core import Brain
 from robotd.ctl import CtlHub
 from robotd.health import read_health
 from robotd.link import SerialLink
+from robotd.settings import apply_override
 from robotd.sim_esp32 import SimEsp32, SimEsp32Config, SimEsp32Server
 from robotd.transport import SerialTransport, TcpTransport, Transport
 from robotd.ui_server import UiServer
@@ -49,6 +50,7 @@ class RobotApp:
     def __init__(self, cfg: Config, sim: SimEsp32 | None = None) -> None:
         self.cfg = cfg
         self.clock = time.monotonic
+        apply_override(cfg)  # backend addresses saved from the settings page
         cal, problem, self.cal_path = load_calibration(cfg)
         self._cal_mtime = self._mtime()
         self.brain = Brain(cfg, calibration=cal, calibration_problem=problem)
