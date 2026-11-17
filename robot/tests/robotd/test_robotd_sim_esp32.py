@@ -34,6 +34,7 @@ from scr_serial import (
     ParamSet,
     ParamSource,
     ResetReason,
+    Sensors,
     Servo,
     Stop,
     Telemetry,
@@ -271,7 +272,7 @@ def test_fresh_firmware_is_uncalibrated_and_does_not_move() -> None:
     diag = pi.of(DiagReport)[0]  # sent once at boot, after EVENT BOOT
     assert diag.build_env == BuildEnv.ROBOTD_SIMULATED and diag.diag_flags & DiagFlags.SIMULATED
     assert not diag.diag_flags & DiagFlags.PINS_CONFIRMED
-    assert diag.i2c_addresses == (0x40, 0x68)
+    assert diag.i2c_addresses == (0x40, 0x68) and not diag.sensors & Sensors.EXPANDER
 
 
 def test_param_set_rules_hash_save_and_reboot() -> None:

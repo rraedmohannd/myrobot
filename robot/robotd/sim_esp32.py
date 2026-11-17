@@ -276,6 +276,8 @@ class SimEsp32:
         sensors = Sensors.IMU
         if cfg.power_sensor:
             sensors |= Sensors.INA219
+        if 0x20 in cfg.i2c_addresses:
+            sensors |= Sensors.EXPANDER
         for i, ok in enumerate((*cfg.front_sensors, cfg.rear_sensor)):
             if ok:
                 sensors |= Sensors(Sensors.US0 << i)
