@@ -159,7 +159,8 @@ uint8_t Safety::onMode(uint8_t mode, bool motors_usable, bool closed_loop_ready)
   return proto::kAckOk;
 }
 
-void Safety::tick(uint32_t now_ms, const uint16_t us_mm[4]) {
+void Safety::tick(uint32_t now_ms, const uint16_t us_mm[4], float applied_left_mm_s,
+                  float applied_right_mm_s) {
   // 1. Watchdog.
   const uint32_t silent_ms = now_ms - last_valid_ms_;
   if (!link_lost_ && silent_ms >= c_.watchdog_ms) {
@@ -172,8 +173,14 @@ void Safety::tick(uint32_t now_ms, const uint16_t us_mm[4]) {
   // 2. Front obstacle (with hysteresis).
   int16_t nearest = -1;
   const bool front_blocked = frontBlockedNow(us_mm, &nearest);
+  // Motion = the targets or the ramped outputs (a ramp-down is still motion). Deadband against
+  // float dust; a symmetric turn in place sums to exactly 0.
+  constexpr float kAppliedDeadbandMmS = 0.5f;
   const int32_t sum = static_cast<int32_t>(left_) + static_cast<int32_t>(right_);
-  if (sum > 0 && front_blocked) {
+  const float applied = applied_left_mm_s + applied_right_mm_s;
+  const bool forward = sum > 0 || applied > kAppliedDeadbandMmS;
+  const bool reverse = sum < 0 || applied < -kAppliedDeadbandMmS;
+  if (forward && front_blocked) {
     frontStop(nearest);
   } else if (!front_blocked) {
     obstacle_flag_ = false;
@@ -181,7 +188,7 @@ void Safety::tick(uint32_t now_ms, const uint16_t us_mm[4]) {
 
   // 3. Rear (with hysteresis; a rear sensor that is absent or faulty counts as blocked).
   const bool rear_blocked = rearBlockedNow(us_mm);
-  if (sum < 0 && rear_blocked) {
+  if (reverse && rear_blocked) {
     rearStop(us_mm);
   } else if (!rear_blocked) {
     rear_flag_ = false;

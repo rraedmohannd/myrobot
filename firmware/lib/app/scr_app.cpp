@@ -147,7 +147,15 @@ FirmwareApp::FirmwareApp(const AppConfig& config, const hal::Hardware& hw)
 // Pushes the parameter store into the configuration and every control block. Called at start,
 // after the NVS load and after every accepted PARAM_SET (only while the tracks do not move).
 void FirmwareApp::applyParams() {
+  bool old_invert[4];
+  for (int i = 0; i < 4; ++i) old_invert[i] = cfg_.encoder_invert[i];
   paramsToConfig(params_, &cfg_);
+  // An ENCODER_INVERT_* change flips the sign of that cumulative count: without a new baseline
+  // the next delta would be -2 x count, a phantom track speed that the PID answers with full duty
+  // the wrong way (safety review, 2026-11-17). The next reading starts a new baseline instead.
+  for (int i = 0; i < 4; ++i) {
+    if (old_invert[i] != cfg_.encoder_invert[i]) have_enc_ = false;
+  }
   safety_.setObstacleConfig(cfg_.safety.obstacle_mm, cfg_.safety.clear_hysteresis_mm);
   PidGains g = cfg_.pid;
   pid_left_.setGains(g);
@@ -764,7 +772,8 @@ void FirmwareApp::controlTick(uint32_t now_ms) {
   receive(now_ms);
   readSensors(now_ms, dt_s);
   stepGyroCalibration(now_ms);
-  safety_.tick(now_ms, ultrasonic_.distancesMm());
+  // The ramp outputs of the last period are the motion being applied right now.
+  safety_.tick(now_ms, ultrasonic_.distancesMm(), ramp_left_.value(), ramp_right_.value());
 
   // Encoder fault: uses the duty applied during the last period.
   if (encoders_ok_) {

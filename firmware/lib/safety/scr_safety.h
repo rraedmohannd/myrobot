@@ -70,7 +70,12 @@ class Safety {
   void forceStop();
 
   // 100 Hz: watchdog and obstacle rules.
-  void tick(uint32_t now_ms, const uint16_t us_mm[4]);
+  // applied_left/right_mm_s: the speeds the outputs follow right now (the ramp outputs). The
+  // obstacle rules look at the targets AND at these: after an accepted "DRIVE 0 0" or a turn in
+  // place, the ramp still carries the robot forward/backward for up to MAX_SPEED / RAMP seconds,
+  // and that motion must still be stopped by the front/rear rule (safety review, 2026-11-17).
+  void tick(uint32_t now_ms, const uint16_t us_mm[4], float applied_left_mm_s = 0.0f,
+            float applied_right_mm_s = 0.0f);
 
   bool popEvent(SafetyEvent* out);
 
