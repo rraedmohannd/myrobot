@@ -31,10 +31,22 @@ namespace pins {
 // Run-time half of CLAUDE.md rule 8: a driver starts only when every one of its pins is
 // assigned. In the compile-check build and in the CI pin build nothing is ever usable, so those
 // builds never drive a pin.
+#if defined(SCR_CI_PINS_DO_NOT_FLASH)
+// Always false, but read through a volatile so that the compiler cannot prove it and drop the
+// driver code: the CI build then also LINKS the real driver calls (LEDC, PCNT, Wire, ...). Nothing
+// ever writes this variable.
+extern volatile bool g_ci_build_never_true;
+#endif
 inline bool allAssigned(std::initializer_list<int> list) {
-#if defined(PINS_COMPILE_CHECK_ONLY) || defined(SCR_CI_PINS_DO_NOT_FLASH)
+#if defined(PINS_COMPILE_CHECK_ONLY)
   (void)list;
   return false;
+#elif defined(SCR_CI_PINS_DO_NOT_FLASH)
+  if (!g_ci_build_never_true) return false;  // the CI build never starts a driver
+  for (int p : list) {
+    if (p < 0) return false;
+  }
+  return true;
 #else
   for (int p : list) {
     if (p < 0) return false;

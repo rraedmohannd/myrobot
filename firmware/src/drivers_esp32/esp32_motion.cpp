@@ -1,5 +1,6 @@
 // motors, encoders, servo, link, parameter storage. NOT VERIFIED ON HARDWARE (never run on an
 // ESP32; compiled for Arduino-ESP32 core 2.x and 3.x only).
+#include <Arduino.h>  // first: defines ESP_ARDUINO_VERSION_MAJOR for the branches below
 #include <Preferences.h>
 
 #if defined(ESP_ARDUINO_VERSION_MAJOR) && ESP_ARDUINO_VERSION_MAJOR >= 3
@@ -15,6 +16,11 @@
 #include "scr_control.h"
 
 namespace scr {
+#if defined(SCR_CI_PINS_DO_NOT_FLASH)
+namespace pins {
+volatile bool g_ci_build_never_true = false;  // see esp32_drivers.h: never written
+}  // namespace pins
+#endif
 namespace esp32 {
 
 namespace {
