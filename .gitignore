@@ -18,3 +18,9 @@ backups/
 robot/models/*.onnx
 robot/models/*.task
 robot/logs/
+
+# sprint 5: development calibration file, firmware release binaries, robotctl outputs
+robot/calibration.dev.json
+robot/calibration.dev.log.jsonl
+firmware/release/
+robot/bringup-output/
