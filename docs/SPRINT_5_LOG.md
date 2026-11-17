@@ -145,3 +145,27 @@ The questions for Mohannd, what only he can do, the steps for when the parts arr
 - `bash mechanical/build.sh` / `build.ps1` renders STL and PNG in Docker (`openscad/openscad:2021.01`; a manual Xvfb because the image's `xvfb-run` hangs): **all 6 parts rendered, about 15 s**. PNG previews committed (looked at: shapes as intended); STLs regenerated, not committed.
 - **NO DIMENSION IS VERIFIED; nothing was printed or test-fitted.** Measure first: panel thickness and connector positions, MG996R flange height and horn, the webcam clip, the HC-SR04 cans (clones vary), the battery holder. Which of ±25° is "left" must be checked against the sensor names.
 - Commit: `fff215f`.
+
+## S2.8 — Independent safety review of the firmware, and what was done about it
+A separate agent that did not write the firmware reviewed: the command watchdog, the obstacle stop and its hysteresis, the reverse rule, boot and reset states and brownout, parameter writes, the I2C hang, interrupts and PCNT, the SAFE-mode exits, the task watchdog on both cores, and the voltage-compensation formula.
+
+| # | Finding | Severity | Outcome |
+|---|---|---|---|
+| F1 | The front and rear obstacle rules looked only at the DRIVE targets: after an accepted `DRIVE 0 0`, or during a turn, the ramp still moved the robot (up to MAX_SPEED/RAMP seconds) with no obstacle or rear check | **high** | **fixed** by the reviewer, `a57d603` (3 tests that failed before) |
+| F2 | Changing `ENCODER_INVERT_*` made a phantom encoder jump; with speed filtering the PID could answer a forward DRIVE with full reverse duty | medium | **fixed**, `a57d603` (test failed before) |
+| 2c | A failed expander trigger left the last good distance in use for about 0.4 s | medium | **fixed**: that sensor reads ABSENT at once, `e9ca7c9` |
+| 2d | A late expander ping could read as "no echo" = clear | low–medium | **fixed**: counted as a miss, never as clear, `e9ca7c9` |
+| 2b | A dead centre front sensor left a blind sector while the side sensors worked | medium | **fixed** (stricter than the protocol's rule 5): forward is blocked, `1457e4d`; `robotd` treats it as "front blocked", `9d1b51a` |
+| 5b | Motor inversion changed without the matching encoder inversion → positive feedback, nothing stopped it | medium | **fixed**: speed-sign-mismatch fault in MODE DRIVE (not in TEST), `82c65bc`; `robotd` shows it as a latched FAULT with the hint "run robotctl motor-test", `9d1b51a` |
+| 1d | `PARAM_SAVE` (40 NVS writes) on the control task could reach the task watchdog | low | **fixed**: one key per control period, watchdog fed, ACK after the commit (about 0.41 s), `82c65bc` |
+| 7b | `PARAM_GET` of all parameters could block the control task on serial output | low | **fixed**: 2 KB transmit buffer, `82c65bc` |
+| 6c | A false-low battery reading (e.g. 5 V) was accepted and gave the full duty cap | low | **fixed**: readings below 9.0 V count as missing (12.6 V fallback), `1457e4d` |
+| 4b | A motor line on a pin that is active during boot (GPIO 1, 3, 5, 14, 15) could twitch a track while the ESP32 boots | medium | **fixed** in the pin checker (refused on motor rows), `41e03b3`; the proposed table already avoided them. That GPIO 5/14/15 output signals at boot is "commonly reported", not found in Espressif's documents |
+| 5c, 1c, 1b | `robotd`: odometry not re-baselined after an inversion change; stale DRIVE frames after a link stall; reliance on HEARTBEAT | low | **fixed** in `robotd`, `9d1b51a` (STOP first on `LINK_RESTORED`, DRIVE at 20 Hz while moving — measured in a test) |
+| 4c | While the control task hangs, the L298N keeps the last PWM until the task watchdog resets the chip (0.5 s on core 3.x, 1 s on core 2.x) | medium | **for you (design):** prefer the core 3.x build; a hardware dead-man on the enable pins (a retriggerable monostable fed by the control loop) would make the stop independent of the CPU |
+| 6b | With a lost INA219 the battery cut-off is not evaluated | low | **for you:** decide whether a lost INA219 should force SAFE once `BATTERY_CUTOFF_MV` > 0 |
+| 1a, 2a, 2e, 3, 4a, 5a, 6a, 7a, 8 | Watchdog arithmetic and feeding, hysteresis and absent sensors, stuck echo lines, reverse rule, boot order and SAFE after every reset, parameter bounds, I2C isolation from the control task, ISR/PCNT/shared-state safety, SAFE exits | – | reviewed, correct as written |
+
+- Wording of every new rule: `docs/SERIAL_PROTOCOL.md` §10.7.
+- After all fixes: native tests **147 test cases: 147 succeeded** (suites app, control, protocol, safety, safety_review, sprint5); `sim-check` 0 failures; `esp32-compile-check`, `esp32-ci-pins` (core 2.0.17) and `esp32-ci-pins-core3` (3.3.12) SUCCESS; robot suite 317 passed; pin checker 29 passed.
+- **Not reviewable without hardware:** echo interrupt latency, what the L298N sees during ROM boot, the real task-watchdog panic-to-reset time, NVS write durations, I2C bus clear with a real stuck device, PCNT on a real chip, the MCP23017 at power loss. The simulated ESP32 does not reproduce the delayed `PARAM_SAVE` acknowledgement or the speed-sign fault (the `robotd` test injects that event).
