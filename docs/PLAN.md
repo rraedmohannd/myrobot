@@ -26,18 +26,24 @@ Milestones: **M1** 6 Dec (base moves + conversation works) · **M2** 27 Dec (ret
 | 9–10 | Return-to-start, interaction improvements |
 | 11–12 | Power, brackets, assembly, stability, final tests |
 
-## Robot software status (sprint 4, 2026-11-17) — written before the hardware, tested in simulation only
+## Robot software status (sprint 5, 2026-11-17) — **code complete, bring-up pending**
+Every program for the Raspberry Pi and the ESP32 is written, together with the tools that take the robot from "wired" to "calibrated". Nothing has run on the real parts yet: everything is tested in simulation, in Docker, or in an emulated arm64 container (not a Pi).
+
 | Part | Status |
 |---|---|
 | Architecture (docs/ROBOT_SOFTWARE.md) | ✅ decided and documented |
-| Pi ↔ ESP32 serial protocol (docs/SERIAL_PROTOCOL.md) | ✅ Python and C++ codecs, cross-tested with shared frames |
-| ESP32 firmware (`firmware/`) | 🟡 written; native tests and the `sim-check` build pass; compiled and linked for the ESP32; **never run on an ESP32**; pins unassigned (rule 8); all tuning values are placeholders |
-| `robotd` (`robot/robotd/`) | 🟡 written; tests pass against a **simulated** ESP32; never run on the Pi or with a real serial port |
-| `visiond` (`robot/visiond/`) | 🟡 written; logic tests pass with synthetic data; **no real face, phone or Pi yet** (the phone test is the student's, docs/SPRINT_4_LOG.md) |
-| Pi installation (`robot/deploy/`, `robot/README.md`) | 🟡 written; never run on a Pi |
-| End-to-end on the laptop (simulation) | see docs/SPRINT_4_LOG.md R6 and docs/DEMO.md |
+| Pi ↔ ESP32 serial protocol v2 (docs/SERIAL_PROTOCOL.md) | ✅ Python and C++ codecs cross-tested on 22 shared frames; runtime parameters, diagnostics, bring-up modes |
+| Pin plan (docs/PIN_PLAN.md) and checker (`firmware/tools/pins_from_table.py`) | ✅ proposal on paper (option B, MCP23017 for the triggers); pins enter the firmware only through the checked table — **the student wires, fills the table and confirms option A/B** |
+| ESP32 firmware (`firmware/`) | ✅ code complete; native tests, `sim-check` with fault injection, compile checks for Arduino core 2.x and 3.x; **never run on an ESP32**; every tuning value is a runtime parameter with a placeholder that does not move the robot |
+| `robotd` (`robot/robotd/`) | ✅ code complete (calibration file and parameter push, gyro bias, battery rules, black box, settings page, Pi health); tested against the **simulated** ESP32 only |
+| `visiond` (`robot/visiond/`) | ✅ code complete; synthetic data only; **no real face, phone or Pi yet** |
+| Bring-up kit (`robotctl`, docs/BRINGUP.md) | ✅ every calibration step as a command; tested against the simulated ESP32 — **the student runs it on the real robot** |
+| Pi installation (`robot/deploy/`) | ✅ install, kiosk, update, flash scripts; dependencies locked; verified in an emulated arm64 Raspberry Pi OS (trixie) container — **never run on a Pi or the screen** |
+| Admin "Bring-up" tab, calibration records, power chart | ✅ backend done; nothing real feeds it yet |
+| AprilTag at the start point (docs/APRILTAG.md) | 🧪 experimental, off by default, never counted in results |
+| Mechanical parts (`mechanical/`) | 🧪 parametric drafts; no dimension verified |
 
-**When the parts arrive:** follow the checklist at the end of docs/SPRINT_4_LOG.md (wiring, pin map, `PINS_CONFIRMED`, first motor test with the tracks off the ground, encoder directions, gyro calibration, `metres_per_tick`). Weeks 3–6 of the table above then become wiring, calibration and real tests instead of writing code.
+**When the parts arrive:** follow `docs/BRINGUP.md` step by step (the admin "Bring-up" tab keeps the ticks). No step needs new code. Weeks 3–6 of the table above become wiring, calibration and real tests.
 
 ## Final week (week 12, 18–24 Jan 2027, or the last week before the defense) — checklist
 - [ ] **TTS provider — decision needed from the student by 2026-12-20** (question asked on 2026-11-17, sprint 4 P0.2). OpenAI shuts down `gpt-4o-mini-tts`, the voice used today, on **2027-01-06** (OpenAI deprecations page, read again on 2026-11-17). That is before week 12, so "switch to ElevenLabs in the final week" (decision of 2026-11-06) no longer works on its own: between 6 Jan and the final week the robot would have no voice. Both adapters now exist and are chosen with `TTS_PROVIDER` in `.env`; the default is still `openai` (`gpt-4o-mini-tts`). Choose one:

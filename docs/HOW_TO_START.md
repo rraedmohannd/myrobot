@@ -158,6 +158,26 @@ docker compose exec db sh -c "dropdb -U $POSTGRES_USER smart_campus_preview"
 ```
 Run step 1 in Git Bash or adapt the quotes for PowerShell. The result is saved in `backend\data\soak\`.
 
+## Sprint 5: robot software and the bring-up kit (before the parts arrive)
+Everything below works on the laptop **in simulation**; the real steps are in `docs/BRINGUP.md`.
+```powershell
+cd robot
+.venv\Scripts\python -m pip install -e ..\shared -e ".[dev]"   # once
+.venv\Scripts\python -m pytest -q                               # robotd, visiond, robotctl, serial protocol
+.venv\Scripts\python -m robotd --sim                            # simulated robot, page http://localhost:8765/
+.venv\Scripts\python -m robotctl status --ctl ws://127.0.0.1:8765/ws/ctl   # live view through robotd
+.venv\Scripts\python -m robotd.sim_esp32 --port 8766 --profile fresh       # a never-calibrated SIMULATED ESP32
+.venv\Scripts\python -m robotctl diag --sim-tcp 127.0.0.1:8766             # bring-up tool against it
+```
+```bash
+firmware/tools/test.sh                                   # firmware native tests + sim-check (Docker)
+firmware/tools/test.sh "pio run -e esp32-ci-pins"        # compile proof with a fake pin set (never flash it)
+python firmware/tools/pins_from_table.py --check         # checks the pin table in docs/HARDWARE.md (fails until it is filled in)
+bash robot/scripts/container_test.sh                     # Pi install in an emulated arm64 container (about 15 min)
+```
+- When the parts arrive: `docs/BRINGUP.md`, from section 1. The admin page has a **Bring-up** tab with the same checklist.
+- Pin plan (proposal): `docs/PIN_PLAN.md`. Serial protocol: `docs/SERIAL_PROTOCOL.md`. Pi install, update and flashing: `robot/README.md`. Firmware: `firmware/README.md`.
+
 ## Robot runs (trajectory view) — simulation only for now
 ```powershell
 docker compose exec backend python -m app.ingestion.cli simulate-run             # direct return
