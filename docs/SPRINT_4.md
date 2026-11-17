@@ -52,6 +52,13 @@ Native unit tests and a `sim` build environment must compile without pins.
    - **no ElevenLabs calls** (the student's credits);
    - at most 5 short real phrases for `openai_realtime`, with time to first audio and accent noted in the log;
    - a dated decision question in `docs/PLAN.md`.
+4. **An FAQ can be linked to the wrong program.**
+   - **The bug.** Draft FAQ 16 ("how many credit hours does the plan require? → 165") was drafted from the **Architectural Engineering** plan but linked to **Intelligent Systems Engineering**, which has 162 hours. The number check passed because 165 is in its source. It was fixed by hand on 2026-11-17 (program set to Architectural Engineering).
+   - **Fix.**
+     - An FAQ or pitch whose source belongs to a program must have that same program. Refuse approval otherwise, with a clear issue message.
+     - Numbers are checked against the approved sources **of the FAQ's program** (plus university-wide sources such as the handbook), not against any source.
+     - Re-check the 27 pending and 11 approved FAQs with the new rule, and report any other mismatch in the log. Do not change approved content.
+   - **Tests:** a mismatched program is refused, and a number from another program's plan is refused.
 3. **Formatting pass.** Run `ruff format` and fix the long lines in a separate commit that changes nothing else. If needed, set the line length in `pyproject.toml` and document it. Tests must pass before and after.
 
 ## R0 — Architecture document (`docs/ROBOT_SOFTWARE.md`)
