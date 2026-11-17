@@ -138,3 +138,10 @@ The questions for Mohannd, what only he can do, the steps for when the parts arr
 - **Is the end of speech → first audio above 4 s?** Speech-to-text is not in this measurement. Sprint 2 estimated it at roughly 0.6–1.1 s, which would put the end of speech → first audio at about **3.7–4.2 s median and 4.5–5 s at p90: above the 4 s target at p90, around it at the median.** This is an estimate, not a measurement with a voice.
 - **Which stage is slow:** the text-to-speech of the first piece. Per question, the time from the first speakable LLM piece to the first answer audio was 1.5–3.4 s (median about 2.0 s); the LLM's first piece takes about 1.1 s and retrieval 0.2 s. The slowest rows (`ise-hours-ar` 5.2 s, `arch-hours-ar` 3.9 s) spent 2.6–3.4 s there. The TTS model is shut down on 2027-01-06 anyway, so measure again after the TTS decision (question 1).
 - OpenAI use in this sprint: these two runs only. No ElevenLabs call.
+
+## S8 (P2) — Mechanical parts as code (`mechanical/`)
+- Parametric OpenSCAD parts: two mirrored stands for the Waveshare 7" (C) screen (15° tilt), an MG996R pan cradle with a webcam clamp on the horn, one HC-SR04 holder printed four times (yaw +25°, 0, −25° at the front, 0 at the rear), a Pi 5 plate (58 × 49 mm hole pattern), and a 3S 18650 plate with strap slots. Mounting is glue, tape and zip ties only.
+- Every dimension is a variable at the top of its file marked `// VERIFY WITH CALIPERS`, with its source (Waveshare wiki drawing, TowerPro MG996R datasheet, ElecFreaks HC-SR04 guide, Raspberry Pi 5 mechanical drawing) or "guess".
+- `bash mechanical/build.sh` / `build.ps1` renders STL and PNG in Docker (`openscad/openscad:2021.01`; a manual Xvfb because the image's `xvfb-run` hangs): **all 6 parts rendered, about 15 s**. PNG previews committed (looked at: shapes as intended); STLs regenerated, not committed.
+- **NO DIMENSION IS VERIFIED; nothing was printed or test-fitted.** Measure first: panel thickness and connector positions, MG996R flange height and horn, the webcam clip, the HC-SR04 cans (clones vary), the battery holder. Which of ±25° is "left" must be checked against the sensor names.
+- Commit: `fff215f`.
