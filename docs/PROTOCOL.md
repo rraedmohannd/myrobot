@@ -63,7 +63,7 @@ The reference client is `backend/app/static/robot-client.js`, shared by the brow
 | `interest.result` | `programs`, `text` | One or two suggested programs (approved mapping only; may be empty) and what the robot says; programs with `has_explainer` are tappable. |
 | `run.started` | `run_id`, `is_simulated` | Answer to `run.start` (stored in `robot_runs`). |
 | `run.ended` | `run_id`, `samples`, `events` | Answer to `run.end`: how many samples and events were stored. |
-| `robot.command` | `id`, `cmd`, `args?` | A REQUEST from the admin page (protocol 2 only). `id` is the command id; the robot answers `robot.command.ack` with the same id. `args` is used by `set_mode` (`{"mode": "..."}`). The robot decides locally whether and when to obey, and it must stay safe if this message never arrives. |
+| `robot.command` | `id`, `cmd`, `args?` | A REQUEST from the admin page (protocol 2 only). `id` is the command id; the robot answers `robot.command.ack` with the same id. `args` is used by `set_mode` (`{"mode": "..."}`). `stop_roaming` = ROAMING or PAUSED -> IDLE where the robot stands (no return; the run stays open). The robot decides locally whether and when to obey, and it must stay safe if this message never arrives. |
 | `error` | `code`, `message` | `stt_failed`, `tts_failed`, `unknown_type`, `bad_message`, `no_run` (telemetry before `run.start`), `no_explainer`, `no_interests`, `internal`. |
 <!-- END GENERATED backend-to-robot -->
 
@@ -74,7 +74,8 @@ admin  → POST /api/admin/robot/command {cmd}          (button on the admin "Ro
 backend→ robot.command {id, cmd, args?}               stored as event `command`
 robot  → robot.command.ack {id, accepted, reason?}    stored as event `command_ack`
 ```
-- `cmd`: `start_roaming`, `pause`, `resume`, `return_to_start`, `set_mode` (with `args.mode`).
+- `cmd`: `start_roaming`, `pause`, `resume`, `return_to_start`, `stop_roaming`, `set_mode` (with `args.mode`).
+- `stop_roaming` (sprint 5): ROAMING or PAUSED → IDLE **where the robot stands**, without returning to the start; the run stays open (the next `start_roaming` or `run.end` closes it). Refused in any other state. Use `return_to_start` to come back.
 - **A command is a request.** The robot refuses (`accepted: false` with a `reason`) whenever its own rules say so: a conversation is in progress, a fault is active, the battery is low, an obstacle blocks the way. The backend never assumes a command was carried out; the admin page shows the ack and then the state reported by `robot.status`.
 - No ack within `ROBOT_COMMAND_TIMEOUT_S` (5 s) is shown as "no answer"; the backend then knows nothing about what the robot did.
 - No robot connected (no `robot.status` for `ROBOT_OFFLINE_AFTER_S`, 5 s): nothing is sent and the admin shows "robot offline".

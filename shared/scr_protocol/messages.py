@@ -30,8 +30,12 @@ DisplayMode = Literal[
     "idle", "attentive", "listening", "processing", "answering", "finished", "unavailable"
 ]
 RobotState = Literal["IDLE", "ROAMING", "ENGAGED", "CONVERSATION", "RETURNING", "FAULT", "PAUSED"]
-CommandName = Literal["start_roaming", "pause", "resume", "return_to_start", "set_mode"]
-COMMANDS: tuple[str, ...] = ("start_roaming", "pause", "resume", "return_to_start", "set_mode")
+CommandName = Literal[
+    "start_roaming", "pause", "resume", "return_to_start", "stop_roaming", "set_mode"
+]
+COMMANDS: tuple[str, ...] = (
+    "start_roaming", "pause", "resume", "return_to_start", "stop_roaming", "set_mode",
+)  # fmt: skip
 ROBOT_STATES: tuple[str, ...] = (
     "IDLE", "ROAMING", "ENGAGED", "CONVERSATION", "RETURNING", "FAULT", "PAUSED",
 )  # fmt: skip
@@ -494,7 +498,8 @@ class RunEnded(BackendMessage):
 class RobotCommand(BackendMessage):
     """A REQUEST from the admin page (protocol 2 only). `id` is the command id; the robot
     answers `robot.command.ack` with the same id. `args` is used by `set_mode`
-    (`{"mode": "..."}`). The robot decides locally whether and when to obey, and it must stay
+    (`{"mode": "..."}`). `stop_roaming` = ROAMING or PAUSED -> IDLE where the robot stands (no
+    return; the run stays open). The robot decides locally whether and when to obey, and it must stay
     safe if this message never arrives."""
 
     type: Literal["robot.command"] = "robot.command"

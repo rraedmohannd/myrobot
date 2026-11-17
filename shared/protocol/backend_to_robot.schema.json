@@ -1072,7 +1072,7 @@
     },
     "RobotCommand": {
       "additionalProperties": false,
-      "description": "A REQUEST from the admin page (protocol 2 only). `id` is the command id; the robot\nanswers `robot.command.ack` with the same id. `args` is used by `set_mode`\n(`{\"mode\": \"...\"}`). The robot decides locally whether and when to obey, and it must stay\nsafe if this message never arrives.",
+      "description": "A REQUEST from the admin page (protocol 2 only). `id` is the command id; the robot\nanswers `robot.command.ack` with the same id. `args` is used by `set_mode`\n(`{\"mode\": \"...\"}`). `stop_roaming` = ROAMING or PAUSED -> IDLE where the robot stands (no\nreturn; the run stays open). The robot decides locally whether and when to obey, and it must stay\nsafe if this message never arrives.",
       "properties": {
         "id": {
           "maxLength": 64,
@@ -1105,6 +1105,7 @@
             "pause",
             "resume",
             "return_to_start",
+            "stop_roaming",
             "set_mode"
           ],
           "title": "Cmd",

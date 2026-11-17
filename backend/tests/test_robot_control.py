@@ -467,3 +467,46 @@ def test_open_run_is_only_taken_from_a_live_robot_link() -> None:
     robot.link.run_id = 14
     hub.unregister(robot.link)
     assert hub.open_run_id() is None
+
+
+# ---------------- sprint 5: stop_roaming (stop in place, no return) ----------------
+def test_simulated_robot_stop_roaming_stops_in_place_and_keeps_the_run_open() -> None:
+    robot = SimulatedRobot(seed=7)
+    assert robot.command("stop_roaming") == (False, "not roaming (state IDLE)", [])
+    assert robot.command("start_roaming")[0]
+    robot.tick()
+    pose = dict(robot._pose)
+    accepted, reason, effects = robot.command("stop_roaming")
+    assert accepted and reason is None and effects == []  # no return_start, no run.end
+    assert robot.state == "IDLE" and robot._run_open and robot._pose == pose
+    assert robot.tick() == []  # it does not move any more
+    assert robot.command("resume")[0] is False  # nothing to resume: it is IDLE
+
+    robot.command("start_roaming")
+    assert robot.command("pause")[0] and robot.state == "PAUSED"
+    assert robot.command("stop_roaming")[0] and robot.state == "IDLE"
+    robot.command("start_roaming")
+    robot.command("return_to_start")
+    assert robot.state == "RETURNING"
+    assert robot.command("stop_roaming")[0] is False  # refused while returning
+    robot.begin_conversation()
+    assert robot.command("stop_roaming")[0] is False  # refused during a conversation
+
+
+async def test_stop_roaming_goes_through_the_command_api(admin_client, db_session) -> None:
+    hub = RobotHub()
+    app.dependency_overrides[get_robot_hub] = lambda: hub
+    app.dependency_overrides[get_sessionmaker] = lambda: OneSession(db_session)
+    try:
+        robot = FakeRobot(hub)
+        robot.report(state="ROAMING")
+        r = await admin_client.post("/api/admin/robot/command", json={"cmd": "stop_roaming"})
+        assert r.status_code == 200 and r.json()["accepted"] is True
+        assert robot.received[-1] == {"type": "robot.command", "id": r.json()["id"],
+                                      "cmd": "stop_roaming"}  # fmt: skip
+        assert r.json()["return_trial_id"] is None  # not a return: no trial
+        state = (await admin_client.get("/api/admin/robot")).json()
+        assert "stop_roaming" in state["available_commands"]
+    finally:
+        app.dependency_overrides.pop(get_robot_hub, None)
+        app.dependency_overrides.pop(get_sessionmaker, None)

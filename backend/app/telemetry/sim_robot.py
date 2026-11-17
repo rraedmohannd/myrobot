@@ -106,6 +106,11 @@ class SimulatedRobot:
             if self.state not in ("ROAMING", "PAUSED"):
                 return False, f"not roaming (state {self.state})", []
             return True, None, self._start_return()
+        if cmd == "stop_roaming":  # stop where it stands: no return, the run stays open
+            if self.state not in ("ROAMING", "PAUSED"):
+                return False, f"not roaming (state {self.state})", []
+            self.state, self._before = "IDLE", "IDLE"
+            return True, None, []
         return False, f"unknown command {cmd}", []
 
     def _open_run(self) -> list[dict[str, Any]]:

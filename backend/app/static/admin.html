@@ -600,7 +600,8 @@ async function loadPlaces() {
 // Commands are REQUESTS: the robot answers with an ack and may refuse. The page shows the ack
 // and then whatever state the robot itself reports; it never assumes a command was carried out.
 let robotTimer = null, robotBusy = false, robotLastAck = "";
-const CMD_LABELS = { start_roaming: "Start roaming", pause: "Pause", resume: "Resume", return_to_start: "Return to start" };
+const CMD_LABELS = { start_roaming: "Start roaming", pause: "Pause", resume: "Resume", return_to_start: "Return to start", stop_roaming: "Stop roaming" };
+const CMD_HINTS = { stop_roaming: "The robot stops where it stands and becomes IDLE (no return to the start; the run stays open)." };
 function robotTrail(points) {
   if (!points || points.length < 2) return `<p class="muted">No movement reported yet.</p>`;
   const xs = points.map(p => p[0]), ys = points.map(p => p[1]), pad = 0.3;
@@ -639,7 +640,7 @@ async function loadRobot() {
     </div></div>`;
   el("view-robot").querySelectorAll("button[data-cmd]").forEach(b => b.onclick = async () => {
     const cmd = b.dataset.cmd;
-    if (!confirm(`Ask the robot to: ${CMD_LABELS[cmd]}?\n\nThis is a request. The robot decides whether it is safe to do it.`)) return;
+    if (!confirm(`Ask the robot to: ${CMD_LABELS[cmd]}?\n\n${CMD_HINTS[cmd] ? CMD_HINTS[cmd] + "\n\n" : ""}This is a request. The robot decides whether it is safe to do it.`)) return;
     robotBusy = true; robotLastAck = `Asked: ${esc(CMD_LABELS[cmd])} — waiting for the robot…`; loadRobot();
     try {
       const a = await api("/api/admin/robot/command", { method: "POST", body: JSON.stringify({ cmd }) });
