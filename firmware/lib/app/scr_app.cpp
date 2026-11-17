@@ -630,7 +630,7 @@ void FirmwareApp::readPower(uint32_t now_ms) {
       float ma = static_cast<float>(shunt_uv) / cfg_.ina219_shunt_ohms / 1000.0f * cfg_.battery_current_scale;
       if (cfg_.ina219_invert_current) ma = -ma;
       battery_mv_ = static_cast<uint16_t>(clampf(v_mv + 0.5f, 0.0f, 65535.0f));
-      battery_ma_ = saturateI16(static_cast<int64_t>(std::lround(ma)));
+      battery_ma_ = saturateI16(static_cast<int64_t>(std::lround(clampf(ma, -40000.0f, 40000.0f))));
       volts = v_mv / 1000.0f;
     }
     if (battery_.update(now_ms, battery_mv_, power_ok_)) {
