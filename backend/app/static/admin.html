@@ -92,6 +92,12 @@
   .seg textarea.scene { min-height:96px; font:13px/1.4 ui-monospace, Consolas, monospace; direction:ltr; }
   .stagebox { width:372px; height:252px; background:#0d1820; border-radius:10px; overflow:hidden; position:relative; }
   .stagebox .xs { position:absolute; left:0; top:0; transform:scale(.6); transform-origin:0 0; }
+  /* ---- bring-up (sprint 5) ---- */
+  .step { display:grid; grid-template-columns:28px minmax(0, 1fr) minmax(160px, 260px); gap:8px; align-items:start; border-top:1px solid var(--line); padding:6px 0; }
+  .step input[type=checkbox] { width:18px; height:18px; margin-top:3px; }
+  .step.done .txt { color:var(--muted); }
+  .step input[type=text] { width:100%; }
+  @media (max-width: 700px) { .step { grid-template-columns:28px 1fr; } .step input[type=text] { grid-column:2; } }
   .issue { background:#f8dcdc; color:var(--bad); border-radius:6px; padding:4px 8px; margin:3px 0; font-size:14px; }
 </style>
 </head>
@@ -120,6 +126,7 @@
   <button data-view="media">Media</button>
   <button data-view="robot">Robot (live)</button>
   <button data-view="runs">Robot runs</button>
+  <button data-view="bringup">Bring-up</button>
   <button data-view="system">System</button>
 </nav>
 <section class="view" id="view-overview"></section>
@@ -141,6 +148,7 @@
 <section class="view" id="view-faqs"></section>
 <section class="view" id="view-places"></section>
 <section class="view" id="view-runs"></section>
+<section class="view" id="view-bringup"></section>
 <section class="view" id="view-explainers"></section>
 <section class="view" id="view-media">
   <div class="grid">
@@ -767,7 +775,114 @@ async function loadExplainerList() {
   el("view-explainers").querySelectorAll("tr.click").forEach(tr => { const x = d.items.find(i => i.id === +tr.dataset.id); if (x) { tr.children[2].innerHTML = pill(x.status); tr.children[4].innerHTML = x.issues ? `<span class="tag bad">${x.issues}</span>` : "0"; } });
 }
 
-const VIEWS = { faqs: loadFaqs, places: loadPlaces, robot: async () => { await loadRobot(); robotPolling(); }, explainers: loadExplainers, runs: loadRuns, media: loadMedia, overview: loadOverview, gaps: loadGaps, conversations: loadConversations, evaluation: loadEvaluation, coverage: loadCoverage, ask: async () => {} };
+// ---------------- bring-up (sprint 5 S6.3) ----------------
+// Display and record keeping only: nothing on this tab commands the robot. Simulated calibration
+// records and simulated runs are labelled and never shown as measurements (rule 5).
+let bringupTimer = null, bringupRun = null;
+const md = t => esc(t).replace(/`([^`]+)`/g, "<code>$1</code>");
+const showValue = v => typeof v === "number" ? String(+v.toPrecision(6)) : esc(JSON.stringify(v));
+function liveCard(live) {
+  if (!live) return `<div class="offline">Robot offline<div class="muted" style="font-weight:400;margin-top:6px">No robot status in the last few seconds. Diagnostics appear here when <code>robotd</code> (or the simulator) is connected.</div></div>`;
+  const f = live.firmware || {}, c = live.calibration, b = live.battery || {};
+  const sensors = Object.entries(live.sensors || {});
+  return `${live.is_simulated ? `<div class="banner">⚠ ${esc(live.label)}. Nothing here is a measurement.</div>` : ""}
+    <p><span class="state ${esc(live.state)}">${esc(live.state)}</span> &nbsp; <b>${esc(live.robot_id || "robot")}</b> <span class="muted">· last status ${live.status_age_s} s ago${live.mode ? " · mode " + esc(live.mode) : ""}</span></p>
+    <table class="data">
+      <tr><th>Firmware</th><td>${live.firmware ? `${esc(f.version || "?")}${f.git ? ` <span class="muted">git ${esc(f.git)}</span>` : ""}${f.build_env ? ` · build ${esc(f.build_env)}` : ""}${f.param_hash ? ` · parameter hash <code>${esc(f.param_hash)}</code>` : ""}${f.reset_reason ? ` · last reset: ${esc(f.reset_reason)}` : ""}
+        ${f.pins_confirmed === true ? ` <span class="tag good">✓ pins confirmed</span>` : f.pins_confirmed === false ? ` <span class="tag bad">! pins NOT confirmed — do not drive</span>` : ""}` : "not reported"}</td></tr>
+      <tr><th>Calibration</th><td>${c ? `<span class="tag ${c.status === "complete" ? "good" : c.status === "partial" ? "warn" : "bad"}">${esc(c.status)}</span>${c.updated ? ` updated ${esc(c.updated)}` : ""}${c.is_simulated ? ` <span class="tag warn">⚠ SIMULATED calibration — not a measurement</span>` : ""}` : "not reported"}</td></tr>
+      <tr><th>Battery</th><td>${batteryLine(b)}</td></tr>
+      <tr><th>Pi health</th><td>${healthLine({ health: live.health }) || "not reported"}</td></tr>
+      <tr><th>Sensors</th><td>${sensors.length ? sensors.map(([k, v]) => `<span class="tag ${v === "ok" ? "good" : v === "absent" ? "" : v === "degraded" ? "warn" : "bad"}">${v === "ok" ? "✓" : v === "absent" ? "–" : "!"} ${esc(k)}: ${esc(v)}</span>`).join(" ") : "not reported"}</td></tr>
+      <tr><th>Faults</th><td>${live.faults.length ? live.faults.map(x => `<span class="tag bad">! ${esc(x)}</span>`).join(" ") : `<span class="tag good">✓ none reported</span>`}</td></tr>
+    </table>
+    <p class="muted">For the full live view on the robot itself: <code>python -m robotctl status</code> and <code>robotctl diag</code> (docs/BRINGUP.md).</p>`;
+}
+function calibrationTable(rows, simulated) {
+  if (!rows.length) return `<p class="muted">${simulated ? "No simulated calibration records." : "No calibration records yet. They arrive from the robot (calibration.report) after the bring-up steps write the calibration file."}</p>`;
+  return `<table class="data"><tr><th>Key</th><th>Value</th><th>Measured</th><th>Operator, method</th><th>Robot</th><th class="num">Earlier values</th></tr>
+    ${rows.map(r => `<tr><td><code>${esc(r.key)}</code>${simulated ? ` <span class="tag warn">SIMULATED</span>` : ""}</td><td>${showValue(r.value)} ${esc(r.unit || "")}</td><td>${r.measured_at ? when(r.measured_at) : "–"}<div class="muted">received ${when(r.received_at)}</div></td>
+      <td>${esc(r.operator || "–")}<div class="muted">${esc(r.method || "")}</div>${r.raw != null ? `<details><summary class="muted" style="cursor:pointer">raw measurements</summary><pre style="white-space:pre-wrap;font-size:12px;margin:0">${esc(JSON.stringify(r.raw, null, 1))}</pre></details>` : ""}</td>
+      <td>${esc(r.robot_id)}</td><td class="num">${r.history.length ? `<details><summary style="cursor:pointer">${r.history.length}</summary>${r.history.map(h => `<div class="muted">${showValue(h.value)} · ${when(h.measured_at || h.received_at)}${h.operator ? " · " + esc(h.operator) : ""}</div>`).join("")}</details>` : "0"}</td></tr>`).join("")}</table>`;
+}
+function powerSvg(p) {
+  const pts = p.points, W = 760, PH = 110, GAP = 26, L = 54, R = 12;
+  const series = [["v", "Battery voltage (V)", "#2a78d6"], ["a", "Current (A, + = discharging)", "#eb6834"], ["wh", "Energy used (Wh)", "#1f7a3a"]]
+    .filter(([k]) => pts.some(q => q[k] != null));
+  if (!series.length) return `<p class="muted">No power values in this run.</p>`;
+  const t0 = Math.min(...pts.map(q => q.t_s)), t1 = Math.max(t0 + 1, ...pts.map(q => q.t_s));
+  const X = t => (L + (t - t0) / (t1 - t0) * (W - L - R)).toFixed(1), H = series.length * (PH + GAP) + 20;
+  let out = "";
+  series.forEach(([k, label, color], i) => {
+    const top = i * (PH + GAP) + 16, vals = pts.filter(q => q[k] != null).map(q => q[k]);
+    let lo = Math.min(...vals), hi = Math.max(...vals);
+    if (hi - lo < 1e-6) { lo -= 0.5; hi += 0.5; }
+    const Y = v => (top + PH - (v - lo) / (hi - lo) * PH).toFixed(1);
+    let d = "", pen = false;
+    for (const q of pts) { if (q[k] == null) { pen = false; continue; } d += (pen ? "L" : "M") + X(q.t_s) + " " + Y(q[k]) + " "; pen = true; }
+    out += `<text x="${L}" y="${top - 4}" font-size="12" font-weight="600" fill="#231b1c">${label}</text>
+      <line x1="${L}" y1="${top + PH}" x2="${W - R}" y2="${top + PH}" stroke="#d9d6cf"/><line x1="${L}" y1="${top}" x2="${L}" y2="${top + PH}" stroke="#d9d6cf"/>
+      <text x="${L - 4}" y="${top + 9}" font-size="10" fill="#6b6162" text-anchor="end">${+hi.toFixed(3)}</text><text x="${L - 4}" y="${top + PH}" font-size="10" fill="#6b6162" text-anchor="end">${+lo.toFixed(3)}</text>
+      <path d="${d}" fill="none" stroke="${color}" stroke-width="2" stroke-linejoin="round"><title>${label}</title></path>`;
+  });
+  out += `<text x="${L}" y="${H - 4}" font-size="10" fill="#6b6162">${t0.toFixed(0)} s</text><text x="${W - R}" y="${H - 4}" font-size="10" fill="#6b6162" text-anchor="end">${t1.toFixed(0)} s (time since the run started)</text>`;
+  if (p.is_simulated) out += `<text x="${W / 2}" y="${H / 2}" font-size="54" fill="#52514e" opacity="0.13" text-anchor="middle" transform="rotate(-20 ${W / 2} ${H / 2})">SIMULATED</text>`;
+  return `<svg class="plot" viewBox="0 0 ${W} ${H}" role="img" aria-label="Battery voltage, current and energy of run ${p.id}">${out}</svg>`;
+}
+async function openPower(id) {
+  bringupRun = id;
+  const p = await api(`/api/admin/runs/${id}/power`);
+  el("buPower").innerHTML = `${p.is_simulated ? `<div class="banner">⚠ SIMULATED — not a physical result. These power values come from software, not from the battery.</div>` : ""}
+    <p class="muted">Run ${p.id} · ${esc(p.label)} · ${p.samples} samples with power${p.points.length < p.samples ? ` (${p.points.length} plotted)` : ""}</p>${powerSvg(p)}`;
+}
+async function loadBringup() {
+  const d = await api("/api/admin/bringup");
+  const c = d.checklist;
+  el("view-bringup").innerHTML = `<div class="grid">
+    <div class="card"><h2>Live diagnostics</h2><div id="buLive">${liveCard(d.live)}</div></div>
+    <div class="card"><h2>Bring-up checklist ${c.exists ? `<span class="tag">${c.done} / ${c.total} done</span>` : ""}</h2>
+      ${c.exists ? `<p class="muted">From <code>${esc(c.path)}</code> (the steps, commands and expected output are in the file). Ticks are stored in the database with who and when; a tick in the file itself is ignored.</p>
+        ${c.problems.map(x => `<div class="issue">${esc(x)}</div>`).join("")}
+        ${c.sections.map(sec => `<h3>${sec.number != null ? sec.number + ". " : ""}${esc(sec.title)}</h3>${sec.steps.map(st => `<div class="step ${st.done ? "done" : ""}" data-step="${esc(st.id)}">
+          <input type="checkbox" ${st.done ? "checked" : ""} aria-label="done">
+          <div><div class="txt">${md(st.text)}</div>${st.done ? `<div class="muted">✓ ${esc(st.done_by || "?")} · ${when(st.done_at)}</div>` : ""}</div>
+          <input type="text" placeholder="note (value, observation)" value="${esc(st.note || "")}"></div>`).join("")}`).join("")}`
+      : `<div class="offline">docs/BRINGUP.md is missing<div class="muted" style="font-weight:400;margin-top:6px">The backend looked for <code>${esc(c.path)}</code>. When the file exists, its checklist appears here.</div></div>`}
+    </div>
+    <div class="card"><h2>Calibration records</h2>
+      <p class="muted">${esc(d.calibration.note)}</p>
+      ${calibrationTable(d.calibration.real, false)}
+      <h3>Simulated calibration records</h3>
+      ${d.calibration.simulated.length ? `<div class="banner">⚠ ${esc(d.calibration.simulated_label)}. Written by tests or against the simulated ESP32; never report these values.</div>` : ""}
+      ${calibrationTable(d.calibration.simulated, true)}
+    </div>
+    <div class="card"><h2>Power — battery V, A and Wh over a run</h2>
+      ${d.power_runs.length ? `<div class="row"><label>Run <select id="buRun">${d.power_runs.map(r => `<option value="${r.id}">run ${r.id}${r.is_simulated ? " — SIMULATED" : " — physical"} · ${when(r.started_at)} · ${r.power_samples} samples</option>`).join("")}</select></label></div><div id="buPower"></div>`
+        : `<p class="muted">No run has power values yet. They come from the battery monitor (INA219) in the telemetry samples of real runs.</p>`}
+    </div></div>`;
+  el("view-bringup").querySelectorAll(".step").forEach(div => {
+    const box = div.querySelector("input[type=checkbox]"), note = div.querySelector("input[type=text]");
+    const save = async () => {
+      try { await api(`/api/admin/bringup/steps/${encodeURIComponent(div.dataset.step)}`, { method: "PUT", body: JSON.stringify({ done: box.checked, note: note.value || null }) }); msg("Saved"); await loadBringup(); }
+      catch (e) { msg(e.message, true); box.checked = !box.checked; }
+    };
+    box.onchange = save;
+    note.onkeydown = e => { if (e.key === "Enter" && box.checked) save(); };
+  });
+  if (d.power_runs.length) {
+    el("buRun").onchange = e => openPower(+e.target.value);
+    const keep = d.power_runs.find(r => r.id === bringupRun) || d.power_runs.find(r => !r.is_simulated) || d.power_runs[0];
+    el("buRun").value = keep.id; openPower(keep.id);
+  }
+  clearInterval(bringupTimer);
+  bringupTimer = setInterval(async () => {   // only the live card refreshes; typed notes stay
+    if (view !== "bringup") { clearInterval(bringupTimer); return; }
+    if (document.hidden) return;
+    try { el("buLive").innerHTML = liveCard((await api("/api/admin/bringup")).live); } catch (e) { /* shown on the next full load */ }
+  }, 2000);
+}
+
+const VIEWS = { bringup: loadBringup, faqs: loadFaqs, places: loadPlaces, robot: async () => { await loadRobot(); robotPolling(); }, explainers: loadExplainers, runs: loadRuns, media: loadMedia, overview: loadOverview, gaps: loadGaps, conversations: loadConversations, evaluation: loadEvaluation, coverage: loadCoverage, ask: async () => {} };
 
 // ---------------- system: providers, LAN address, privacy (sprint 3 S5-S7) ----------------
 async function loadSystem() {

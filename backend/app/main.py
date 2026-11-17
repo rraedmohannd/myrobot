@@ -12,6 +12,7 @@ from app.api.rest import (
     admin,
     analytics,
     auth,
+    bringup,
     chat,
     curated,
     explainers,
@@ -63,6 +64,7 @@ def create_app() -> FastAPI:
     app.include_router(media.public_router)
     app.include_router(runs.router)
     app.include_router(robot_api.router)
+    app.include_router(bringup.router)
     app.include_router(explainers.router)
     app.include_router(curated.router)
     app.include_router(auth.router)

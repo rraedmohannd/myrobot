@@ -119,6 +119,8 @@ class Settings(BaseSettings):
     # Address other devices use to reach this backend, e.g. http://192.168.1.20:8000 (for the QR
     # on the admin page). Empty = the address the admin page itself was opened with.
     public_base_url: str = ""
+    # The bring-up checklist read by the admin "Bring-up" tab (docs/ is mounted at /docs).
+    bringup_doc_path: str = "/docs/BRINGUP.md"
 
     # --- FAQs (sprint 3): an approved FAQ answers before retrieval when the question matches ---
     # Cosine similarity of the question vectors. 0.88 from a small calibration on 2026-11-13:
