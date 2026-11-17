@@ -30,9 +30,18 @@ class SerialTransport:
 
         def _open() -> Any:
             # serial_for_url also takes plain port names (/dev/esp32, COM5) and pyserial URLs
-            return serial.serial_for_url(
-                self.port, baudrate=self.baud, timeout=0.05, write_timeout=0.5
+            port = serial.serial_for_url(
+                self.port, baudrate=self.baud, timeout=0.05, write_timeout=0.5, do_not_open=True
             )
+            # The DevKit's auto-reset circuit resets the ESP32 (EN) or selects the bootloader
+            # (IO0) when DTR/RTS are asserted. pyserial asserts both on open by default, which
+            # would reboot the ESP32 at every robotctl run (losing unsaved parameters) and hide
+            # a WATCHDOG_STOP. Released before opening, the lines never move. Flashing uses
+            # esptool, which drives them on purpose.
+            port.dtr = False
+            port.rts = False
+            port.open()
+            return port
 
         try:
             self._serial = await asyncio.to_thread(_open)

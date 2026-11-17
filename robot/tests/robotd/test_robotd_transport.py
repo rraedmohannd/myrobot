@@ -25,6 +25,36 @@ async def test_serial_transport_round_trip_on_pyserial_loopback() -> None:
         await port.read()
 
 
+async def test_serial_port_opens_with_dtr_and_rts_released(monkeypatch) -> None:  # noqa: ANN001
+    # The DevKit's auto-reset circuit must not see DTR/RTS asserted when robotd or robotctl
+    # opens the port: they are released BEFORE open (pyserial asserts both by default).
+    import serial
+
+    seen: list[tuple[str, object]] = []
+    real = serial.serial_for_url
+
+    def recording(url: str, *args, **kwargs):  # noqa: ANN002, ANN003, ANN202
+        port = real(url, *args, **kwargs)
+        assert kwargs.get("do_not_open") is True and not port.is_open
+        cls = type(port)
+
+        class Watched(cls):  # type: ignore[misc, valid-type]
+            def open(self) -> None:
+                seen.append(("open", (self.dtr, self.rts)))
+                super().open()
+
+        port.__class__ = Watched
+        return port
+
+    monkeypatch.setattr(serial, "serial_for_url", recording)
+    transport = SerialTransport("loop://", 460800)
+    await transport.open()
+    try:
+        assert seen == [("open", (False, False))]
+    finally:
+        await transport.close()
+
+
 async def test_missing_ports_raise_transport_error() -> None:
     with pytest.raises(TransportError):
         await SerialTransport("/dev/does-not-exist-esp32").open()
