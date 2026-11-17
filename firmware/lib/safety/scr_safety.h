@@ -14,8 +14,12 @@
 // Decisions where the document is silent (reported to the coordinator, see firmware/README.md):
 //  - A rejected DRIVE also sets the targets to zero: an older DRIVE never keeps running after the
 //    Pi's newest command was refused.
+//  - Hysteresis: a blockage starts when a stop/rejection happens with the distance under the
+//    threshold, and is gone only when the distance is above threshold + clear_hysteresis_mm
+//    (front: the nearest valid front distance; rear: the rear distance, sensor present).
+//    While it lasts, forward (front) / reverse (rear) DRIVE stays rejected.
 //  - OBSTACLE_STOP / REAR_OBSTACLE_STOP flags clear on the next accepted DRIVE, or as soon as the
-//    blocking condition is gone. The event is sent once per blockage (when the flag gets set).
+//    blockage is gone. The event is sent once per blockage.
 //  - Event arg is -1 when no valid distance exists (all front sensors absent / rear absent).
 //  - The watchdog also fires once after power-on if the Pi never sends anything.
 #pragma once
@@ -29,6 +33,9 @@ namespace scr {
 struct SafetyConfig {
   uint32_t watchdog_ms = proto::kWatchdogMs;
   uint16_t obstacle_mm = 250;
+  // A blockage starts below obstacle_mm and counts as gone only above obstacle_mm + this
+  // (sensor noise right at the threshold must not release and re-trigger the stop).
+  uint16_t clear_hysteresis_mm = 40;
 };
 
 struct SafetyEvent {
@@ -72,6 +79,8 @@ class Safety {
   bool obstacleStop() const { return obstacle_flag_; }
   bool rearObstacleStop() const { return rear_flag_; }
   bool linkLost() const { return link_lost_; }
+  bool frontBlockageActive() const { return front_latch_; }
+  bool rearBlockageActive() const { return rear_latch_; }
 
   // Helpers (public for the tests).
   static bool frontBlocked(const uint16_t us_mm[4], uint16_t threshold_mm, int16_t* nearest_mm);
@@ -79,6 +88,11 @@ class Safety {
   static bool rearBlocked(const uint16_t us_mm[4], uint16_t threshold_mm);
 
  private:
+  // Blocked right now, with hysteresis; both clear their latch when the blockage is gone.
+  bool frontBlockedNow(const uint16_t us_mm[4], int16_t* nearest_mm);
+  bool rearBlockedNow(const uint16_t us_mm[4]);  // absent/faulty counts as blocked
+  void frontStop(int16_t nearest_mm);
+  void rearStop(const uint16_t us_mm[4]);
   void zeroTargets();
   void pushEvent(uint8_t code, int16_t arg);
 
@@ -91,6 +105,8 @@ class Safety {
   bool watchdog_flag_ = false;
   bool obstacle_flag_ = false;
   bool rear_flag_ = false;
+  bool front_latch_ = false;  // a front blockage is in progress (hysteresis state)
+  bool rear_latch_ = false;
   bool hard_stop_ = false;
 
   static constexpr uint8_t kQueue = 8;

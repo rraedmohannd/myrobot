@@ -33,6 +33,9 @@ constexpr uint32_t WATCHDOG_MS = 300;
 
 // ---- Safety ----------------------------------------------------------------------------------
 constexpr uint16_t OBSTACLE_THRESHOLD_MM = 250;  // default from the protocol document; tune on the robot
+// PLACEHOLDER to tune on the robot: a blockage (front or rear) counts as gone only when the
+// distance is above OBSTACLE_THRESHOLD_MM + this. Same default as the simulated ESP32 of robotd.
+constexpr uint16_t OBSTACLE_CLEAR_HYSTERESIS_MM = 40;
 
 // ---- Calibration constants (docs/ODOMETRY.md section 5) --------------------------------------
 // PLACEHOLDER: 0 = NOT CALIBRATED. Measure: drive 3 m straight x 5 runs, tape-measure,
@@ -122,6 +125,7 @@ inline AppConfig makeAppConfig() {
   c.control_period_ms = CONTROL_PERIOD_MS;
   c.safety.watchdog_ms = WATCHDOG_MS;
   c.safety.obstacle_mm = OBSTACLE_THRESHOLD_MM;
+  c.safety.clear_hysteresis_mm = OBSTACLE_CLEAR_HYSTERESIS_MM;
   c.pid.kp = PID_KP;
   c.pid.ki = PID_KI;
   c.pid.kd = PID_KD;

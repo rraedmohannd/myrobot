@@ -154,9 +154,16 @@ The firmware uses `metres_per_tick` only to close the speed loop (ticks → m/s)
 Implemented as follows (also sent to the coordinator; to be confirmed in `docs/SERIAL_PROTOCOL.md`):
 
 - A **rejected `DRIVE` sets the targets to zero** (an older `DRIVE` never keeps running).
-- `OBSTACLE_STOP` / `REAR_OBSTACLE_STOP` **flags** clear on the next accepted `DRIVE` or when the
-  blocking condition is gone; the **event** is sent once per blockage. Event `arg` is `-1` when no
-  valid distance exists.
+- **Obstacle hysteresis** (`OBSTACLE_CLEAR_HYSTERESIS_MM`, default 40, a placeholder to tune; same
+  rule as the simulated ESP32 of `robotd`): a blockage starts when the firmware stops or rejects a
+  `DRIVE` with the distance **under** the threshold, and is gone only when the distance is **above
+  threshold + hysteresis** (front: nearest valid front distance; rear: rear distance with the sensor
+  present). While it lasts, forward (front) or reverse (rear) `DRIVE` stays `REJECTED_SAFETY`, so
+  noise right at the threshold cannot release and re-trigger the stop. The band is not applied
+  before a stop: a robot that was never stopped may drive at threshold + 5 mm.
+- `OBSTACLE_STOP` / `REAR_OBSTACLE_STOP` **flags** clear on the next accepted `DRIVE` (for example
+  a turn in place) or when the blockage is gone; the **event** is sent once per blockage (an
+  accepted turn does not end the blockage). Event `arg` is `-1` when no valid distance exists.
 - The rear sensor failing **while** reversing stops the robot with `REAR_OBSTACLE_STOP` (arg `-1`).
 - The **watchdog also fires once after power-on** when the Pi sends nothing for 300 ms
   (`WATCHDOG_STOP`, later `LINK_RESTORED`).

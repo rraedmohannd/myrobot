@@ -63,6 +63,7 @@ These hold whatever the Pi or the backend says.
 3. **Reversing needs rear sensing.** A `DRIVE` with `left + right < 0` is rejected with `REJECTED_SAFETY` when the rear sensor is absent or faulty, and stopped (`REAR_OBSTACLE_STOP`) when the rear distance is under the threshold.
 4. **Power-on state is SAFE.** The drivers stay disabled until the Pi sends `MODE DRIVE`.
 5. A front sensor that is absent or faulty counts as "blocked" for rule 2 when all front sensors are in that state.
+6. **Obstacle hysteresis.** A front or rear blockage starts when the ESP32 stops the robot, or rejects a `DRIVE`, because the distance is under the threshold. It is over only when that distance is above the threshold **plus 40 mm** (firmware config `OBSTACLE_CLEAR_HYSTERESIS_MM`, a placeholder to tune; front: the nearest valid front distance; rear: the rear distance with the sensor working). `0xFFFF` (no echo) counts as clear. While a blockage lasts, forward `DRIVE` (front) or reverse `DRIVE` (rear) is rejected with `REJECTED_SAFETY`, and the `OBSTACLE_STOP` / `REAR_OBSTACLE_STOP` event is sent **once per blockage**, so sensor noise at the threshold cannot release and re-trigger the stop. The hysteresis applies only after a stop: a robot that was never stopped may drive at any distance at or above the threshold. An accepted turn in place clears the flag but does not end the blockage.
 
 ## 6. Test frames shared by both implementations
 Both sides encode these messages and write one line per frame, `<name> <seq> <hex>`:

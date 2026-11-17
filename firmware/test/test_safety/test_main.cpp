@@ -305,6 +305,139 @@ static void test_rear_obstacle_does_not_stop_forward_motion() {
   TEST_ASSERT_FALSE(s.rearObstacleStop());
 }
 
+// ---- hysteresis ------------------------------------------------------------------------------
+static void test_front_noise_at_threshold_gives_one_event_and_no_release() {
+  Safety s = makeDriving(0);  // threshold 250, hysteresis 40 -> gone only above 290
+  s.onDrive(200, 200, kClear);
+  const uint16_t noise[] = {249, 251, 248, 255, 262, 250, 270, 289, 290, 252, 249, 290};
+  uint32_t t = 10;
+  for (uint16_t d : noise) {
+    const uint16_t us[4] = {2000, d, kUsNoEcho, 2000};
+    s.onValidFrame(t);
+    s.tick(t, us);
+    TEST_ASSERT_EQUAL_INT16(0, s.targetLeft());
+    TEST_ASSERT_TRUE(s.obstacleStop());
+    TEST_ASSERT_TRUE(s.frontBlockageActive());
+    // the Pi keeps asking for forward: rejected every time, the stop is never released
+    TEST_ASSERT_EQUAL_UINT8(kAckRejectedSafety, s.onDrive(200, 200, us));
+    TEST_ASSERT_EQUAL_INT16(0, s.targetLeft());
+    t += 10;
+  }
+  int16_t arg = 0;
+  TEST_ASSERT_EQUAL_INT(1, drainEvents(s, kEventObstacleStop, &arg));  // exactly one
+  TEST_ASSERT_EQUAL_INT16(249, arg);
+  // above threshold + hysteresis: the blockage is gone
+  const uint16_t gone[4] = {2000, 291, kUsNoEcho, 2000};
+  s.onValidFrame(t);
+  s.tick(t, gone);
+  TEST_ASSERT_FALSE(s.obstacleStop());
+  TEST_ASSERT_FALSE(s.frontBlockageActive());
+  TEST_ASSERT_EQUAL_INT16(0, s.targetLeft());  // no motion without a new DRIVE
+  TEST_ASSERT_EQUAL_UINT8(kAckOk, s.onDrive(200, 200, gone));
+  TEST_ASSERT_EQUAL_INT16(200, s.targetLeft());
+  // a new blockage gives a new event
+  const uint16_t again[4] = {2000, 249, kUsNoEcho, 2000};
+  s.tick(t + 10, again);
+  TEST_ASSERT_EQUAL_INT(1, drainEvents(s, kEventObstacleStop));
+}
+
+static void test_rear_noise_at_threshold_gives_one_event_and_no_release() {
+  Safety s = makeDriving(0);
+  s.onDrive(-100, -100, kClear);
+  const uint16_t noise[] = {249, 251, 248, 255, 262, 250, 270, 289, 290, 252, 249, 290};
+  uint32_t t = 10;
+  for (uint16_t d : noise) {
+    const uint16_t us[4] = {2000, 2000, 2000, d};
+    s.onValidFrame(t);
+    s.tick(t, us);
+    TEST_ASSERT_EQUAL_INT16(0, s.targetLeft());
+    TEST_ASSERT_TRUE(s.rearObstacleStop());
+    TEST_ASSERT_TRUE(s.rearBlockageActive());
+    TEST_ASSERT_EQUAL_UINT8(kAckRejectedSafety, s.onDrive(-100, -100, us));
+    t += 10;
+  }
+  int16_t arg = 0;
+  TEST_ASSERT_EQUAL_INT(1, drainEvents(s, kEventRearObstacleStop, &arg));
+  TEST_ASSERT_EQUAL_INT16(249, arg);
+  const uint16_t gone[4] = {2000, 2000, 2000, 291};
+  s.onValidFrame(t);
+  s.tick(t, gone);
+  TEST_ASSERT_FALSE(s.rearObstacleStop());
+  TEST_ASSERT_FALSE(s.rearBlockageActive());
+  TEST_ASSERT_EQUAL_UINT8(kAckOk, s.onDrive(-100, -100, gone));
+  TEST_ASSERT_EQUAL_INT16(-100, s.targetLeft());
+}
+
+static void test_hysteresis_applies_only_after_a_stop() {
+  Safety s = makeDriving(0);
+  const uint16_t just_above[4] = {255, 255, 255, 255};  // above the threshold, inside the band
+  TEST_ASSERT_EQUAL_UINT8(kAckOk, s.onDrive(200, 200, just_above));
+  s.tick(10, just_above);
+  TEST_ASSERT_EQUAL_INT16(200, s.targetLeft());
+  TEST_ASSERT_FALSE(s.obstacleStop());
+  TEST_ASSERT_EQUAL_UINT8(kAckOk, s.onDrive(-100, -100, just_above));
+  s.tick(20, just_above);
+  TEST_ASSERT_EQUAL_INT16(-100, s.targetLeft());
+  TEST_ASSERT_FALSE(s.rearObstacleStop());
+}
+
+static void test_turning_away_does_not_forget_the_blockage() {
+  Safety s = makeDriving(0);
+  s.onDrive(200, 200, kClear);
+  const uint16_t near_front[4] = {240, 240, 240, 2000};
+  s.tick(10, near_front);
+  TEST_ASSERT_EQUAL_INT(1, drainEvents(s, kEventObstacleStop));
+  // an accepted turn clears the flag ...
+  TEST_ASSERT_EQUAL_UINT8(kAckOk, s.onDrive(-150, 150, near_front));
+  TEST_ASSERT_FALSE(s.obstacleStop());
+  // ... but forward inside the hysteresis band is still rejected, without a second event
+  const uint16_t in_band[4] = {270, 270, 270, 2000};
+  s.tick(20, in_band);
+  TEST_ASSERT_EQUAL_UINT8(kAckRejectedSafety, s.onDrive(200, 200, in_band));
+  TEST_ASSERT_TRUE(s.obstacleStop());
+  TEST_ASSERT_EQUAL_INT(0, drainEvents(s, kEventObstacleStop));
+}
+
+static void test_no_echo_and_sensor_loss_with_hysteresis() {
+  Safety s = makeDriving(0);
+  s.onDrive(200, 200, kClear);
+  const uint16_t near_front[4] = {2000, 200, 2000, 2000};
+  s.tick(10, near_front);
+  TEST_ASSERT_TRUE(s.frontBlockageActive());
+  s.tick(20, kNoEchoAll);  // nothing in range any more: gone
+  TEST_ASSERT_FALSE(s.frontBlockageActive());
+  // rear: sensor lost while a rear blockage is active keeps it blocked
+  s.onDrive(-100, -100, kClear);
+  const uint16_t rear_near[4] = {2000, 2000, 2000, 200};
+  s.tick(30, rear_near);
+  TEST_ASSERT_TRUE(s.rearBlockageActive());
+  const uint16_t rear_gone[4] = {2000, 2000, 2000, kUsAbsent};
+  s.tick(40, rear_gone);
+  TEST_ASSERT_TRUE(s.rearBlockageActive());
+  TEST_ASSERT_EQUAL_UINT8(kAckRejectedSafety, s.onDrive(-100, -100, rear_gone));
+  TEST_ASSERT_EQUAL_INT(1, drainEvents(s, kEventRearObstacleStop));
+}
+
+static void test_zero_hysteresis_releases_just_above_the_threshold() {
+  SafetyConfig c;
+  c.clear_hysteresis_mm = 0;
+  Safety s{c};
+  s.begin(0);
+  s.onValidFrame(0);
+  s.onMode(kModeDrive, true, true);
+  s.onDrive(200, 200, kClear);
+  const uint16_t under[4] = {249, 2000, 2000, 2000};
+  s.tick(10, under);
+  TEST_ASSERT_TRUE(s.obstacleStop());
+  const uint16_t at[4] = {250, 2000, 2000, 2000};
+  s.tick(20, at);
+  TEST_ASSERT_TRUE(s.obstacleStop());  // "gone" is strictly above threshold + hysteresis
+  const uint16_t above[4] = {251, 2000, 2000, 2000};
+  s.tick(30, above);
+  TEST_ASSERT_FALSE(s.obstacleStop());
+  TEST_ASSERT_EQUAL_UINT8(kAckOk, s.onDrive(200, 200, above));
+}
+
 // ---- STOP ------------------------------------------------------------------------------------
 static void test_stop_zeroes_targets_and_skips_the_ramp() {
   Safety s = makeDriving(0);
@@ -355,6 +488,12 @@ int main(int, char**) {
   RUN_TEST(test_rear_obstacle_stops_reversing);
   RUN_TEST(test_rear_sensor_lost_while_reversing_stops);
   RUN_TEST(test_rear_obstacle_does_not_stop_forward_motion);
+  RUN_TEST(test_front_noise_at_threshold_gives_one_event_and_no_release);
+  RUN_TEST(test_rear_noise_at_threshold_gives_one_event_and_no_release);
+  RUN_TEST(test_hysteresis_applies_only_after_a_stop);
+  RUN_TEST(test_turning_away_does_not_forget_the_blockage);
+  RUN_TEST(test_no_echo_and_sensor_loss_with_hysteresis);
+  RUN_TEST(test_zero_hysteresis_releases_just_above_the_threshold);
   RUN_TEST(test_stop_zeroes_targets_and_skips_the_ramp);
   RUN_TEST(test_rejected_drive_does_not_leave_an_old_drive_running);
   RUN_TEST(test_extreme_drive_values_do_not_overflow_the_sum);

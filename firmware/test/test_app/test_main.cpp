@@ -362,6 +362,26 @@ static void test_front_obstacle_stops_locally_and_rejects_forward() {
   TEST_ASSERT_FALSE(rig.tel.flags & kFlagObstacleStop);
 }
 
+static void test_noisy_distance_at_the_threshold_stops_once() {
+  Rig rig;
+  rig.modeDrive();
+  rig.drive(200, 200, 1000);
+  // noisy readings around 250 mm while the Pi keeps asking for forward
+  const float noise[] = {245.0f, 256.0f, 249.0f, 262.0f, 251.0f, 275.0f, 247.0f, 285.0f};
+  for (int i = 0; i < 40; ++i) {
+    rig.robot.ultrasonic.setDistanceMm(1, noise[i % 8]);
+    rig.drive(200, 200, 120);  // one ultrasonic round
+    if (i >= 1) TEST_ASSERT_EQUAL_FLOAT(0.0f, rig.robot.motors.left);
+  }
+  TEST_ASSERT_EQUAL_INT(1, rig.countEvents(kEventObstacleStop));
+  TEST_ASSERT_TRUE(rig.tel.flags & kFlagObstacleStop);
+  rig.robot.ultrasonic.setDistanceMm(1, 300.0f);  // above threshold + hysteresis
+  rig.run(200);
+  rig.drive(200, 200, 500);
+  TEST_ASSERT_TRUE(rig.robot.motors.left > 0.0f);
+  TEST_ASSERT_FALSE(rig.tel.flags & kFlagObstacleStop);
+}
+
 static void test_reverse_needs_rear_sensing() {
   Rig rig;
   rig.modeDrive();
@@ -564,6 +584,7 @@ int main(int, char**) {
   RUN_TEST(test_garbage_does_not_feed_the_watchdog);
   RUN_TEST(test_unknown_type_is_acked_counted_and_does_not_feed_the_watchdog);
   RUN_TEST(test_front_obstacle_stops_locally_and_rejects_forward);
+  RUN_TEST(test_noisy_distance_at_the_threshold_stops_once);
   RUN_TEST(test_reverse_needs_rear_sensing);
   RUN_TEST(test_rear_obstacle_stops_reversing);
   RUN_TEST(test_all_front_sensors_missing_blocks_forward);

@@ -35,6 +35,7 @@ void Safety::begin(uint32_t now_ms) {
   last_valid_ms_ = now_ms;
   link_lost_ = false;
   watchdog_flag_ = obstacle_flag_ = rear_flag_ = false;
+  front_latch_ = rear_latch_ = false;
   hard_stop_ = true;
   q_head_ = q_count_ = 0;
 }
@@ -73,6 +74,45 @@ void Safety::onValidFrame(uint32_t now_ms) {
   }
 }
 
+bool Safety::frontBlockedNow(const uint16_t us_mm[4], int16_t* nearest_mm) {
+  // Latched: still blocked up to and including threshold + hysteresis.
+  uint32_t limit = c_.obstacle_mm;
+  if (front_latch_) limit += static_cast<uint32_t>(c_.clear_hysteresis_mm) + 1u;
+  if (limit > proto::kUsAbsent) limit = proto::kUsAbsent;  // never treat "no echo" as blocked
+  const bool blocked = frontBlocked(us_mm, static_cast<uint16_t>(limit), nearest_mm);
+  if (!blocked) front_latch_ = false;
+  return blocked;
+}
+
+bool Safety::rearBlockedNow(const uint16_t us_mm[4]) {
+  if (!rearSensing(us_mm)) return true;
+  uint32_t limit = c_.obstacle_mm;
+  if (rear_latch_) limit += static_cast<uint32_t>(c_.clear_hysteresis_mm) + 1u;
+  if (limit > proto::kUsAbsent) limit = proto::kUsAbsent;
+  const bool blocked = rearBlocked(us_mm, static_cast<uint16_t>(limit));
+  if (!blocked) rear_latch_ = false;
+  return blocked;
+}
+
+void Safety::frontStop(int16_t nearest_mm) {
+  zeroTargets();
+  obstacle_flag_ = true;
+  if (!front_latch_) {  // one event per blockage
+    front_latch_ = true;
+    pushEvent(proto::kEventObstacleStop, nearest_mm);
+  }
+}
+
+void Safety::rearStop(const uint16_t us_mm[4]) {
+  zeroTargets();
+  rear_flag_ = true;
+  if (!rear_latch_) {
+    rear_latch_ = true;
+    pushEvent(proto::kEventRearObstacleStop,
+              rearSensing(us_mm) ? toArg(us_mm[3]) : static_cast<int16_t>(-1));
+  }
+}
+
 uint8_t Safety::onDrive(int16_t left_mm_s, int16_t right_mm_s, const uint16_t us_mm[4]) {
   if (mode_ == proto::kModeSafe) {
     zeroTargets();
@@ -81,29 +121,21 @@ uint8_t Safety::onDrive(int16_t left_mm_s, int16_t right_mm_s, const uint16_t us
   const int32_t sum = static_cast<int32_t>(left_mm_s) + static_cast<int32_t>(right_mm_s);
   if (sum > 0) {
     int16_t nearest = -1;
-    if (frontBlocked(us_mm, c_.obstacle_mm, &nearest)) {
-      zeroTargets();
-      if (!obstacle_flag_) {
-        obstacle_flag_ = true;
-        pushEvent(proto::kEventObstacleStop, nearest);
-      }
+    if (frontBlockedNow(us_mm, &nearest)) {
+      frontStop(nearest);
       return proto::kAckRejectedSafety;
     }
   } else if (sum < 0) {
-    if (!rearSensing(us_mm)) {
-      zeroTargets();
+    if (!rearSensing(us_mm) && !rear_latch_) {
+      zeroTargets();  // no rear sensing at command time: rejected, no stop event
       return proto::kAckRejectedSafety;
     }
-    if (rearBlocked(us_mm, c_.obstacle_mm)) {
-      zeroTargets();
-      if (!rear_flag_) {
-        rear_flag_ = true;
-        pushEvent(proto::kEventRearObstacleStop, toArg(us_mm[3]));
-      }
+    if (rearBlockedNow(us_mm)) {
+      rearStop(us_mm);
       return proto::kAckRejectedSafety;
     }
   }
-  // Accepted.
+  // Accepted. The flags clear; a blockage in progress (latch) is not forgotten.
   left_ = left_mm_s;
   right_ = right_mm_s;
   watchdog_flag_ = false;
@@ -137,31 +169,21 @@ void Safety::tick(uint32_t now_ms, const uint16_t us_mm[4]) {
     pushEvent(proto::kEventWatchdogStop, toArg(silent_ms));
   }
 
-  // 2. Front obstacle.
+  // 2. Front obstacle (with hysteresis).
   int16_t nearest = -1;
-  const bool front_blocked = frontBlocked(us_mm, c_.obstacle_mm, &nearest);
+  const bool front_blocked = frontBlockedNow(us_mm, &nearest);
   const int32_t sum = static_cast<int32_t>(left_) + static_cast<int32_t>(right_);
   if (sum > 0 && front_blocked) {
-    zeroTargets();
-    if (!obstacle_flag_) {
-      obstacle_flag_ = true;
-      pushEvent(proto::kEventObstacleStop, nearest);
-    }
-  } else if (obstacle_flag_ && !front_blocked) {
+    frontStop(nearest);
+  } else if (!front_blocked) {
     obstacle_flag_ = false;
   }
 
-  // 3. Rear.
-  const bool rear_ok = rearSensing(us_mm);
-  const bool rear_blocked = rearBlocked(us_mm, c_.obstacle_mm);
-  if (sum < 0 && (!rear_ok || rear_blocked)) {
-    zeroTargets();
-    if (!rear_flag_) {
-      rear_flag_ = true;
-      pushEvent(proto::kEventRearObstacleStop,
-                rear_ok ? toArg(us_mm[3]) : static_cast<int16_t>(-1));
-    }
-  } else if (rear_flag_ && rear_ok && !rear_blocked) {
+  // 3. Rear (with hysteresis; a rear sensor that is absent or faulty counts as blocked).
+  const bool rear_blocked = rearBlockedNow(us_mm);
+  if (sum < 0 && rear_blocked) {
+    rearStop(us_mm);
+  } else if (!rear_blocked) {
     rear_flag_ = false;
   }
 }
