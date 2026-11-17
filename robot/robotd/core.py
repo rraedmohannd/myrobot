@@ -80,6 +80,8 @@ BATTERY_TABLE_3S: list[tuple[float, float]] = [
 BATTERY_FILTER = 0.05  # low-pass of the voltage at 50 Hz (about 0.4 s)
 BATTERY_HYSTERESIS_V = 0.2
 PARAM_GRACE_S = 1.0  # after a push, the hash may differ this long before it is a fault
+ENCODER_INVERT_IDS = (15, 16, 17, 18)  # ENCODER_INVERT_FL/RL/FR/RR (params.json)
+SIGN_MISMATCH = {10: "speed_sign_mismatch_left", 11: "speed_sign_mismatch_right"}
 BLACKBOX_TRIGGERS = ("fault", "obstacle_stop", "rear_obstacle_stop", "comm_loss")
 _RESET_NAMES = {0: "unknown", 1: "power-on", 2: "brownout", 3: "task-watchdog", 4: "panic",
                 5: "software", 6: "external", 7: "other-watchdog", 8: "deep-sleep"}  # fmt: skip
@@ -152,6 +154,9 @@ class Brain:
         self._push_at: float | None = None
         self._grace_until = -1e9
         self.diag: DiagReport | None = None
+        self.latched_faults: list[str] = []  # stay until an ESP32 reboot or the end of bring-up
+        self._rebase_on_hash = False  # pushed new encoder inversions: re-baseline once applied
+        self._pushed_inverts: dict[int, float] | None = None
         self.health: dict[str, Any] = {}  # Pi health (robotd.health), set by the app
         self.bringup = False
         # ---- gyro bias ----
@@ -212,7 +217,12 @@ class Brain:
         return calib.status_dict(self.cal, self.table)
 
     def _push_params(self, now_s: float, grace: bool = True) -> None:
-        for pid, value in calib.push_values(self.cal, self.table).items():
+        values = calib.push_values(self.cal, self.table)
+        inverts = {pid: values[pid] for pid in ENCODER_INVERT_IDS if pid in values}
+        if inverts != self._pushed_inverts:  # the counts change sign once the ESP32 applies it
+            self._rebase_on_hash = self._pushed_inverts is not None or self.params_ok is False
+            self._pushed_inverts = inverts
+        for pid, value in values.items():
             self.link.send(ParamSet(pid, value))
         self.link.send(DiagRequest())
         self._need_push, self._push_at = False, now_s
@@ -248,6 +258,7 @@ class Brain:
             if not on:  # whatever robotctl changed: the calibration file is the truth again
                 self.link.send(Mode(DriveMode.SAFE))
                 self._need_push = True
+                self.latched_faults = []  # e.g. a sign mismatch fixed with robotctl motor-test
         return True, None
 
     # ================= inputs =================
@@ -339,9 +350,26 @@ class Brain:
         elif code == EventCode.REAR_OBSTACLE_STOP:
             self._event("rear_obstacle_stop", {"rear_mm": ev.arg, "by": "esp32"})
         elif code == EventCode.BOOT:
-            # a (re)started ESP32 lost every unsaved parameter and its gyro bias
+            # a (re)started ESP32 lost every unsaved parameter and its gyro bias; its counters
+            # start again from 0
             self._need_push, self.params_ok, self.gyro_cal_due = True, False, True
+            self.odom.rebaseline()
+            self.latched_faults = []
             self._event("esp32_boot", {})
+        elif code == EventCode.LINK_RESTORED:
+            # after a stall: STOP first, so nothing sent before the stall can act; from now on
+            # only DRIVE frames built from the current state go out (LinkCore never queues DRIVE)
+            self.link.send(Stop())
+            self._event("esp32_link_restored", {})
+        elif code == EventCode.ENCODER_FAULT and ev.arg in SIGN_MISMATCH:
+            reason = SIGN_MISMATCH[ev.arg]
+            if reason not in self.latched_faults:
+                self.latched_faults.append(reason)
+            self._event("encoder_fault", {
+                "reason": reason, "hint": "run: robotctl motor-test (motor/encoder inversion)",
+            })  # fmt: skip
+            log.error("ESP32 stopped: %s - check the wiring / inversions with robotctl motor-test",
+                      reason)  # fmt: skip
         elif code == EventCode.SLIP:
             self._event("slip", {"side": "left" if ev.arg == 0 else "right", "by": "esp32"})
         elif code == EventCode.GYRO_CAL_DONE:
@@ -354,6 +382,8 @@ class Brain:
             self._event("gyro_cal_failed", {})
         elif code == EventCode.PARAM_CHANGED:
             log.debug("ESP32 parameter %d changed", ev.arg)
+            if ev.arg in ENCODER_INVERT_IDS:  # counts change sign: no phantom jump in the pose
+                self.odom.rebaseline()
         elif code in (EventCode.IMU_FAULT, EventCode.ENCODER_FAULT, EventCode.LOW_BATTERY):
             self._event(code.name.lower(), {"arg": ev.arg})
         else:
@@ -448,8 +478,9 @@ class Brain:
         else:
             if not frame.flags & Flags.IMU_OK:
                 faults.append("imu_fault")
-            if frame.flags & Flags.ENCODER_FAULT:
+            if frame.flags & Flags.ENCODER_FAULT and not self.latched_faults:
                 faults.append("encoder_fault")
+            faults += self.latched_faults
             us = frame.ultrasonic_mm
             front = (_distance(us[0]), _distance(us[1]), _distance(us[2]))
             rear = _distance(us[3])
@@ -543,6 +574,9 @@ class Brain:
         if self._need_push:
             self._push_params(now_s)
         if frame.param_hash == self.expected_hash:
+            if self._rebase_on_hash:  # the pushed inversions are in force from this frame on
+                self._rebase_on_hash = False
+                self.odom.rebaseline()
             if not self.params_ok:
                 log.info("ESP32 parameter hash %08x matches the calibration", frame.param_hash)
             self.params_ok = True
@@ -638,7 +672,8 @@ class Brain:
         if frame is not None and not lost:
             us = frame.ultrasonic_mm
             absent = sum(1 for v in us if v == US_ABSENT)
-            front_absent = all(v == US_ABSENT for v in us[:3])
+            # the centre sensor alone decides forward motion on the ESP32: absent = fault
+            front_absent = us[1] == US_ABSENT or all(v == US_ABSENT for v in us[:3])
             faulty = front_absent or bool(frame.flags & Flags.ULTRASONIC_FAULT)
             sensors["encoders"] = "fault" if frame.flags & Flags.ENCODER_FAULT else "ok"
             sensors["imu"] = "ok" if frame.flags & Flags.IMU_OK else "fault"

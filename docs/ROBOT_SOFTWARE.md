@@ -107,6 +107,13 @@ Events: `gyro_bias {bias_rad_s, source "start"|"still"}`; the running estimate i
 
 **Camera ownership (default 13).** On the robot, `visiond` owns the webcam. In robot mode (the page served by robotd), robotd injects `robot-guard.js` as the first script. It sets `window.SCR_ROBOT_MODE` and refuses every `getUserMedia` request with video; audio passes. `robot.html` then never starts its camera (`?camera=1`, `?face_start=1` and the C key are ignored), and `robot-local.js` stops a camera that is already running.
 
+**Rules from the firmware safety review (sprint 5).**
+- *Keeping motion alive:* robotd never relies on HEARTBEAT. While it wants a non-zero target, it sends DRIVE at 20 Hz; HEARTBEAT (10 Hz) is sent only while the target is zero. To stop, it sends STOP; it does not simply go quiet. A test measures at least 39 DRIVE frames in 2 s of roaming, no HEARTBEAT, and a STOP on `pause`.
+- *After a stall:* on `EVENT LINK_RESTORED`, robotd first sends STOP. After that only DRIVE frames built from the current state go out (LinkCore never queues DRIVE), so nothing sent before the stall can act.
+- *Encoder counts:* when `ENCODER_INVERT_*` (ids 15–18) changes, the odometry takes the next frame as its new reference, so no phantom jump enters the pose. This covers `EVENT PARAM_CHANGED` for those ids (robotctl) and a robotd push of new inversions (re-baselined on the first frame with the expected hash). It does the same after `EVENT BOOT`, as well as the clock-jump detection it already had.
+- *Centre front sensor:* a missing centre front sensor counts as "front blocked". Roaming does not start (`blocked: no free way in front`) and makes no forward attempts. `sensors.ultrasonic` is `fault` in that case, and `degraded` when only a side or the rear sensor is missing. The simulated ESP32 follows the same firmware rule.
+- *Speed sign mismatch:* `EVENT ENCODER_FAULT` arg 10 or 11 (the firmware stops and goes to SAFE) becomes the latched FAULT `speed_sign_mismatch_left` / `_right`. Its event says "run: robotctl motor-test". The fault clears only after an ESP32 reboot or at the end of a robotctl bring-up.
+
 **Several backend addresses.** `BACKEND_URL` may be a comma-separated list. The backend link tries the addresses in order and moves to the next one after a failure. The page uses the address in use when it loads. The settings page can save a list to the local override file.
 
 **Pi health (S6.2).** Every 5 s robotd reads:

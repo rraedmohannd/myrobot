@@ -53,6 +53,7 @@ class OdometryEstimator:
     gyro_bias: float = 0.0  # residual bias robotd estimated while still (subtracted), rad/s
     last_delta_ticks: int = 0  # sum of |encoder change| of the last step (0 = tracks still)
     _last: Telemetry | None = None
+    _rebase: bool = False
     _win: list[int] = field(default_factory=lambda: [0, 0, 0, 0])
     _win_s: float = 0.0
 
@@ -62,6 +63,11 @@ class OdometryEstimator:
         self.enc_theta = self.left_m = self.right_m = self.travelled_m = 0.0
         self._win, self._win_s = [0, 0, 0, 0], 0.0
 
+    def rebaseline(self) -> None:
+        """The encoder counts changed meaning (an ENCODER_INVERT_* parameter, an ESP32 reboot):
+        the next frame becomes the new reference, so no phantom jump enters the pose."""
+        self._rebase = True
+
     def update(self, frame: Telemetry) -> OdometryStep | None:
         """Feed the next TELEMETRY frame. Returns None for the very first frame."""
         last, self._last = self._last, frame
@@ -70,6 +76,11 @@ class OdometryEstimator:
             return None
         dt_ms = (frame.t_ms - last.t_ms) % _U32  # correct across the u32 wrap
         d = [frame.encoders[i] - last.encoders[i] for i in range(4)]
+        if self._rebase:  # counts are not comparable with the last frame: skip this step
+            self._rebase = False
+            self.last_delta_ticks = 0
+            self.t_ms += dt_ms if 0 < dt_ms <= _MAX_STEP_MS else 1
+            return OdometryStep(0.0, 0.0, 0.0, frame.gyro_z, restarted=True)
         self.last_delta_ticks = sum(abs(x) for x in d)
         if dt_ms == 0 or dt_ms > _MAX_STEP_MS:
             # duplicate frame, or the ESP32 restarted (its clock and counters start again)

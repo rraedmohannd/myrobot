@@ -307,8 +307,9 @@ class SimEsp32:
 
     @staticmethod
     def _front_mm(us: tuple[int, int, int, int]) -> int | None:
-        """Nearest front distance; 0 when every front sensor is absent (rule 5); None = clear."""
-        if all(v == US_ABSENT for v in us[:3]):
+        """Nearest front distance; 0 (blocked) when the CENTRE sensor or every front sensor is
+        absent (firmware safety review 2b); None = clear."""
+        if us[1] == US_ABSENT or all(v == US_ABSENT for v in us[:3]):
             return 0
         real = [v for v in us[:3] if v not in (US_ABSENT, US_NO_ECHO)]
         return min(real) if real else None
