@@ -25,3 +25,4 @@ robot/calibration.dev.log.jsonl
 firmware/release/
 robot/bringup-output/
 robot/robotd.override.json
+robot/.uv-bootstrap/

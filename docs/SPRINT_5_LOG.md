@@ -99,3 +99,26 @@ The questions for Mohannd, what only he can do, the steps for when the parts arr
 - Tests: 23 new (synthetic tag images rendered in perspective at 0.6–3 m: distance error 0.1–4 %, bearing error ≤ 0.16°; robotd logic; two integration tests through the robot's main loop with the simulated ESP32, flag on and off). Robot suite after this step: **309 passed**.
 - Commits: `7fe5342`, `1fc7ae9` (wiring).
 - **Not verified:** no real camera, printed tag or robot; the real field of view, lighting, motion blur, the servo angle sign, OpenCV 4.x on the Pi (only 5.1 on the laptop). It corrects position drift only, not heading.
+
+## S5 — The Pi install, verified without a Pi (and the Pi side of S2.7)
+- **Release checked:** raspberrypi.com/software/operating-systems (read 2026-11-17): Raspberry Pi OS (64-bit) of 6 Oct 2026, based on **Debian 13 "trixie"**, kernel 6.18; trixie ships **Python 3.13** (3.13.5 measured in the container). The official configuration page says all models run Wayland with **labwc** by default.
+- **Wheels (PyPI, read 2026-11-17):** mediapipe 1.2.3 has a `manylinux_2_28_aarch64` wheel; opencv 5.1.0.95 and numpy 2.5.5 have aarch64 wheels for 3.13. So the system Python is used; a `uv`-managed Python 3.13 is only an untested fallback.
+- **Lock file:** `robot/requirements.lock`, 52 packages with sha256 hashes, compiled for aarch64 / Python 3.13 (`robot/deploy/lock.sh` regenerates it; re-running it gave an identical file). `setup.sh` and `update.sh` install with `--require-hashes`. **Whoever adds a robot dependency must run `lock.sh`.**
+- **`setup.sh --container-test`** in an **emulated arm64 `debian:trixie` container (QEMU on Docker Desktop — not a Raspberry Pi)**, `robot/scripts/container_test.sh`. Third and final run, every phase PASS:
+
+  | Phase | Result | Time |
+  |---|---|---|
+  | `setup.sh --container-test` | PASS (apt 97 MB, `pip check` clean, both models downloaded) | 578 s |
+  | robot tests inside the container | 284 passed, 2 skipped | 237 s |
+  | `robotd --sim` for 20 s | `/local/status` answered `"is_simulated": true`, log says SIMULATED | 25 s |
+  | `visiond` on a synthetic video | MediaPipe path, 180 frames, 0 faces (490 ms per frame: emulator speed, not a Pi number) | 109 s |
+  | `import mediapipe, cv2` | mediapipe 1.2.3, OpenCV 5.1.0, numpy 2.5.5 | 6 s |
+
+  Found and fixed on the way: MediaPipe needs `libEGL.so.1` (`libegl1`, `libgles2` added to `setup.sh`); run 2 had failures from tests that were still being written by other agents, which pass in run 3. The reasons for the 2 skips were not recorded.
+- **shellcheck 0.11.0** on every script in `robot/deploy/` and `robot/scripts/`: clean.
+- **Kiosk** (S5.3): labwc autostart with an X11 `.desktop` fallback (one instance only), an invisible cursor theme (labwc has no "hide cursor" option), `unclutter` on X11, screen blanking off with `raspi-config nonint do_blanking 1`, touch mapped to `HDMI-A-1` (labwc `rc.xml` / `xinput`). **Not tried on the screen:** whether labwc reads the user autostart together with the system one, the touch device and output names, the 1024×600 mode, the cursor under Chromium on Wayland, the blanking command.
+- **`update.sh`** (S5.4): pull, reinstall if the lock changed, restart the services, and offer to flash the ESP32 when the version differs (asks; default no).
+- **`flash_esp32.sh`** (S2.7): flashes only a checksummed release built on the laptop (`SHA256SUMS` required), at 0x1000 / 0x8000 / 0xe000 / 0x10000 (offsets also confirmed in PlatformIO espressif32 6.13.0's Arduino builder), never erases (the saved parameters survive), then checks the version with `robotctl diag --expect-version`. Its refusals (no `SHA256SUMS`, checksum mismatch, no virtualenv) were tested on Windows; esptool 5.6.0 accepted the arguments and merged the images of a compile-check build (kept out of the repository, never flashed).
+- **Network** (S5.5): `BACKEND_URL` takes several comma-separated addresses tried in order; the Windows Mobile hotspot option (laptop at 192.168.137.1, firewall rule limited to 192.168.137.0/24) is in `docs/DEPLOY.md`.
+- Commits: `071c0fd`, `26825db`, `e29d922`, `a603f97`, `7a9ac76`.
+- **Not verified:** a real Pi boot, systemd units, the udev rule, the serial port, esptool on a real ESP32, the camera, visiond speed on a Pi, audio, everything on the screen, the hotspot with the Pi, the `uv` fallback.
