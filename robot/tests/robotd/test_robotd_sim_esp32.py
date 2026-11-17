@@ -299,7 +299,7 @@ def test_param_set_rules_hash_save_and_reboot() -> None:
     assert pi.of(Telemetry)[-1].param_hash == param_hash(load_table().defaults())
     pi.send(ParamSet(mpt, 0.0005))
     pi.send(ParamSave())
-    pi.steps(2)
+    pi.steps(45)  # stepwise save: 40 keys + the commit, about 0.41 s (SERIAL_PROTOCOL.md 10.7)
     assert pi.of(Ack)[-1].status == AckStatus.OK
     assert not pi.of(Telemetry)[-1].flags & Flags.PARAMS_UNSAVED
     pi.sim.reboot(ResetReason.BROWNOUT)
@@ -326,8 +326,12 @@ def test_param_set_busy_while_moving_and_save_only_when_idle() -> None:
     assert [a.status for a in pi.of(Ack)[-2:]] == [AckStatus.BUSY, AckStatus.REJECTED_MODE]
     pi.send(Stop())
     pi.steps(20, keep=Heartbeat())
-    pi.send(ParamSave())  # DRIVE mode, targets 0, tracks still: allowed
+    pi.send(ParamSave())  # 200 ms after the stop: not "still" yet (no encoder change for 300 ms)
     pi.steps(1)
+    assert pi.of(Ack)[-1].status == AckStatus.REJECTED_MODE
+    pi.steps(15, keep=Heartbeat())
+    pi.send(ParamSave())  # DRIVE mode, targets 0, tracks still: allowed
+    pi.steps(45, keep=Heartbeat())
     assert pi.of(Ack)[-1].status == AckStatus.OK
 
 

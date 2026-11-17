@@ -18,7 +18,15 @@ It speaks serial protocol version 2 and follows the firmware's rules:
   inversions, GYRO_SCALE, battery scales, SLIP_RATIO / SLIP_MIN_TICKS, LOW_BATTERY_MV and
   BATTERY_CUTOFF_MV;
 - bring-up streams IMU_RAW / US_RAW and SERVO_JOG (MODE TEST only), CALIBRATE_GYRO with a
-  simulated (optionally drifting) bias, EVENT SLIP, a slowly falling simulated 3S pack.
+  simulated (optionally drifting) bias, EVENT SLIP, a slowly falling simulated 3S pack;
+- the section 10.7 rules of the safety review: the front / rear obstacle rules look at the targets
+  OR the ramp outputs; a missing CENTRE front sensor blocks forward motion; PARAM_SAVE writes one
+  key per 10 ms step and ACKs after the commit (about 0.41 s), PARAM_SET / PARAM_SAVE meanwhile
+  are BUSY and PARAMS_UNSAVED stays set until the commit; "still" for PARAM_SAVE and
+  CALIBRATE_GYRO = no encoder change for 300 ms; the speed-sign mismatch fault in MODE DRIVE
+  (EVENT ENCODER_FAULT 10/11, then SAFE), reachable with `motor_wiring_inverted` or
+  `encoder_wiring_inverted` on both encoders of a side (the simulated PID then winds up to the
+  duty cap and the track runs away until the check stops it).
 
 A fresh `SimEsp32()` is a NEVER-CALIBRATED firmware (compiled defaults: nothing moves). Give it
 `SimEsp32Config(nvs=SIM_PROFILE)` to boot as if a SIMULATED calibration had been saved, or let
@@ -94,6 +102,13 @@ TEST_FULL_SCALE_MM_S = 1000.0  # firmware config.h: a DRIVE of 1000 mm/s means d
 FULL_PACK_V = 12.6  # voltage compensation fallback without an INA219 reading
 GYRO_CAL_MS = 2000
 STILL_MPS = 0.01  # "the tracks move" above 10 mm/s
+STILL_MS = 300  # firmware still_ms: "tracks still" = no encoder change for this long
+RAMP_DEADBAND_MPS = 0.0005  # firmware: ramp outputs within 0.5 mm/s of zero are not motion
+# Speed-sign mismatch (firmware config.h placeholders, SERIAL_PROTOCOL.md 10.7), MODE DRIVE only
+SIGN_FAULT_MIN_DUTY = 0.2
+SIGN_FAULT_MIN_SPEED_MPS = 0.05
+SIGN_FAULT_MS = 300
+SIGN_FAULT_ARG = (10, 11)  # EVENT ENCODER_FAULT arg: left, right
 SIM_FW_VERSION = (0, 5, 0)
 
 __all__ = ["SIM_PROFILE", "SimEsp32", "SimEsp32Config", "SimEsp32Server"]
@@ -177,6 +192,16 @@ class SimEsp32:
             for p in self.table.params
         }
         self._hash_cache: int | None = None
+        # what PARAMS_UNSAVED compares with: the NVS value, or the compiled default (10.6)
+        self._saved: dict[int, float] = {k: f32(v) for k, v in self.values.items()}
+        # stepwise PARAM_SAVE (10.7): ids still to write (None = no save running), its ACK seq
+        self._save_queue: list[int] | None = None
+        self._save_seq = 0
+        self.duty = [0.0, 0.0]  # applied duty per track, "positive = forward" (before inversion)
+        self.measured_mps = [0.0, 0.0]  # track speeds as the firmware measures them
+        self._sign_since: list[int | None] = [None, None]
+        self._last_counts = [0.0, 0.0, 0.0, 0.0]
+        self._last_enc_change_ms = -STILL_MS
         self.mode = DriveMode.SAFE
         self.target = (0.0, 0.0)  # m/s, as accepted (clamped to MAX_SPEED_MM_S)
         self._ramped = [0.0, 0.0]
@@ -226,8 +251,12 @@ class SimEsp32:
         return self._hash_cache
 
     def _unsaved(self) -> bool:
-        saved = {**self.table.defaults(), **self.nvs}
-        return any(f32(saved[k]) != f32(v) for k, v in self.values.items())
+        """PARAMS_UNSAVED: stays set until the commit at the end of a stepwise save."""
+        return any(self._saved[k] != f32(v) for k, v in self.values.items())
+
+    @property
+    def saving(self) -> bool:
+        return self._save_queue is not None
 
     def _report(self, pid: int) -> None:
         spec = self.table.by_id(pid)
@@ -261,7 +290,17 @@ class SimEsp32:
         self.speed = (0.0, 0.0)
 
     def _moving(self) -> bool:
-        return self.target != (0.0, 0.0) or any(abs(v) > STILL_MPS for v in self.speed)
+        """Firmware tracksMoving(): a target, a ramp output, or a track faster than 10 mm/s."""
+        return (
+            self.target != (0.0, 0.0)
+            or self._ramped != [0.0, 0.0]
+            or any(abs(v) > STILL_MPS for v in self.speed)
+        )
+
+    def _moving_strict(self) -> bool:
+        """Firmware moving(): tracksMoving(), or an encoder change within the last 300 ms
+        (used by PARAM_SAVE and CALIBRATE_GYRO)."""
+        return self._moving() or self.t_ms - self._last_enc_change_ms < STILL_MS
 
     def _bringup_off(self) -> None:
         self.imu_rate_hz = 0
@@ -306,13 +345,19 @@ class SimEsp32:
         return out[0], out[1], out[2], out[3]
 
     @staticmethod
-    def _front_mm(us: tuple[int, int, int, int]) -> int | None:
-        """Nearest front distance; 0 (blocked) when the CENTRE sensor or every front sensor is
-        absent (firmware safety review 2b); None = clear."""
-        if us[1] == US_ABSENT or all(v == US_ABSENT for v in us[:3]):
-            return 0
-        real = [v for v in us[:3] if v not in (US_ABSENT, US_NO_ECHO)]
-        return min(real) if real else None
+    def _front_blocked(us: tuple[int, int, int, int], limit: float) -> tuple[bool, int]:
+        """Firmware Safety::frontBlocked: (blocked, event arg). No working front sensor, or the
+        CENTRE sensor absent (10.7, stricter than rule 5), is blocked; otherwise the nearest
+        front reading (no echo = 0xFFFF) below `limit`. The arg is the nearest reading of a
+        present sensor (capped at 32767), or -1 when none is present."""
+        present = [v for v in us[:3] if v != US_ABSENT]
+        if not present:
+            return True, -1
+        nearest = min(present)
+        arg = min(nearest, 32767)
+        if us[1] == US_ABSENT:
+            return True, arg
+        return nearest < min(limit, US_ABSENT), arg
 
     # ---------------- Pi -> ESP32 ----------------
     def receive(self, data: bytes) -> None:
@@ -346,7 +391,7 @@ class SimEsp32:
             self._halt()
             self._ack(msg, seq, AckStatus.OK)
         elif isinstance(msg, CalibrateGyro):
-            if self.calibrating_until is not None or self._moving():
+            if self.calibrating_until is not None or self._moving_strict():
                 self._ack(msg, seq, AckStatus.BUSY)
             else:
                 self.calibrating_until = self.t_ms + GYRO_CAL_MS
@@ -368,15 +413,16 @@ class SimEsp32:
                 return
             self._ack(msg, seq, AckStatus.OK)
         elif isinstance(msg, ParamSave):
-            idle = self.target == (0.0, 0.0) and not self._moving()
+            idle = self.target == (0.0, 0.0) and not self._moving_strict()
             if self.mode != DriveMode.SAFE and not idle:
                 self._ack(msg, seq, AckStatus.REJECTED_MODE)
                 return
-            defaults = self.table.defaults()
-            self.nvs = {k: v for k, v in self.values.items() if f32(defaults[k]) != f32(v)}
-            self.sources = {k: ParamSource.NVS if k in self.nvs else ParamSource.DEFAULT
-                            for k in self.values}  # fmt: skip
-            self._ack(msg, seq, AckStatus.OK)
+            if self.saving:  # one save at a time
+                self._ack(msg, seq, AckStatus.BUSY)
+                return
+            # stepwise (10.7): one key per 10 ms step, then the commit; the ACK comes at the end
+            self._save_queue = [p.id for p in self.table.params]
+            self._save_seq = seq
         elif isinstance(msg, DiagRequest):
             self._emit(self.diag_report())
         elif isinstance(msg, Bringup):
@@ -397,10 +443,10 @@ class SimEsp32:
         threshold = self.p("OBSTACLE_THRESHOLD_MM")
         hysteresis = self.p("OBSTACLE_CLEAR_HYSTERESIS_MM")
         if total > 0:
-            front = self._front_mm(us)
             # a little hysteresis, so sensor noise at the threshold does not release the stop
-            held = hysteresis if self.flags & Flags.OBSTACLE_STOP else 0
-            if front is not None and front < threshold + held:
+            held = hysteresis + 1 if self.flags & Flags.OBSTACLE_STOP else 0
+            blocked, front = self._front_blocked(us, threshold + held)
+            if blocked:
                 self._front_stop(front)
                 self._ack(msg, seq, AckStatus.REJECTED_SAFETY)
                 return
@@ -410,7 +456,7 @@ class SimEsp32:
                 self._halt()
                 self._ack(msg, seq, AckStatus.REJECTED_SAFETY)
                 return
-            held = hysteresis if self.flags & Flags.REAR_OBSTACLE_STOP else 0
+            held = hysteresis + 1 if self.flags & Flags.REAR_OBSTACLE_STOP else 0
             if rear != US_NO_ECHO and rear < threshold + held:
                 self._rear_stop(rear)
                 self._ack(msg, seq, AckStatus.REJECTED_SAFETY)
@@ -436,17 +482,21 @@ class SimEsp32:
             self._ack(msg, seq, AckStatus.UNKNOWN_PARAM)
             return
         spec = self.table.by_id(msg.id)
-        if self._moving():
-            self._ack(msg, seq, AckStatus.BUSY)
-            return
+        # firmware order (10.6): unknown id and bounds first, then BUSY (moving or saving)
         if not math.isfinite(msg.value) or not spec.in_range(msg.value):
             self._ack(msg, seq, AckStatus.OUT_OF_RANGE)
+            return
+        if self._moving() or self.saving:
+            self._ack(msg, seq, AckStatus.BUSY)
             return
         value = f32(msg.value)
         changed = value != self.values[msg.id]
         self.values[msg.id] = value
         self.sources[msg.id] = ParamSource.SET
         self._hash_cache = None
+        if self.mode == DriveMode.DRIVE and self.p("METRES_PER_TICK") <= 0:
+            self.mode = DriveMode.SAFE  # a closed loop never runs uncalibrated (10.6)
+            self._halt()
         self._ack(msg, seq, AckStatus.OK)
         self._report(msg.id)
         if changed:
@@ -495,6 +545,7 @@ class SimEsp32:
         ramp = self.p("RAMP_MM_S2") / 1000.0 * dt
         for i in range(2):
             self._ramped[i] += max(-ramp, min(ramp, self.target[i] - self._ramped[i]))
+        self.duty = [0.0, 0.0]
         if self.mode == DriveMode.SAFE:
             return 0.0, 0.0
         drop = self.p("V_DRIVER_DROP")
@@ -503,23 +554,70 @@ class SimEsp32:
         per_duty = self.cfg.rated_speed_mps * max(v_batt - drop, 0.0) / rated  # m/s at duty 1
         out: list[float] = []
         for i in range(2):
+            inverted = bool(self.p("MOTOR_INVERT_LEFT" if i == 0 else "MOTOR_INVERT_RIGHT"))
+            motor_sign = -1 if inverted != self.cfg.motor_wiring_inverted[i] else 1
             if self.mode == DriveMode.TEST:
                 lim = min(self.p("TEST_MAX_DUTY"), cap)
                 duty = max(-lim, min(lim, self._ramped[i] * 1000.0 / TEST_FULL_SCALE_MM_S))
                 speed = duty * per_duty
             else:  # DRIVE: an ideal PID tracks the speed it MEASURES with METRES_PER_TICK
-                if self.p("PID_KP") <= 0 and self.p("PID_KFF") <= 0:
-                    speed = 0.0
-                else:
-                    mpt = self.p("METRES_PER_TICK")
-                    speed = self._ramped[i] * self.cfg.true_metres_per_tick / mpt if mpt else 0.0
-                    top = cap * per_duty
-                    speed = max(-top, min(top, speed))
-            inverted = bool(self.p("MOTOR_INVERT_LEFT" if i == 0 else "MOTOR_INVERT_RIGHT"))
-            if inverted != self.cfg.motor_wiring_inverted[i]:
-                speed = -speed
-            out.append(speed)
+                duty, speed = 0.0, 0.0
+                mpt = self.p("METRES_PER_TICK")
+                if (self.p("PID_KP") > 0 or self.p("PID_KFF") > 0) and mpt and self._ramped[i]:
+                    # the loop's sign: motor wiring x the mean encoder sign of that side
+                    enc_sign = sum(-1 if self._enc_flip(j) else 1 for j in (2 * i, 2 * i + 1))
+                    if motor_sign * enc_sign < 0:
+                        # the measurement runs the wrong way: the PID winds up to the duty cap
+                        # and the track runs away (stopped by the speed-sign check, 10.7)
+                        duty = math.copysign(cap, self._ramped[i])
+                        speed = duty * per_duty
+                    else:
+                        speed = self._ramped[i] * self.cfg.true_metres_per_tick / mpt
+                        top = cap * per_duty
+                        speed = max(-top, min(top, speed))
+                        duty = speed / per_duty if per_duty > 0 else 0.0
+            self.duty[i] = duty
+            out.append(speed * motor_sign)  # the inversion is applied at the output, after the cap
         return out[0], out[1]
+
+    def _check_speed_sign(self) -> None:
+        """Firmware checkSpeedSign (10.7), MODE DRIVE only: |duty| > 0.2 with the measured speed
+        of the opposite sign above 50 mm/s for 300 ms -> STOP, SAFE, EVENT ENCODER_FAULT 10/11."""
+        for side in range(2):
+            duty, speed = self.duty[side], self.measured_mps[side]
+            bad = (
+                self.mode == DriveMode.DRIVE
+                and abs(duty) > SIGN_FAULT_MIN_DUTY
+                and duty * speed < 0
+                and abs(speed) > SIGN_FAULT_MIN_SPEED_MPS
+            )
+            since = self._sign_since[side]
+            if not bad:
+                self._sign_since[side] = None
+            elif since is None:
+                self._sign_since[side] = self.t_ms
+            elif self.t_ms - since >= SIGN_FAULT_MS:
+                self._sign_since[side] = None
+                self.mode = DriveMode.SAFE
+                self._halt()
+                self._emit(Event(self._t32(), EventCode.ENCODER_FAULT, SIGN_FAULT_ARG[side]))
+
+    def _step_param_save(self) -> None:
+        """One NVS key per 10 ms step; the step after the last key commits and ACKs (10.7)."""
+        if self._save_queue is None:
+            return
+        if self._save_queue:
+            pid = self._save_queue.pop(0)
+            if f32(self.table.defaults()[pid]) != f32(self.values[pid]):
+                self.nvs[pid] = self.values[pid]
+            else:
+                self.nvs.pop(pid, None)
+            return
+        self._save_queue = None
+        self._saved = {k: f32(v) for k, v in self.values.items()}
+        self.sources = {k: ParamSource.NVS if k in self.nvs else ParamSource.DEFAULT
+                        for k in self.values}  # fmt: skip
+        self._emit(Ack(int(ParamSave.TYPE), self._save_seq, AckStatus.OK))
 
     # ---------------- one control step: 10 ms of simulated time ----------------
     def step(self) -> bytes:
@@ -540,14 +638,18 @@ class SimEsp32:
             self._bringup_off()
             self.flags |= Flags.WATCHDOG_STOP
             self._emit(Event(self._t32(), EventCode.WATCHDOG_STOP, min(silent, 32767)))
-        # safety rules 2 and 3: obstacles in the commanded direction
+        # safety rules 2 and 3: obstacles in the direction of motion = the targets OR the ramp
+        # outputs the motors still follow (10.7; 0.5 mm/s dead band, a symmetric turn sums to 0)
         total = self.target[0] + self.target[1]
-        if total > 0:
-            front = self._front_mm(us)
-            if front is not None and front < threshold:
+        applied = self._ramped[0] + self._ramped[1]
+        forward = total > 0 or applied > RAMP_DEADBAND_MPS
+        reverse = total < 0 or applied < -RAMP_DEADBAND_MPS
+        if forward:
+            blocked, front = self._front_blocked(us, threshold)
+            if blocked:
                 self._front_stop(front)
-        elif total < 0 and (us[3] == US_ABSENT or us[3] < threshold):
-            self._rear_stop(0 if us[3] == US_ABSENT else us[3])
+        if reverse and (us[3] == US_ABSENT or us[3] < threshold):
+            self._rear_stop(-1 if us[3] == US_ABSENT else us[3])
         if self.mode == DriveMode.SAFE:
             self._halt()
 
@@ -603,9 +705,20 @@ class SimEsp32:
                     arg = max(-32768, min(32767, int(round(self.gyro_cal_bias * 10000))))
                     self._emit(Event(self._t32(), EventCode.GYRO_CAL_DONE, arg))
 
-        self._slip_check([self._count(i) - before[i] for i in range(4)])
+        counts = [self._count(i) for i in range(4)]
+        self._slip_check([counts[i] - before[i] for i in range(4)])
+        if any(round(c) != round(p) for c, p in zip(counts, self._last_counts, strict=True)):
+            self._last_enc_change_ms = self.t_ms  # also a push by hand between two steps
+        mpt = self.p("METRES_PER_TICK")
+        for side in range(2):
+            ticks = (counts[2 * side] - before[2 * side] + counts[2 * side + 1]
+                     - before[2 * side + 1]) / 2  # fmt: skip
+            self.measured_mps[side] = ticks * mpt / dt
+        self._last_counts = counts
+        self._check_speed_sign()
         self._battery_events(read_mv)
         self._bringup_streams(raw_gyro, us)
+        self._step_param_save()
 
         if self._step_no % TELEMETRY_EVERY == 0:
             flags = self.flags
@@ -635,9 +748,11 @@ class SimEsp32:
 
     def _count(self, i: int) -> float:
         """Encoder count as the firmware reports it (after its ENCODER_INVERT_* parameter)."""
+        return -self.enc[i] if self._enc_flip(i) else self.enc[i]
+
+    def _enc_flip(self, i: int) -> bool:
         name = ("ENCODER_INVERT_FL", "ENCODER_INVERT_RL", "ENCODER_INVERT_FR", "ENCODER_INVERT_RR")
-        flip = bool(self.p(name[i])) != self.cfg.encoder_wiring_inverted[i]
-        return -self.enc[i] if flip else self.enc[i]
+        return bool(self.p(name[i])) != self.cfg.encoder_wiring_inverted[i]
 
     def _slip_check(self, delta: list[float]) -> None:
         for i in range(4):
