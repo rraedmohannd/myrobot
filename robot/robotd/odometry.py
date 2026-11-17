@@ -50,6 +50,8 @@ class OdometryEstimator:
     right_m: float = 0.0
     travelled_m: float = 0.0  # sum of |ds|
     t_ms: int = 0  # unwrapped ESP32 time of the last frame
+    gyro_bias: float = 0.0  # residual bias robotd estimated while still (subtracted), rad/s
+    last_delta_ticks: int = 0  # sum of |encoder change| of the last step (0 = tracks still)
     _last: Telemetry | None = None
     _win: list[int] = field(default_factory=lambda: [0, 0, 0, 0])
     _win_s: float = 0.0
@@ -68,6 +70,7 @@ class OdometryEstimator:
             return None
         dt_ms = (frame.t_ms - last.t_ms) % _U32  # correct across the u32 wrap
         d = [frame.encoders[i] - last.encoders[i] for i in range(4)]
+        self.last_delta_ticks = sum(abs(x) for x in d)
         if dt_ms == 0 or dt_ms > _MAX_STEP_MS:
             # duplicate frame, or the ESP32 restarted (its clock and counters start again)
             self.t_ms += 0 if dt_ms == 0 else 1
@@ -77,7 +80,8 @@ class OdometryEstimator:
         d_left, d_right = track_distances(
             (d[0] + d[1]) / 2.0, (d[2] + d[3]) / 2.0, self.metres_per_tick
         )
-        self.pose = update_pose(self.pose, d_left, d_right, frame.gyro_z, dt)
+        gyro_z = frame.gyro_z - self.gyro_bias
+        self.pose = update_pose(self.pose, d_left, d_right, gyro_z, dt)
         self.enc_theta = wrap_angle(
             self.enc_theta + encoder_heading_change(d_left, d_right, self.track_width_m)
         )
@@ -85,7 +89,7 @@ class OdometryEstimator:
         self.left_m += d_left
         self.right_m += d_right
         self.travelled_m += abs(ds)
-        return OdometryStep(dt, ds, ds / dt, frame.gyro_z, slip=self._slip_check(d, dt))
+        return OdometryStep(dt, ds, ds / dt, gyro_z, slip=self._slip_check(d, dt))
 
     def _slip_check(self, d: list[int], dt: float) -> SlipReport | None:
         for i in range(4):

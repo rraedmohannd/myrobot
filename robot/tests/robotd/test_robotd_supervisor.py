@@ -75,7 +75,7 @@ def test_refused_when_blocked_low_battery_or_fault() -> None:
     assert sup.command("start_roaming")[:2] == (False, "blocked: no free way in front")
     sup = make()
     sup.update(Facts(now_s=1.0, battery_low=True))
-    assert sup.state == "FAULT"
+    assert sup.state == "IDLE"  # low battery is not a fault: no new motion
     assert sup.command("start_roaming")[:2] == (False, "battery low")
     sup = make()
     sup.update(Facts(now_s=1.0, faults=["imu_fault"]))
@@ -176,7 +176,54 @@ def test_fault_from_idle_goes_back_to_idle() -> None:
     assert sup.state == "IDLE"
 
 
-def test_low_battery_is_a_fault() -> None:
+def test_low_battery_stops_roaming_but_a_running_return_goes_on() -> None:
     sup = roaming()
+    actions = sup.update(Facts(now_s=1.0, battery_low=True))
+    assert sup.state == "PAUSED" and sup.pause_reason == "battery_low" and sup.faults == []
+    assert kinds(actions)[0] == "stop"
+    for cmd in ("resume", "return_to_start", "start_roaming"):
+        assert sup.command(cmd)[:2] == (False, "battery low")
+    assert sup.command("stop_roaming")[0] and sup.state == "IDLE"
+    sup = roaming()
+    assert sup.command("return_to_start")[0] and sup.state == "RETURNING"
     sup.update(Facts(now_s=1.0, battery_low=True))
-    assert sup.state == "FAULT" and sup.faults == ["low_battery"]
+    assert sup.state == "RETURNING"  # it continues the return it already started
+    assert sup.command("pause")[0]
+    assert sup.command("resume")[0] and sup.state == "RETURNING"  # resuming the return is fine
+
+
+def test_stop_roaming_goes_idle_in_place_and_the_run_stays_open() -> None:
+    sup = roaming()
+    accepted, _, actions = sup.command("stop_roaming")
+    assert accepted and sup.state == "IDLE" and sup.run_open and kinds(actions) == ["stop"]
+    assert sup.command("stop_roaming")[:2] == (False, "not roaming (state IDLE)")
+    accepted, _, actions = sup.command("start_roaming")  # the same run goes on
+    assert accepted and "open_run" not in kinds(actions)
+    sup.command("pause")
+    assert sup.command("stop_roaming")[0] and sup.state == "IDLE"
+    assert sup.command("return_to_start")[0] and sup.state == "RETURNING"  # still possible
+
+
+def test_backend_lost_resumes_only_after_a_short_outage() -> None:
+    sup = roaming()
+    sup.update(Facts(now_s=1.0, backend_ok=False))
+    assert sup.state == "PAUSED" and sup.pause_reason == "backend_lost"
+    sup.update(Facts(now_s=50.0, backend_ok=True))  # 49 s
+    assert sup.state == "ROAMING"
+    sup.update(Facts(now_s=51.0, backend_ok=False))
+    actions = sup.update(Facts(now_s=200.0, backend_ok=True))  # 149 s: a person decides
+    assert sup.state == "PAUSED" and sup.pause_reason == "command"
+    assert "backend_back_stay_paused" in [a.data.get("kind") for a in actions]
+    assert sup.command("resume")[0] and sup.state == "ROAMING"
+
+
+def test_bringup_only_from_idle_and_blocks_motion_commands() -> None:
+    sup = roaming()
+    assert sup.bringup(True) == (False, "bring-up only from IDLE (state ROAMING)")
+    sup = make()
+    assert sup.bringup(True) == (True, None)
+    assert sup.state == "PAUSED" and sup.mode == "bringup"
+    assert sup.command("start_roaming")[:2] == (False, "bring-up in progress (robotctl)")
+    assert sup.command("resume")[:2] == (False, "bring-up in progress (robotctl)")
+    sup.bringup(False)
+    assert sup.state == "IDLE" and sup.mode == "demo"

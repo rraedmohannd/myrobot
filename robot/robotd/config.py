@@ -3,9 +3,10 @@
 Secrets (ROBOT_TOKEN) come from the process environment or the config file given on the command
 line, never from the repository's .env (CLAUDE.md rule 6).
 
-*** The odometry numbers (`metres_per_tick`, `track_width_m`), the battery limits and the
-navigation distances are PLACEHOLDERS. Nothing here was measured on the real Rover 5 yet; they
-are replaced by the calibration of docs/ODOMETRY.md section 5 when the hardware exists. ***
+*** The track width, the battery limits and the navigation distances are PLACEHOLDERS. Nothing
+here was measured on the real Rover 5 yet. Measured values live in the CALIBRATION FILE
+(robotd.calibration, sprint 5); `metres_per_tick` comes from that file only (no duplicate here),
+and `track_width_m` / `battery_table` there override the placeholders below. ***
 """
 
 import json
@@ -29,8 +30,10 @@ class Config:
     telemetry_timeout_ms: int = 500  # no TELEMETRY for this long -> FAULT, no more commands
     reconnect_s: float = 1.0
 
-    # ---- odometry (PLACEHOLDERS, not measured) ----
-    metres_per_tick: float = 0.0005
+    # ---- calibration file (robotd.calibration); "" = the default path ----
+    calibration_path: str = ""
+
+    # ---- odometry (PLACEHOLDER, not measured; the calibration's track_width_m wins) ----
     track_width_m: float = 0.19
     slip_ratio: float = 0.25  # front/rear disagreement on one side (fraction of the motion)
     slip_min_ticks: int = 30  # ... checked only above this many ticks per window
@@ -60,9 +63,16 @@ class Config:
     reengage_cooldown_s: float = 5.0  # after a conversation, ignore "engaged" for this long
     fault_clear_s: float = 2.0  # faults must be gone for this long before leaving FAULT
     resume_after_backend_loss: bool = True
-    battery_low_v: float = 9.9  # 3S Li-ion, 3.3 V per cell (placeholder)
+    backend_lost_resume_s: float = 60.0  # ... but only if the backend was lost for <= this long
+    engage_lookaway_s: float = 0.3  # "engaged" may drop for this long without counting
+    battery_warning_v: float = 10.5  # 3S Li-ion (placeholder): event + status flag
+    battery_low_v: float = 9.9  # below: no roaming, no new return (placeholder, 3.3 V per cell)
     battery_empty_v: float = 9.0
     battery_full_v: float = 12.6
+    gyro_still_s: float = 2.0  # robot still this long -> robotd re-estimates the residual bias
+    gyro_recal_idle_s: float = 120.0  # IDLE and still this long -> a new CALIBRATE_GYRO
+    gyro_bias_alpha: float = 0.3  # weight of a new still-window estimate in the running bias
+    param_push_retry_s: float = 2.0  # hash still wrong this long after a push -> push again
     servo_min_interval_s: float = 0.1
     servo_min_change_deg: float = 0.5
     vision_timeout_s: float = 1.5  # no vision.state for this long -> camera "absent"
@@ -78,6 +88,13 @@ class Config:
     sample_period_ms: int = 100  # 10 Hz pose samples
     telemetry_batch: int = 10
     outbox_max: int = 2000  # bounded buffer of run messages while the backend is away
+
+    # ---- black box, settings page ----
+    log_dir: str = ""  # LOG_DIR; default /var/log/smart-campus-robot on Linux, else ./logs
+    blackbox_s: float = 60.0
+    blackbox_keep: int = 50
+    settings_pin: str = ""  # ROBOTD_SETTINGS_PIN; empty = settings page disabled
+    settings_file: str = ""  # local override file (backend addresses); default next to the cal.
 
     # ---- local UI server ----
     ui_host: str = "127.0.0.1"
@@ -102,14 +119,20 @@ class Config:
     def cache_path(self) -> Path:
         return Path(self.cache_dir) if self.cache_dir else Path.home() / ".cache/robotd/assets"
 
-    def odom_config(self, is_simulated: bool) -> dict[str, Any]:
-        """Stored with every run (robot_runs.odom_config), so a run documents its own settings."""
+    def odom_config(
+        self, is_simulated: bool, metres_per_tick: float = 0.0, track_width_m: float | None = None,
+        calibration: dict[str, Any] | None = None,
+    ) -> dict[str, Any]:  # fmt: skip
+        """Stored with every run (robot_runs.odom_config), so a run documents its own settings.
+        `calibrated` is true only for a complete calibration that is not simulated."""
+        cal = calibration or {"status": "none", "is_simulated": False}
         out: dict[str, Any] = {
             "simulated": is_simulated,
             "source": "robotd",
-            "metres_per_tick": self.metres_per_tick,
-            "track_width_m": self.track_width_m,
-            "calibrated": False,  # placeholders until ODOMETRY.md section 5 is done
+            "metres_per_tick": metres_per_tick,
+            "track_width_m": self.track_width_m if track_width_m is None else track_width_m,
+            "calibrated": cal.get("status") == "complete" and not cal.get("is_simulated"),
+            "calibration": cal,
             "arrival_tolerance_m": self.arrival_tolerance_m,
             "sample_rate_hz": round(1000 / self.sample_period_ms, 1),
             "roam_speed_mps": self.roam_speed_mps,
@@ -130,6 +153,10 @@ _ENV = {
     "ROBOTD_ASSETS_DIR": "assets_dir",
     "ROBOTD_CACHE_DIR": "cache_dir",
     "ROBOTD_PAGE_BACKEND": "page_backend",
+    "ROBOTD_CALIBRATION": "calibration_path",
+    "LOG_DIR": "log_dir",
+    "ROBOTD_SETTINGS_PIN": "settings_pin",
+    "ROBOTD_SETTINGS_FILE": "settings_file",
 }
 
 
@@ -165,4 +192,5 @@ def public_dict(cfg: Config) -> dict[str, Any]:
     """The configuration without the token (for logs)."""
     out = asdict(cfg)
     out["robot_token"] = "set" if cfg.robot_token else ""
+    out["settings_pin"] = "set" if cfg.settings_pin else ""
     return out

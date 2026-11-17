@@ -9,6 +9,7 @@
 - `WS /ws/ui`: robotd <-> page (local.engage / local.vision / local.state; local.vad /
   local.conversation).
 - `WS /ws/vision`: visiond connects here (vision.state in; vad / servo out). No image data.
+- `WS /ws/ctl`: robotctl (robotd.ctl, localhost only).
 
 The server listens on 127.0.0.1 by default: the injected token never leaves the robot.
 """
@@ -21,13 +22,16 @@ import mimetypes
 import re
 from collections.abc import Callable
 from pathlib import Path
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 import aiohttp
 from aiohttp import web
 
 from robotd.config import Config
 from robotd.core import Brain
+
+if TYPE_CHECKING:
+    from robotd.ctl import CtlHub
 
 log = logging.getLogger("robotd.ui")
 
@@ -63,8 +67,12 @@ def _safe(rel: str) -> str | None:
 
 
 class UiServer:
-    def __init__(self, cfg: Config, brain: Brain, clock: Callable[[], float]) -> None:
+    def __init__(
+        self, cfg: Config, brain: Brain, clock: Callable[[], float],
+        ctl: "CtlHub | None" = None, app: Any = None,
+    ) -> None:  # fmt: skip
         self.cfg, self.brain, self._clock = cfg, brain, clock
+        self.ctl, self.robot_app = ctl, app
         self.ui_clients: set[web.WebSocketResponse] = set()
         self.vision_clients: set[web.WebSocketResponse] = set()
         self.port = cfg.ui_port
@@ -79,6 +87,8 @@ class UiServer:
             web.get("/api/robot/{tail:.*}", self._proxy), web.get("/media/{tail:.*}", self._proxy),
             web.get("/ws/ui", self._ws_ui), web.get("/ws/vision", self._ws_vision),
         ])  # fmt: skip
+        if ctl is not None:
+            app.router.add_get("/ws/ctl", ctl.handle)
         self.app = app
 
     # ---------------- lifecycle ----------------

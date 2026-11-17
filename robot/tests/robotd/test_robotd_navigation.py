@@ -78,8 +78,10 @@ def test_one_straight_segment_is_at_most_5_m() -> None:
 
 def test_roam_uses_the_low_configured_speed() -> None:
     h = started(Config(sim=True, roam_speed_mps=0.12))
+    h.run(2.0)  # the gyro calibration at start (about 2 s) holds the motion
+    before = len(h.sim.received)
     h.run(5)
-    drives = [m for m in h.sim.received if isinstance(m, Drive)]
+    drives = [m for m in h.sim.received[before:] if isinstance(m, Drive)]
     assert drives and max(max(m.left, m.right) for m in drives) <= 0.12 + 1e-9
     assert len(drives) == 20 * 5 or abs(len(drives) - 100) <= 12  # DRIVE at 20 Hz while moving
 

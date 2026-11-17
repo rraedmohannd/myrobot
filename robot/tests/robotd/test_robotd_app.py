@@ -141,6 +141,7 @@ async def app(backend: FakeBackend, tmp_path: Path) -> AsyncIterator[RobotApp]:
         sim=True, sim_port=0, ui_port=0, cache_dir=str(tmp_path / "cache"),
         backend_url=f"ws://127.0.0.1:{backend.port}/ws/robot", robot_token="s3cret",
         backend_reconnect_s=0.2, status_period_s=0.2, fault_clear_s=0.2, reconnect_s=0.1,
+        log_dir=str(tmp_path / "logs"),
     )  # fmt: skip
     robot = RobotApp(cfg)
     await robot.start()
@@ -178,7 +179,8 @@ async def test_command_accepted_then_refused(app: RobotApp, backend: FakeBackend
     assert await wait_for(lambda: backend.of("robot.status")[-1].get("run_id") == 101)
     assert backend.of("robot.status")[-1]["state"] == "ROAMING"
     assert app.sim_server is not None
-    assert await wait_for(lambda: app.sim_server.sim.true.x > 0.1)  # the simulated robot moves
+    # the simulated robot moves (after the 2 s gyro calibration at start)
+    assert await wait_for(lambda: app.sim_server.sim.true.x > 0.4)
 
     await backend.command("cmd-2", "start_roaming")  # already roaming: refused, with a reason
     assert await wait_for(lambda: len(backend.of("robot.command.ack")) == 2)

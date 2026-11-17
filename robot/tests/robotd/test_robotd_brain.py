@@ -94,7 +94,7 @@ def test_power_on_safe_mode_is_left_only_when_the_robot_wants_to_move() -> None:
     assert not any(isinstance(m, Mode) for m in h.sim.received)
     assert sum(isinstance(m, Heartbeat) for m in h.sim.received) in (9, 10, 11)  # 10 Hz
     h.command("start_roaming")
-    h.run(1.0)
+    h.run(2.5)  # the gyro calibration at start holds the motion for about 2 s
     assert sum(isinstance(m, Mode) for m in h.sim.received) == 1
     assert h.brain.frame is not None and h.brain.frame.flags & Flags.MOTORS_ENABLED
 
@@ -150,13 +150,32 @@ def test_telemetry_loss_is_a_fault_and_commands_are_refused() -> None:
     h.brain.link.feed = feed  # type: ignore[method-assign]
 
 
-def test_low_battery_is_a_fault() -> None:
+def test_low_battery_refuses_motion_and_warns() -> None:
     h = SimHarness(sim_cfg=SimEsp32Config(nvs=dict(SIM_PROFILE), battery_mv=9500))
-    h.run(1.0)
-    assert h.brain.sup.state == "FAULT" and h.brain.sup.faults == ["low_battery"]
+    h.run(3.0)
+    assert h.brain.sup.state == "IDLE" and h.brain.sup.faults == []  # not a fault
     ack = h.command("start_roaming")
     assert ack["accepted"] is False and ack["reason"] == "battery low"
     assert h.sim.speed == (0.0, 0.0)
+    status = h.brain.status(h.now_s)
+    assert status["battery_warning"] is True and "low_battery" in status["faults"]
+    assert status["battery_pct"] < 5 and status["battery_v"] < 9.9
+    parse_robot_message(status)
+    warn = [m for m in h.brain.outbox if m["type"] == "event" and m["kind"] == "battery_warning"]
+    assert len(warn) == 1  # sent to the backend even without a run
+
+
+def test_battery_below_the_limit_stops_roaming_energy_is_counted() -> None:
+    h = started(sim_cfg=SimEsp32Config(nvs=dict(SIM_PROFILE), battery_mv=10000))
+    h.sim.battery_mv = 9800.0  # the simulated pack sags below 9.9 V while roaming
+    h.run(3.0)
+    assert h.brain.sup.state == "PAUSED" and h.brain.sup.pause_reason == "battery_low"
+    assert h.sim.speed == (0.0, 0.0)
+    assert h.command("return_to_start")["reason"] == "battery low"
+    assert h.command("stop_roaming")["accepted"] and h.brain.sup.state == "IDLE"
+    assert h.brain.energy_wh > 0
+    samples = [s for m in h.brain.outbox if m["type"] == "telemetry" for s in m["samples"]]
+    assert samples[-1]["power"]["v"] < 9.9 and samples[-1]["power"]["wh"] > 0
 
 
 def test_slip_event_when_one_encoder_disagrees() -> None:
@@ -165,7 +184,7 @@ def test_slip_event_when_one_encoder_disagrees() -> None:
     h.sim.wheel_slip[0] = 0.4  # the front-left encoder sees less than half of the motion
     h.run(3.0)
     slips = [d for k, d in h.brain.events if k == "slip"]
-    assert slips and slips[0]["side"] == "left" and slips[0]["front_ticks"] < slips[0]["rear_ticks"]
+    assert slips and slips[0]["side"] == "left" and slips[0]["by"] == "esp32"  # EVENT SLIP
 
 
 def test_u32_clock_wrap_during_a_run() -> None:
@@ -299,12 +318,15 @@ def test_backend_loss_stops_roaming_buffers_and_recovers() -> None:
     told = [m for m in h.ui if m["type"] == "local.state"][-1]
     assert told["backend_ok"] is False and told["state"] == "PAUSED"  # page shows "unavailable"
     assert "comm_loss" in kinds(h)
-    h.run(60.0)  # a long outage: the buffer stays bounded, the newest data is kept
+    h.run(70.0)  # a long outage: the buffer stays bounded, the newest data is kept
     assert len(h.brain.outbox) <= 30 and h.brain.outbox_dropped > 0
     assert h.sim.speed == (0.0, 0.0)
     h.brain.set_backend(True)
     assert h.brain.outbox[0]["type"] == "run.start" and h.brain.outbox[0]["is_simulated"] is True
     assert "continues" in h.brain.outbox[0]["notes"]
+    h.run(2.0)  # lost for more than 60 s: it stays PAUSED until somebody says resume
+    assert h.brain.sup.state == "PAUSED" and h.sim.speed == (0.0, 0.0)
+    assert h.command("resume")["accepted"]
     h.run(2.0)
     assert h.brain.sup.state == "ROAMING" and h.sim.speed != (0.0, 0.0)
 
