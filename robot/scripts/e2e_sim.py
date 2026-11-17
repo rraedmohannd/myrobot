@@ -427,6 +427,9 @@ def main() -> int:
     )
     parser.add_argument("-v", "--verbose", action="store_true", help="show robotd's log")
     args = parser.parse_args()
+    # Arabic answer text in the report: a piped Windows console (cp1252) cannot encode it
+    with contextlib.suppress(AttributeError, ValueError):
+        sys.stdout.reconfigure(encoding="utf-8", errors="backslashreplace")  # type: ignore[union-attr]
     logging.basicConfig(
         level=logging.INFO if args.verbose else logging.ERROR,
         format="%(asctime)s %(levelname)s %(name)s: %(message)s",
