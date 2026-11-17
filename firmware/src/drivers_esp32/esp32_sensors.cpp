@@ -16,6 +16,7 @@
 
 #include "esp32_drivers.h"
 #include "scr_mcp23017.h"
+#include "scr_ultrasonic.h"
 
 namespace scr {
 namespace esp32 {
@@ -41,6 +42,7 @@ struct Shared {
   bool scan_done = false;
   uint8_t recovered_attempts = 0;  // reported once, then 0
   uint8_t trigger_mask = 0;        // expander trigger requests (bit = ultrasonic index)
+  uint8_t trigger_failed = 0;      // expander pulse could not be written (bit = ultrasonic index)
   // control loop statistics (us), written by the control task
   uint32_t period_min_us = 0xFFFFFFFFu;
   uint32_t period_max_us = 0;
@@ -201,7 +203,7 @@ uint16_t expanderMask() {
 }
 
 bool expanderBegin() { return g_expander.begin(&g_wire_writer, expanderMask()); }
-void expanderPulse(uint8_t bit) { g_expander.pulse(&g_wire_writer, bit); }
+bool expanderPulse(uint8_t bit) { return g_expander.pulse(&g_wire_writer, bit); }
 
 // ---- the scan (bounded) ----------------------------------------------------------------------
 void scanBus() {
@@ -233,7 +235,13 @@ void i2cTask(void*) {
     g.scan_requested = false;
     portEXIT_CRITICAL(&g_mux);
     for (int i = 0; i < 4; ++i) {
-      if ((trig & (1u << i)) && g_expander_ok && g_expander_trig_bit[i] < 16) expanderPulse(g_expander_trig_bit[i]);
+      if (!(trig & (1u << i))) continue;
+      const bool sent = g_expander_ok && g_expander_trig_bit[i] < 16 && expanderPulse(g_expander_trig_bit[i]);
+      if (!sent) {
+        portENTER_CRITICAL(&g_mux);
+        g.trigger_failed = static_cast<uint8_t>(g.trigger_failed | (1u << i));  // -> ABSENT at once
+        portEXIT_CRITICAL(&g_mux);
+      }
     }
     // 2. Scan on request (boot, DIAG_REQUEST).
     if (scan) scanBus();
@@ -433,9 +441,16 @@ void Esp32Ultrasonic::trigger(uint8_t index) {
   g_echo[index].state = 0;
   portEXIT_CRITICAL(&g_echo_mux);
   if (pins::isExpander(g_trig[index])) {
-    // Never on the control task: ask the I2C task and wake it.
+    // Never on the control task: ask the I2C task and wake it. Without a working expander or
+    // I2C task the ping can never go out: reported as TriggerFailed (ABSENT at once).
+    const bool can_send = g_expander_ok && g_i2c_task != nullptr;
     portENTER_CRITICAL(&g_mux);
-    g.trigger_mask = static_cast<uint8_t>(g.trigger_mask | (1u << index));
+    g.trigger_failed = static_cast<uint8_t>(g.trigger_failed & ~(1u << index));
+    if (can_send) {
+      g.trigger_mask = static_cast<uint8_t>(g.trigger_mask | (1u << index));
+    } else {
+      g.trigger_failed = static_cast<uint8_t>(g.trigger_failed | (1u << index));
+    }
     portEXIT_CRITICAL(&g_mux);
     if (g_i2c_task != nullptr) xTaskNotifyGive(g_i2c_task);
     return;
@@ -447,15 +462,19 @@ void Esp32Ultrasonic::trigger(uint8_t index) {
 
 hal::EchoState Esp32Ultrasonic::collect(uint8_t index, uint32_t* echo_us) {
   if (!present(index)) return hal::EchoState::NoRise;
+  portENTER_CRITICAL(&g_mux);
+  const bool failed = (g.trigger_failed & (1u << index)) != 0;
+  g.trigger_failed = static_cast<uint8_t>(g.trigger_failed & ~(1u << index));
+  portEXIT_CRITICAL(&g_mux);
+  if (failed) return hal::EchoState::TriggerFailed;
   portENTER_CRITICAL(&g_echo_mux);
   const uint8_t state = g_echo[index].state;
-  const uint32_t width = g_echo[index].fall_us - g_echo[index].rise_us;
+  const uint32_t rise = g_echo[index].rise_us;
+  const uint32_t fall = g_echo[index].fall_us;
   portEXIT_CRITICAL(&g_echo_mux);
-  if (state == 0) return hal::EchoState::NoRise;   // the echo line never went high
-  if (state == 1) return hal::EchoState::Timeout;  // still high at the end of the slot
-  if (width > cfg::US_ECHO_TIMEOUT_US) return hal::EchoState::Timeout;
-  *echo_us = width;
-  return hal::EchoState::Done;
+  // Shared rule (lib/ultrasonic, unit-tested): still high but risen < US_ECHO_TIMEOUT_US ago =
+  // a late ping = a miss, never "no echo".
+  return classifyEcho(state, rise, fall, micros(), cfg::US_ECHO_TIMEOUT_US, echo_us);
 }
 
 // ---- system services --------------------------------------------------------------------------

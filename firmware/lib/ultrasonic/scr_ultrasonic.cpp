@@ -2,6 +2,20 @@
 
 namespace scr {
 
+hal::EchoState classifyEcho(uint8_t state, uint32_t rise_us, uint32_t fall_us, uint32_t now_us,
+                            uint32_t echo_timeout_us, uint32_t* echo_us) {
+  if (state == 0) return hal::EchoState::NoRise;
+  if (state == 1) {
+    // Still high. Long enough to be the sensor's own "nothing in range" pulse -> no echo; a
+    // recent rise means the ping itself was late, so nothing is known -> a miss.
+    return (now_us - rise_us) >= echo_timeout_us ? hal::EchoState::Timeout : hal::EchoState::Late;
+  }
+  const uint32_t width = fall_us - rise_us;
+  if (width > echo_timeout_us) return hal::EchoState::Timeout;
+  if (echo_us) *echo_us = width;
+  return hal::EchoState::Done;
+}
+
 UltrasonicScheduler::UltrasonicScheduler(const UltrasonicConfig& c, hal::IUltrasonic* hw)
     : c_(c), hw_(hw) {
   for (int i = 0; i < 4; ++i) {
@@ -52,8 +66,13 @@ void UltrasonicScheduler::tick(uint32_t now_ms) {
         answered_[i] = true;
         break;
       case hal::EchoState::NoRise:
+      case hal::EchoState::Late:  // a late ping is a miss: the last reading stays, never "clear"
         if (misses_[i] < 255) ++misses_[i];
         if (misses_[i] >= c_.fault_after_misses) mm_[i] = proto::kUsAbsent;
+        break;
+      case hal::EchoState::TriggerFailed:  // no ping was sent: unknown = absent, at once
+        if (misses_[i] < c_.fault_after_misses) misses_[i] = c_.fault_after_misses;
+        mm_[i] = proto::kUsAbsent;
         break;
     }
     active_ = -1;

@@ -18,6 +18,12 @@ struct UltrasonicConfig {
   float mm_per_us = 0.1715f;           // half the speed of sound (343 m/s at 20 degC), physics not calibration
 };
 
+// Classification of one echo at the end of its slot from the raw ISR record (used by the ESP32
+// driver; pure so that the timing rule is unit-tested). state: 0 never rose, 1 rose (still high),
+// 2 rose and fell. Times in us (micros(), wrap-safe differences).
+hal::EchoState classifyEcho(uint8_t state, uint32_t rise_us, uint32_t fall_us, uint32_t now_us,
+                            uint32_t echo_timeout_us, uint32_t* echo_us);
+
 class UltrasonicScheduler {
  public:
   UltrasonicScheduler(const UltrasonicConfig& c, hal::IUltrasonic* hw);

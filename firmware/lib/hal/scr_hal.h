@@ -48,9 +48,12 @@ class IImu {
 };
 
 enum class EchoState : uint8_t {
-  NoRise,   // the echo line never went high: sensor absent or faulty
-  Timeout,  // the echo started but did not end in time: nothing within range
-  Done,     // echo_us is valid
+  NoRise,         // the echo line never went high: sensor absent or faulty (a miss)
+  Timeout,        // the echo started early enough but did not end in time: nothing within range
+  Done,           // echo_us is valid
+  Late,           // the echo is still high but rose less than the echo timeout ago: the ping
+                  // went out late (e.g. delayed I2C trigger). A MISS, never "no echo".
+  TriggerFailed,  // the trigger pulse could not be sent (expander write failed): ABSENT at once
 };
 
 // Four HC-SR04: front-left, front-centre, front-right, rear.
