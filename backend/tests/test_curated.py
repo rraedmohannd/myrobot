@@ -429,3 +429,145 @@ async def test_drafting_stores_pending_faqs_and_pitches(db_session) -> None:
     # the handbook draft (program=None) uses only categorised general passages
     general = await cur.draft_curated(db_session, FakeLLM({"faqs": []}), None)
     assert general.target == "handbook" and general.outcome in ("drafted", "no-sources")
+
+
+# ---------- sprint 4 P0.4: an FAQ linked to the wrong program ----------
+async def _two_programs_with_plans(db_session) -> tuple[Program, Program, Source, Source]:
+    """Our program (plan: 162 hours) and another program of the faculty (plan: 918273 hours,
+    an invented figure no real source contains, and,
+    in a passage that carries no program, 564738), plus a university-wide handbook (12)."""
+    ours = await _program(db_session)
+    faculty = await db_session.scalar(select(Faculty).limit(1))
+    other = Program(
+        faculty_id=faculty.id,
+        slug="zz-other-program",
+        name_ar="برنامج آخر",
+        name_en="Other Program",
+    )
+    our_plan = Source(url="test-doc://p04-ours", title="Our plan", review_status="approved")
+    other_plan = Source(url="test-doc://p04-other", title="Other plan", review_status="approved")
+    handbook = Source(url="test-doc://p04-handbook", title="Handbook", review_status="approved")
+    db_session.add_all([other, our_plan, other_plan, handbook])
+    await db_session.flush()
+
+    def chunk(source: Source, program: Program | None, text_: str) -> Chunk:
+        return Chunk(
+            source_id=source.id,
+            program_id=program.id if program else None,
+            lang="en",
+            review_status="approved",
+            text=text_,
+        )
+
+    db_session.add_all(
+        [
+            chunk(our_plan, ours, "Our program requires 162 credit hours in total."),
+            chunk(other_plan, other, "Other Program requires 918273 credit hours in total."),
+            chunk(other_plan, None, "Other Program has 564738 studio places."),
+            chunk(handbook, None, "A student may register 12 credit hours in the summer."),
+        ]
+    )
+    await db_session.commit()
+    return ours, other, our_plan, other_plan
+
+
+async def test_faq_linked_to_the_wrong_program_is_refused(
+    admin_client, db_session, fake_tts
+) -> None:
+    """The FAQ 16 case: drafted from another program's plan, linked to ours."""
+    ours, other, our_plan, other_plan = await _two_programs_with_plans(db_session)
+    faq = await _faq(
+        db_session, status="pending", program=ours, source_id=other_plan.id,
+        answer_ar="اسأل دائرة القبول والتسجيل.", answer_en="Ask Admission and Registration.",
+    )  # fmt: skip
+    issues = await cur.faq_issues(db_session, faq)
+    assert issues == [
+        "wrong program: the source 'Other plan' belongs to Other Program, but the FAQ is linked "
+        "to Intelligent Systems Engineering"
+    ]
+    refused = await admin_client.post(
+        f"/api/admin/faqs/{faq.id}/review", json={"decision": "approve"}
+    )
+    assert refused.status_code == 409 and issues[0] in refused.json()["detail"]["issues"]
+    assert faq.review_status == "pending" and not fake_tts.spoken
+    listed = (await admin_client.get("/api/admin/faqs")).json()
+    rows = listed["items"] if isinstance(listed, dict) else listed
+    assert issues[0] in next(r for r in rows if r["id"] == faq.id)["issues"]
+
+    # a general FAQ (no program) drafted from a program's plan is the same mistake
+    general = await _faq(
+        db_session, status="pending", source_id=other_plan.id, question_ar="كم ساعة بالصيفي؟",
+        question_en="How many hours in the summer?", answer_ar="12 ساعة.", answer_en="12 hours.",
+    )  # fmt: skip
+    assert any(
+        "linked to no program (general)" in i for i in await cur.faq_issues(db_session, general)
+    )
+
+    # the right program, a university-wide source, or no source at all: no such issue
+    faq.source_id = our_plan.id
+    await db_session.commit()
+    assert await cur.faq_issues(db_session, faq) == []
+    ok = await admin_client.post(f"/api/admin/faqs/{faq.id}/review", json={"decision": "approve"})
+    assert ok.status_code == 200 and ok.json()["status"] == "approved"
+    handbook = await db_session.scalar(
+        select(Source).where(Source.url == "test-doc://p04-handbook")
+    )
+    for source_id in (handbook.id, None):
+        faq.source_id = source_id
+        await db_session.commit()
+        assert not any("wrong program" in i for i in await cur.faq_issues(db_session, faq))
+
+
+async def test_faq_number_from_another_programs_plan_is_refused(
+    admin_client, db_session, fake_tts
+) -> None:
+    ours, other, our_plan, other_plan = await _two_programs_with_plans(db_session)
+    assert {"162", "12"} <= await cur.known_numbers(db_session, ours.id)
+    for number in (
+        "918273",
+        "564738",
+    ):  # also the passage of the other plan that carries no program
+        assert number not in await cur.known_numbers(db_session, ours.id)
+        assert number not in await cur.known_numbers(db_session, None)
+    assert {"918273", "564738", "12"} <= await cur.known_numbers(db_session, other.id)
+
+    faq = await _faq(
+        db_session, status="pending", program=ours, source_id=our_plan.id,
+        answer_ar="بدها 918273 ساعة معتمدة.", answer_en="It requires 918273 credit hours.",
+    )  # fmt: skip
+    assert await cur.faq_issues(db_session, faq) == ["918273 is not in the approved sources"]
+    refused = await admin_client.post(
+        f"/api/admin/faqs/{faq.id}/review", json={"decision": "approve"}
+    )
+    assert refused.status_code == 409 and faq.review_status == "pending"
+
+    # the same number in a pitch of our program is refused too
+    pitch = await _pitch(
+        db_session, ours, "why", status="pending", text_en="Only 918273 hours.", text_ar=None
+    )
+    assert "918273 is not in the program's approved sources" in await cur.pitch_issues(
+        db_session, pitch
+    )
+
+    # with our own plan's number the FAQ passes
+    faq.answer_ar, faq.answer_en = A_AR, A_EN
+    await db_session.commit()
+    assert await cur.faq_issues(db_session, faq) == []
+
+
+async def test_check_curated_lists_mismatches_and_writes_nothing(db_session) -> None:
+    ours, other, our_plan, other_plan = await _two_programs_with_plans(db_session)
+    wrong = await _faq(db_session, status="approved", program=ours, source_id=other_plan.id)
+    fine = await _faq(
+        db_session, status="pending", program=ours, source_id=our_plan.id,
+        question_ar="كم ساعة هندسة الأنظمة الذكية؟",
+        question_en="Hours of Intelligent Systems Engineering?",
+    )  # fmt: skip
+    report = await cur.check_curated(db_session)
+    rows = {r["id"]: r for r in report["faqs"]}
+    assert rows[wrong.id]["wrong_program"] and rows[wrong.id]["status"] == "approved"
+    assert rows[wrong.id]["program"] == SLUG
+    assert rows[wrong.id]["source_programs"] == ["zz-other-program"]
+    assert rows[fine.id]["issues"] == [] and not rows[fine.id]["wrong_program"]
+    assert not db_session.dirty and not db_session.new  # read only
+    assert wrong.review_status == "approved"  # an approved row is reported, never changed

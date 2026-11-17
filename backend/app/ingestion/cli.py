@@ -25,6 +25,7 @@ python -m app.ingestion.cli seed-demo-media       # dev only: labelled placehold
 python -m app.ingestion.cli simulate-run [--seed 7]   # SIMULATED robot run (never a real result)
 python -m app.ingestion.cli simulate-robot [--seconds 120]
                                         # SIMULATED robot client (status, commands)
+python -m app.ingestion.cli check-curated         # READ ONLY: FAQs and pitches vs the review rules
 python -m app.ingestion.cli create-admin NAME     # admin login (asks for the password)
 python -m app.ingestion.cli purge-conversations [--days 30] [--dry-run]
                                         # privacy: delete old conversations
@@ -672,6 +673,27 @@ async def _create_admin(username: str, password_stdin: bool) -> None:
           "Log in at http://localhost:8000/admin")  # fmt: skip
 
 
+async def _check_curated() -> None:
+    """READ ONLY: lists every FAQ and pitch that would be refused by the review rules today
+    (wrong program, numbers not in the program's sources, ...). Changes nothing."""
+    import json
+    from collections import Counter
+
+    from app.services.curated import check_curated
+
+    async with get_sessionmaker()() as session:
+        report = await check_curated(session)
+        await session.rollback()  # nothing was written; make that explicit
+    for name in ("faqs", "pitches"):
+        rows = report[name]
+        print(f"{name}: {len(rows)} checked, by status {dict(Counter(r['status'] for r in rows))}")
+        bad = [r for r in rows if r["issues"]]
+        wrong = sum(1 for r in bad if r.get("wrong_program"))
+        print(f"  with issues: {len(bad)}; wrong program: {wrong}")
+        for r in bad:
+            print("  " + json.dumps(r, ensure_ascii=False))
+
+
 async def _purge_conversations(days: int | None, dry_run: bool) -> None:
     from app.services.auth import purge_conversations
 
@@ -757,6 +779,10 @@ async def _main(args: argparse.Namespace) -> None:
         return
     if args.cmd == "create-admin":
         await _create_admin(args.username, args.password_stdin)
+        await get_engine().dispose()
+        return
+    if args.cmd == "check-curated":
+        await _check_curated()
         await get_engine().dispose()
         return
     if args.cmd == "purge-conversations":
@@ -905,6 +931,9 @@ def main() -> None:
     ca.add_argument("username")
     ca.add_argument(
         "--password-stdin", action="store_true", help="read the password from standard input"
+    )
+    sub.add_parser(
+        "check-curated", help="READ ONLY: list FAQs and pitches the review rules would refuse"
     )
     pc = sub.add_parser(
         "purge-conversations", help="delete conversations older than the retention period"

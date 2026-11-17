@@ -491,14 +491,69 @@ async def place_answer(session: AsyncSession, question: str, lang: str) -> Curat
 # ====================================================================================
 # Review checks
 # ====================================================================================
+async def source_programs(session: AsyncSession, source_id: int) -> set[int]:
+    """The programs a source belongs to: the programs of its passages, and a program whose
+    record names it as its source. Empty = a university-wide source (handbook, faculty page)."""
+    owners = set(
+        (
+            await session.scalars(
+                select(Chunk.program_id)
+                .where(Chunk.source_id == source_id, Chunk.program_id.is_not(None))
+                .distinct()
+            )
+        ).all()
+    )
+    owners |= set(
+        (await session.scalars(select(Program.id).where(Program.source_id == source_id))).all()
+    )
+    return owners
+
+
+async def program_link_issues(
+    session: AsyncSession, program_id: int | None, source_id: int | None, what: str = "FAQ"
+) -> list[str]:
+    """A text drafted from a program's source must be linked to that same program. Found on
+    2026-11-17: FAQ 16 came from the Architectural Engineering plan (165 hours) but was linked
+    to Intelligent Systems Engineering (162 hours)."""
+    if source_id is None:
+        return []
+    owners = await source_programs(session, source_id)
+    if not owners or program_id in owners:
+        return []
+    source = await session.get(Source, source_id)
+    names = [
+        p.name_en
+        for p in await session.scalars(
+            select(Program).where(Program.id.in_(owners)).order_by(Program.id)
+        )
+    ]
+    linked = await session.get(Program, program_id) if program_id else None
+    return [
+        f"wrong program: the source '{source.title if source else source_id}' belongs to "
+        f"{' / '.join(names)}, but the {what} is linked to "
+        f"{linked.name_en if linked else 'no program (general)'}"
+    ]
+
+
 async def known_numbers(session: AsyncSession, program_id: int | None) -> set[str]:
-    """Numbers written in the approved content a curated text may rely on: the program's own
-    passages plus the general (handbook) ones; for a general text, every general passage."""
-    query = select(Chunk.text).where(usable_chunk())
+    """Numbers written in the approved content a curated text may rely on: the passages of the
+    program itself (also the passages of its own sources that carry no program), plus the
+    passages of university-wide sources (sources that belong to no program, such as the
+    Student Handbook). A passage inside another program's source never counts.
+    For a general text: university-wide sources only."""
+    owned = select(Chunk.source_id).where(Chunk.program_id.is_not(None))
+    owned_by_record = select(Program.source_id).where(Program.source_id.is_not(None))
+    usable = Chunk.source_id.not_in(owned) & Chunk.source_id.not_in(owned_by_record)
     if program_id is not None:
-        query = query.where((Chunk.program_id == program_id) | Chunk.program_id.is_(None))
-    else:
-        query = query.where(Chunk.program_id.is_(None))
+        own_sources = select(Chunk.source_id).where(Chunk.program_id == program_id)
+        own_by_record = select(Program.source_id).where(
+            Program.id == program_id, Program.source_id.is_not(None)
+        )
+        in_own_source = Chunk.source_id.in_(own_sources) | Chunk.source_id.in_(own_by_record)
+        usable = (
+            (Chunk.program_id == program_id) | (Chunk.program_id.is_(None) & in_own_source) | usable
+        )
+    query = select(Chunk.text).where(usable_chunk(), usable)
     known: set[str] = set()
     for body in await session.scalars(query):
         known |= numbers_in(body)
@@ -539,6 +594,7 @@ async def faq_issues(session: AsyncSession, faq: Faq) -> list[str]:
                 f"the {lang} question names a program, but the FAQ is marked general: choose the "
                 "program"
             )
+    issues += await program_link_issues(session, faq.program_id, faq.source_id)
     known = await known_numbers(session, faq.program_id)
     answers = f"{faq.answer_ar or ''} \n {faq.answer_en or ''}"
     issues += [f"{n} is not in the approved sources" for n in sorted(numbers_in(answers) - known)]
@@ -564,6 +620,48 @@ async def pitch_issues(session: AsyncSession, pitch: Pitch) -> list[str]:
         f"{n} is not in the program's approved sources" for n in sorted(numbers_in(body) - known)
     ]
     return issues + claim_issues(body)
+
+
+async def check_curated(session: AsyncSession) -> dict[str, list[dict[str, Any]]]:
+    """READ ONLY: every FAQ and pitch (any status) with the issues the review rules find today.
+    Used by `check-curated` to re-check content that was drafted or approved under older rules.
+    Nothing is written."""
+    programs = {p.id: p for p in await session.scalars(select(Program))}
+
+    def slug(program_id: int | None) -> str | None:
+        return programs[program_id].slug if program_id in programs else None
+
+    faqs = []
+    for faq in (await session.scalars(select(Faq).order_by(Faq.id))).all():
+        owners = await source_programs(session, faq.source_id) if faq.source_id else set()
+        faqs.append(
+            {
+                "id": faq.id,
+                "status": faq.review_status,
+                "question": faq.question_en or faq.question_ar,
+                "program": slug(faq.program_id),
+                "source_id": faq.source_id,
+                "source_programs": sorted(filter(None, (slug(o) for o in owners))),
+                "wrong_program": bool(
+                    await program_link_issues(session, faq.program_id, faq.source_id)
+                ),
+                "issues": await faq_issues(session, faq),
+            }
+        )
+    pitches = []
+    for pitch in (await session.scalars(select(Pitch).order_by(Pitch.id))).all():
+        if pitch.topic not in PITCH_KINDS:
+            continue  # interest pitches have their own check (services/interests.py)
+        pitches.append(
+            {
+                "id": pitch.id,
+                "status": pitch.review_status,
+                "kind": pitch.topic,
+                "program": slug(pitch.program_id),
+                "issues": await pitch_issues(session, pitch),
+            }
+        )
+    return {"faqs": faqs, "pitches": pitches}
 
 
 # ====================================================================================
