@@ -2,6 +2,9 @@
 
 OpenAI implementations by default; tests use fakes. Fixed phrases (greeting, follow-up,
 goodbye...) go through a disk cache so they cost nothing after the first time and play instantly.
+
+TTS_PROVIDER chooses the TTS adapter (`make_tts`): `openai` (this file, the default),
+`openai_realtime` or `elevenlabs` (`tts_adapters.py`).
 """
 
 import asyncio
@@ -118,6 +121,8 @@ STREAM_CHUNK_BYTES = 4800  # 100 ms per message
 
 
 class OpenAITTS:
+    provider = "openai"
+
     def __init__(self) -> None:
         s = get_settings()
         self.model = s.tts_model
@@ -166,8 +171,14 @@ class OpenAITTS:
 
 class CachedTTS:
     """Wraps a TTS; `cache=True` stores the mp3 on disk. The key covers everything that changes
-    the sound (model, voice, instructions, speed) and the text, so a new voice or pace never
-    replays old audio: the phrases are simply generated again on first use."""
+    the sound (provider, model, voice, instructions, speed) and the text, so a new provider,
+    voice or pace never replays old audio: the phrases are simply generated again on first use.
+
+    The provider is written into the key for every provider except the default `openai`,
+    whose keys keep the form they had before sprint 4: the audio already cached and the
+    `audio_cache_key` stored with explainer segments stay valid.
+    The files are named `.mp3` whatever the provider returns (`openai_realtime` returns WAV);
+    clients recognise the format from the first bytes."""
 
     def __init__(self, inner: TTS, cache_dir: Path = CACHE_DIR) -> None:
         self.inner = inner
@@ -180,6 +191,9 @@ class CachedTTS:
         instructions = getattr(self.inner, "instructions", "")
         speed = float(getattr(self.inner, "speed", 1.0) or 1.0)
         raw = f"{self.model}|{voice or self.voice}|{instructions}|speed={speed:.3f}|{text}"
+        provider = getattr(self.inner, "provider", "openai")
+        if provider != "openai":
+            raw = f"provider={provider}|{raw}"
         return hashlib.sha256(raw.encode()).hexdigest()[:32]
 
     def _path(self, text: str, voice: str) -> Path:
@@ -225,7 +239,26 @@ def get_stt() -> STT:
     return ResilientSTT(OpenAISTT())
 
 
+def audio_media_type(data: bytes) -> str:
+    """`audio/wav` for a WAV file (openai_realtime), else `audio/mpeg`."""
+    return "audio/wav" if data[:4] == b"RIFF" and data[8:12] == b"WAVE" else "audio/mpeg"
+
+
+def make_tts(provider: str | None = None) -> TTS:
+    """The TTS adapter named by TTS_PROVIDER (or by `provider`)."""
+    provider = provider or get_settings().tts_provider
+    if provider == "openai":
+        return OpenAITTS()
+    from app.services.tts_adapters import ElevenLabsTTS, OpenAIRealtimeTTS
+
+    if provider == "openai_realtime":
+        return OpenAIRealtimeTTS()
+    if provider == "elevenlabs":
+        return ElevenLabsTTS()
+    raise ProviderError(f"unknown TTS_PROVIDER: {provider}")
+
+
 def get_tts() -> CachedTTS:
     from app.services.resilience import ResilientTTS
 
-    return CachedTTS(ResilientTTS(OpenAITTS()))
+    return CachedTTS(ResilientTTS(make_tts()))

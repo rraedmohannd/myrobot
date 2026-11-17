@@ -9,7 +9,7 @@ from fastapi.responses import FileResponse, Response
 from pydantic import BaseModel, Field
 
 from app.services.providers import ProviderError
-from app.services.speech import VOICES, CachedTTS, get_tts
+from app.services.speech import VOICES, CachedTTS, audio_media_type, get_tts
 
 STATIC_DIR = Path(__file__).resolve().parents[2] / "static"
 VOICE_PAGE = STATIC_DIR / "voice.html"
@@ -46,4 +46,4 @@ async def synthesize(body: TTSRequest, tts: Annotated[CachedTTS, Depends(get_tts
         mp3 = await tts.synthesize(body.text, voice=body.voice, cache=True)
     except ProviderError as e:
         raise HTTPException(503, str(e)) from e
-    return Response(mp3, media_type="audio/mpeg")
+    return Response(mp3, media_type=audio_media_type(mp3))  # WAV with openai_realtime

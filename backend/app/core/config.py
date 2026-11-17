@@ -25,7 +25,10 @@ class Settings(BaseSettings):
     # AI providers (selected through adapters; not used before phase B3/B4).
     llm_provider: Literal["openai", "anthropic"] = "openai"
     stt_provider: Literal["openai"] = "openai"
-    tts_provider: Literal["openai"] = "openai"
+    # TTS adapter: "openai" = /v1/audio/speech with TTS_MODEL (the default; gpt-4o-mini-tts is
+    # shut down by OpenAI on 2027-01-06), "openai_realtime" = TTS_REALTIME_MODEL through the
+    # Realtime API, "elevenlabs" = ElevenLabs (paid credits). See docs/PLAN.md.
+    tts_provider: Literal["openai", "openai_realtime", "elevenlabs"] = "openai"
     openai_api_key: SecretStr | None = None
     anthropic_api_key: SecretStr | None = None
     # Model ids are configuration, not code: run `python -m app.ingestion.cli check-openai`
@@ -50,6 +53,14 @@ class Settings(BaseSettings):
     )
     tts_model: str = "gpt-4o-mini-tts"
     tts_voice: str = "coral"
+    # TTS_PROVIDER=openai_realtime: the model OpenAI names as the replacement of the TTS models.
+    # It uses TTS_VOICE (alloy, ash, ballad, coral, echo, sage, shimmer, verse, marin, cedar),
+    # TTS_INSTRUCTIONS and TTS_SPEED (at most 1.5).
+    tts_realtime_model: str = "gpt-realtime-2.1-mini"
+    # TTS_PROVIDER=elevenlabs: key, voice id from the ElevenLabs voice library, model id.
+    elevenlabs_api_key: SecretStr | None = None
+    elevenlabs_voice_id: str = ""
+    elevenlabs_model: str = "eleven_multilingual_v2"
     tts_instructions: str = (
         "You are a friendly university receptionist robot. When the text is Arabic, speak it with "
         "a natural, warm Jordanian (Ammani, Levantine) accent and pronunciation, not formal "
