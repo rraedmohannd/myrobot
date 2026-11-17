@@ -24,8 +24,14 @@ struct Sim {
   std::vector<Ack> acks;
   Telemetry tel{};
   int tel_count = 0;
+  std::vector<DiagReport> diags;
+  bool telemetry_task_alive = true;  // fault injection: the telemetry "task" stops
+  int control_ticks = 0;
 
-  explicit Sim(const AppConfig& c) : app(c, robot.hardware()) { app.begin(now); }
+  explicit Sim(const AppConfig& c, uint8_t reset_reason = kResetPowerOn) : app(c, robot.hardware()) {
+    robot.system.reset_reason = reset_reason;
+    app.begin(now);
+  }
 
   void send(const Message& m) {
     uint8_t buf[kMaxFrame];
@@ -37,7 +43,8 @@ struct Sim {
     now += cfg::CONTROL_PERIOD_MS;
     robot.step(static_cast<float>(cfg::CONTROL_PERIOD_MS) / 1000.0f);
     app.controlTick(now);
-    if (now % cfg::TELEMETRY_PERIOD_MS == 0) app.telemetryTick(now);
+    ++control_ticks;
+    if (telemetry_task_alive && now % cfg::TELEMETRY_PERIOD_MS == 0) app.telemetryTick(now);
     for (uint8_t b : robot.link.tx) {
       if (dec.feed(b) != FrameDecoder::Feed::Frame) continue;
       const Message& m = dec.message();
@@ -50,12 +57,20 @@ struct Sim {
         std::printf("[SIMULATED] t=%5u ms  ACK type=0x%02x seq=%u status=%u\n", static_cast<unsigned>(now),
                     static_cast<unsigned>(m.ack.acked_type), static_cast<unsigned>(m.ack.acked_seq),
                     static_cast<unsigned>(m.ack.status));
+      } else if (m.type == MsgType::DiagReport) {
+        diags.push_back(m.diag_report);
       } else if (m.type == MsgType::Telemetry) {
         tel = m.telemetry;
         ++tel_count;
       }
     }
     robot.link.tx.clear();
+  }
+  int ackStatus(MsgType type, uint8_t s) const {
+    for (const Ack& a : acks) {
+      if (a.acked_type == static_cast<uint8_t>(type) && a.acked_seq == s) return a.status;
+    }
+    return -1;
   }
   int count(uint8_t code) const {
     int n = 0;
@@ -127,12 +142,119 @@ void runDrivingScenario() {
          "firmware does not set the SIMULATED flag itself (only the simulated ESP32 of robotd does)");
 }
 
+// SIMULATION-ONLY tuning shared by the fault-injection scenarios.
+AppConfig simTuning() {
+  AppConfig c = cfg::makeAppConfig();
+  c.build_env = kBuildSimCheck;
+  c.metres_per_tick = 0.0001f;
+  c.pid.kp = 1.0f;
+  c.pid.ki = 5.0f;
+  c.pid.kff = 2.5f;
+  c.ramp_mm_s2 = 500.0f;
+  c.max_speed_mm_s = 300;
+  c.motor_max_duty = 1.0f;
+  return c;
+}
+
+// Fault injection 1: a stuck I2C bus. On the ESP32 the I2C task owns the bus and the control
+// task only copies its results, so here the IMU simply has no fresh sample, the INA219 neither,
+// and the system stub reports one bus recovery. The control loop keeps its period, the local
+// obstacle stop keeps working.
+void runStuckI2c() {
+  std::printf("[SIMULATED] --- fault injection 1: stuck I2C bus (IMU + INA219 silent, then bus recovery) ---\n");
+  Sim sim(simTuning());
+  bool stopped_by_obstacle = false;
+  int tel_before = 0;
+  for (int i = 0; i < 400; ++i) {
+    const uint32_t t = sim.now;
+    if (t == 300) sim.send(makeMode(kModeDrive));
+    if (t >= 400 && t % 50 == 0) sim.send(makeDrive(200, 200));
+    if (t == 1000) {
+      sim.robot.imu.read_result = false;    // I2C reads time out: no fresh sample
+      sim.robot.power.read_result = false;
+      tel_before = sim.tel_count;
+    }
+    if (t == 2000) sim.robot.ultrasonic.setDistanceMm(1, 180.0f);  // obstacle during the fault
+    if (t == 2500) {
+      sim.robot.system.recovered_attempts = 1;  // the I2C task cleared the bus
+      sim.robot.imu.read_result = true;
+      sim.robot.power.read_result = true;
+    }
+    sim.step();
+    if (t > 2300 && t < 2500 && sim.robot.motors.left == 0.0f) stopped_by_obstacle = true;
+  }
+  expect(sim.control_ticks == 400, "control loop ran every 10 ms during the I2C fault (400/400 ticks)");
+  expect(sim.tel_count - tel_before == 150, "telemetry kept 50 Hz during the I2C fault");
+  expect(sim.count(kEventImuFault) == 1, "IMU_FAULT reported once");
+  expect(sim.count(kEventI2cRecovered) == 1, "I2C_RECOVERED reported after the bus clear");
+  expect(stopped_by_obstacle, "local obstacle stop still works while I2C is stuck");
+  expect((sim.tel.flags & kFlagImuOk) != 0, "IMU_OK again after the recovery");
+}
+
+// Fault injection 2: the telemetry task hangs. The software model of the task watchdog
+// (SoftTaskWatchdog, same rule as esp_task_wdt on the ESP32) fires; the chip resets; the new
+// boot is SAFE and DIAG reports the task-watchdog reset.
+void runHungTelemetryTask() {
+  std::printf("[SIMULATED] --- fault injection 2: telemetry task hangs -> task watchdog -> reset ---\n");
+  bool was_driving = false;
+  int fired_at = -1;
+  {
+    Sim sim(simTuning());
+    SoftTaskWatchdog wdt(cfg::TASK_WDT_TIMEOUT_MS);
+    const int control = wdt.add(sim.now);
+    const int telemetry = wdt.add(sim.now);
+    for (int i = 0; i < 300 && fired_at < 0; ++i) {
+      const uint32_t t = sim.now;
+      if (t == 300) sim.send(makeMode(kModeDrive));
+      if (t >= 400 && t % 50 == 0) sim.send(makeDrive(200, 200));
+      if (t == 1000) sim.telemetry_task_alive = false;  // hangs
+      sim.step();
+      wdt.feed(control, sim.now);
+      if (sim.telemetry_task_alive) wdt.feed(telemetry, sim.now);
+      if (t > 800 && t < 1000 && sim.robot.motors.enabled) was_driving = true;
+      if (wdt.expired(sim.now) == telemetry) fired_at = static_cast<int>(sim.now);
+    }
+  }
+  expect(was_driving, "the robot was driving before the hang");
+  expect(fired_at >= 1000 + static_cast<int>(cfg::TASK_WDT_TIMEOUT_MS) && fired_at <= 1000 + static_cast<int>(cfg::TASK_WDT_TIMEOUT_MS) + 20,
+         "task watchdog fired TASK_WDT_TIMEOUT_MS after the telemetry task stopped");
+  // "reset": a new boot with the reset reason the ESP32 would report
+  Sim after(simTuning(), kResetTaskWatchdog);
+  after.step();
+  expect(after.app.safety().mode() == kModeSafe && !after.robot.motors.enabled,
+         "after the watchdog reset the firmware boots in SAFE, drivers disabled");
+  expect(!after.diags.empty() && after.diags[0].reset_reason == kResetTaskWatchdog,
+         "boot DIAG_REPORT says reset_reason = task watchdog");
+}
+
+// Fault injection 3: a parameter outside its compiled bounds.
+void runParamOutOfRange() {
+  std::printf("[SIMULATED] --- fault injection 3: PARAM_SET out of range ---\n");
+  Sim sim(simTuning());
+  sim.step();
+  const uint32_t hash_before = sim.app.params().hash();
+  const uint8_t s = sim.seq;
+  sim.send(makeParamSet(params::OBSTACLE_THRESHOLD_MM, 100.0f));  // below the hard minimum 150
+  sim.step();
+  const uint8_t s2 = sim.seq;
+  sim.send(makeParamSet(params::MOTOR_MAX_DUTY, 1.5f));
+  sim.step();
+  expect(sim.ackStatus(MsgType::ParamSet, s) == kAckOutOfRange && sim.ackStatus(MsgType::ParamSet, s2) == kAckOutOfRange,
+         "PARAM_SET outside [min, max] answered OUT_OF_RANGE");
+  expect(sim.app.params().get(params::OBSTACLE_THRESHOLD_MM) == 250.0f && sim.app.config().safety.obstacle_mm == 250,
+         "value unchanged (250 mm) and still used by the obstacle stop");
+  expect(sim.app.params().hash() == hash_before, "parameter hash unchanged");
+}
+
 }  // namespace
 
 int main() {
   std::printf("[SIMULATED] sim-check: firmware application with STUB drivers. No hardware. Not a physical result.\n");
   runPlaceholderConfig();
   runDrivingScenario();
+  runStuckI2c();
+  runHungTelemetryTask();
+  runParamOutOfRange();
   std::printf("[SIMULATED] sim-check finished: %d failure(s)\n", failures);
   return failures == 0 ? 0 : 1;
 }

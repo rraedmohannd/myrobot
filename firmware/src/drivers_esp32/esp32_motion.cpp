@@ -1,7 +1,18 @@
-// motors, encoders, servo, link. NOT VERIFIED ON HARDWARE.
+// motors, encoders, servo, link, parameter storage. NOT VERIFIED ON HARDWARE (never run on an
+// ESP32; compiled for Arduino-ESP32 core 2.x and 3.x only).
+#include <Preferences.h>
+
+#if defined(ESP_ARDUINO_VERSION_MAJOR) && ESP_ARDUINO_VERSION_MAJOR >= 3
+#define SCR_IDF5_PCNT 1
+#include <driver/pulse_cnt.h>
+#else
 #include <driver/pcnt.h>
+#endif
+
+#include <cstdio>
 
 #include "esp32_drivers.h"
+#include "scr_control.h"
 
 namespace scr {
 namespace esp32 {
@@ -33,6 +44,20 @@ float clampf(float v, float lo, float hi) { return v < lo ? lo : (v > hi ? hi : 
 
 }  // namespace
 
+// ---- boot: motor outputs LOW before anything else -------------------------------------------
+void motorPinsLowAtBoot() {
+#if !defined(PINS_COMPILE_CHECK_ONLY) && !defined(SCR_CI_PINS_DO_NOT_FLASH)
+  const int motor_pins[6] = {PIN_MOTOR_LEFT_PWM,  PIN_MOTOR_LEFT_DIR_A,  PIN_MOTOR_LEFT_DIR_B,
+                             PIN_MOTOR_RIGHT_PWM, PIN_MOTOR_RIGHT_DIR_A, PIN_MOTOR_RIGHT_DIR_B};
+  for (int pin : motor_pins) {
+    if (!pins::isGpio(pin)) continue;
+    digitalWrite(static_cast<uint8_t>(pin), LOW);  // output latch low first, then output mode
+    pinMode(static_cast<uint8_t>(pin), OUTPUT);
+    digitalWrite(static_cast<uint8_t>(pin), LOW);
+  }
+#endif
+}
+
 // ---- motors ---------------------------------------------------------------------------------
 bool Esp32Motors::begin() {
   ok_ = false;
@@ -58,8 +83,10 @@ bool Esp32Motors::begin() {
 void Esp32Motors::writeSide(int pwm_pin, uint8_t channel, int dir_a, int dir_b, float duty) {
   // Both drivers: PWM on the enable/PWM input, direction on the two inputs.
   // Zero duty: both direction inputs low and PWM 0 (L298N: coast; VNH: brake to ground).
-  const float lim = clampf(cfg::MOTOR_MAX_DUTY, 0.0f, 1.0f);
-  duty = clampf(duty, -lim, lim);
+  // The duty caps (MOTOR_MAX_DUTY, voltage compensation, TEST_MAX_DUTY) are applied by the
+  // application before this call; here only the physical range [-1, 1].
+  duty = clampf(duty, -1.0f, 1.0f);
+  if (duty != duty) duty = 0.0f;  // NaN
   const uint32_t full = (1u << cfg::MOTOR_PWM_BITS) - 1u;
   const float mag = duty < 0.0f ? -duty : duty;
   const uint32_t counts = static_cast<uint32_t>(mag * static_cast<float>(full) + 0.5f);
@@ -86,18 +113,20 @@ void Esp32Motors::setTrackDuty(float left, float right) {
     left = 0.0f;
     right = 0.0f;
   }
-  if (cfg::MOTOR_INVERT_LEFT) left = -left;
-  if (cfg::MOTOR_INVERT_RIGHT) right = -right;
   writeSide(PIN_MOTOR_LEFT_PWM, kLedcChannelMotorLeft, PIN_MOTOR_LEFT_DIR_A, PIN_MOTOR_LEFT_DIR_B, left);
   writeSide(PIN_MOTOR_RIGHT_PWM, kLedcChannelMotorRight, PIN_MOTOR_RIGHT_DIR_A, PIN_MOTOR_RIGHT_DIR_B, right);
 }
 
 // ---- encoders -------------------------------------------------------------------------------
 namespace {
-// The hardware counter is 16 bit and jumps back to zero when it reaches a limit, so the counts
-// are read as differences modulo the limit and summed in 32 bit.
+// The hardware counter is 16 bit and resets to zero when it reaches +-limit, so the counts are
+// read as differences on a circle of `limit` values (scr::pcntDelta) and summed in 32 bit.
 constexpr int16_t kPcntLimit = 32767;
+#if defined(SCR_IDF5_PCNT)
+pcnt_unit_handle_t g_units[4] = {nullptr, nullptr, nullptr, nullptr};
+#else
 const pcnt_unit_t kUnits[4] = {PCNT_UNIT_0, PCNT_UNIT_1, PCNT_UNIT_2, PCNT_UNIT_3};
+#endif
 }  // namespace
 
 bool Esp32Encoders::begin() {
@@ -106,6 +135,37 @@ bool Esp32Encoders::begin() {
   const int b[4] = {PIN_ENC_FL_B, PIN_ENC_RL_B, PIN_ENC_FR_B, PIN_ENC_RR_B};
   if (!pins::allAssigned({a[0], a[1], a[2], a[3], b[0], b[1], b[2], b[3]})) return false;
   for (int i = 0; i < 4; ++i) {
+#if defined(SCR_IDF5_PCNT)
+    // ESP-IDF 5 pulse counter driver (Arduino-ESP32 core 3.x).
+    pcnt_unit_config_t uc = {};
+    uc.low_limit = -kPcntLimit;
+    uc.high_limit = kPcntLimit;
+    if (pcnt_new_unit(&uc, &g_units[i]) != ESP_OK) return false;
+    if (cfg::ENCODER_GLITCH_FILTER > 0) {
+      pcnt_glitch_filter_config_t fc = {};
+      fc.max_glitch_ns = static_cast<uint32_t>(cfg::ENCODER_GLITCH_FILTER) * 25u / 2u;  // APB 80 MHz: 12.5 ns per cycle
+      if (pcnt_unit_set_glitch_filter(g_units[i], &fc) != ESP_OK) return false;
+    }
+    pcnt_chan_config_t ca = {};
+    ca.edge_gpio_num = a[i];
+    ca.level_gpio_num = b[i];
+    pcnt_channel_handle_t chan_a = nullptr;
+    if (pcnt_new_channel(g_units[i], &ca, &chan_a) != ESP_OK) return false;
+    pcnt_chan_config_t cb = {};
+    cb.edge_gpio_num = b[i];
+    cb.level_gpio_num = a[i];
+    pcnt_channel_handle_t chan_b = nullptr;
+    if (pcnt_new_channel(g_units[i], &cb, &chan_b) != ESP_OK) return false;
+    // Same counting as the core 2.x branch: A edges counted with direction from B, B edges with
+    // direction from A; the direction is inverted while the control input is low.
+    pcnt_channel_set_edge_action(chan_a, PCNT_CHANNEL_EDGE_ACTION_DECREASE, PCNT_CHANNEL_EDGE_ACTION_INCREASE);
+    pcnt_channel_set_level_action(chan_a, PCNT_CHANNEL_LEVEL_ACTION_KEEP, PCNT_CHANNEL_LEVEL_ACTION_INVERSE);
+    pcnt_channel_set_edge_action(chan_b, PCNT_CHANNEL_EDGE_ACTION_INCREASE, PCNT_CHANNEL_EDGE_ACTION_DECREASE);
+    pcnt_channel_set_level_action(chan_b, PCNT_CHANNEL_LEVEL_ACTION_KEEP, PCNT_CHANNEL_LEVEL_ACTION_INVERSE);
+    if (pcnt_unit_enable(g_units[i]) != ESP_OK) return false;
+    pcnt_unit_clear_count(g_units[i]);
+    if (pcnt_unit_start(g_units[i]) != ESP_OK) return false;
+#else
     pcnt_config_t c = {};
     c.unit = kUnits[i];
     c.counter_h_lim = kPcntLimit;
@@ -135,6 +195,7 @@ bool Esp32Encoders::begin() {
     pcnt_counter_pause(kUnits[i]);
     pcnt_counter_clear(kUnits[i]);
     pcnt_counter_resume(kUnits[i]);
+#endif
     last_[i] = 0;
     total_[i] = 0;
   }
@@ -146,12 +207,15 @@ void Esp32Encoders::read(int32_t counts[4]) {
   for (int i = 0; i < 4; ++i) {
     if (ok_) {
       int16_t now = 0;
+#if defined(SCR_IDF5_PCNT)
+      int value = 0;
+      pcnt_unit_get_count(g_units[i], &value);
+      now = static_cast<int16_t>(value);
+#else
       pcnt_get_counter_value(kUnits[i], &now);
-      int32_t delta = static_cast<int32_t>(now) - static_cast<int32_t>(last_[i]);
-      if (delta < -(kPcntLimit / 2)) delta += kPcntLimit;  // wrapped upward through the limit
-      if (delta > (kPcntLimit / 2)) delta -= kPcntLimit;   // wrapped downward
+#endif
+      total_[i] = wrapAdd(total_[i], pcntDelta(last_[i], now, kPcntLimit));
       last_[i] = now;
-      total_[i] += delta;
     }
     counts[i] = total_[i];
   }
@@ -174,6 +238,7 @@ bool Esp32Servo::begin() {
 
 void Esp32Servo::writePulseUs(uint16_t pulse_us) {
   if (!ok_) return;
+  if (pulse_us > 2500) pulse_us = 2500;  // the compiled hard range of the protocol
   // period 20000 us at 50 Hz
   const uint32_t duty = (static_cast<uint32_t>(pulse_us) * ((1u << kServoBits) - 1u)) / 20000u;
   pwmWrite(PIN_SERVO_PAN, kLedcChannelServo, duty);
@@ -196,6 +261,35 @@ size_t Esp32Link::read(uint8_t* buf, size_t cap) {
 }
 
 void Esp32Link::write(const uint8_t* data, size_t len) { Serial.write(data, len); }
+
+// ---- parameter storage (NVS) ----------------------------------------------------------------
+namespace {
+Preferences g_prefs;
+void keyOf(uint16_t id, char* key) { std::snprintf(key, 8, "p%u", static_cast<unsigned>(id)); }
+}  // namespace
+
+bool Esp32Storage::begin() {
+  ok_ = g_prefs.begin("scr-params", false);
+  return ok_;
+}
+
+bool Esp32Storage::read(uint16_t id, float* value) {
+  if (!ok_) return false;
+  char key[8];
+  keyOf(id, key);
+  if (!g_prefs.isKey(key)) return false;
+  *value = g_prefs.getFloat(key, 0.0f);
+  return true;
+}
+
+bool Esp32Storage::write(uint16_t id, float value) {
+  if (!ok_) return false;
+  char key[8];
+  keyOf(id, key);
+  return g_prefs.putFloat(key, value) == sizeof(float);  // Preferences commits each put
+}
+
+bool Esp32Storage::commit() { return ok_; }
 
 }  // namespace esp32
 }  // namespace scr
