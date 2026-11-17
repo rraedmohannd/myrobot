@@ -60,7 +60,8 @@ EXPANDER_ADDR_NAME = "SCR_EXPANDER_I2C_ADDR"
 EXPANDER_BASE = 100  # must equal SCR_PIN_EXPANDER_BASE in firmware/include/pins.h
 EXPANDER_PIN_COUNT = 16  # X0..X15 = GPA0..GPA7, GPB0..GPB7
 EXPANDER_ADDRESSES = range(0x20, 0x28)
-EXPANDER_ALLOWED = re.compile(r"^PIN_\w+(_TRIG|_DIR_[AB])$")
+# Only the four ultrasonic triggers: a motor direction on I2C would fail unsafe (PIN_PLAN.md section 4).
+EXPANDER_ALLOWED = re.compile(r"^PIN_US_(FL|FC|FR|REAR)_TRIG$")
 
 PIN_NAME_RE = re.compile(r"^\s*#\s*define\s+(PIN_[A-Z0-9_]+)\s+PIN_UNASSIGNED\b", re.MULTILINE)
 DATE_RE = re.compile(r"\b(\d{4})-(\d{2})-(\d{2})\b")
@@ -264,7 +265,11 @@ def check(table_text: str, pins_h_text: str) -> Result:
         if mx:
             idx = int(mx.group(1))
             if not EXPANDER_ALLOWED.match(row.name):
-                err(row, f"{value}: expander pins are allowed only for *_TRIG and *_DIR_A/B rows")
+                err(row, (
+                    f"{value}: expander pins are allowed only on the four PIN_US_*_TRIG rows; "
+                    "motor, encoder, echo, I2C and servo signals must be on a GPIO "
+                    "(docs/PIN_PLAN.md section 4)"
+                ))
                 continue
             if idx >= EXPANDER_PIN_COUNT:
                 err(row, f"{value}: the MCP23017 has X0..X{EXPANDER_PIN_COUNT - 1} only")

@@ -96,7 +96,7 @@ A PCF8574 (8 I/O) would also do, but its outputs are quasi-bidirectional with a 
 
 **What the firmware needs for Option B (not written by this task — see the S1.2 report):** an expander driver (MCP23017 at `SCR_EXPANDER_I2C_ADDR`, outputs low at start), and `Esp32Ultrasonic::trigger()` using it when `SCR_PIN_IS_EXPANDER(pin)` is true. Until the firmware defines `SCR_FIRMWARE_HAS_PIN_EXPANDER`, `pins.h` refuses to compile a table that uses expander pins.
 
-**How the table expresses it:** a trigger row takes `X0` … `X15` in the GPIO column (X0–X7 = MCP23017 port A GPA0–GPA7, X8–X15 = port B GPB0–GPB7), and the row `SCR_EXPANDER_I2C_ADDR` holds the address (`0x20`). The generator writes `#define PIN_US_FL_TRIG (SCR_PIN_EXPANDER_BASE + 0)` (the base is 100, never a GPIO) and `#define SCR_PINS_USE_EXPANDER 1`. Only `*_TRIG` and `*_DIR_*` rows may use `X` values; the checker refuses `X` on PWM, servo, encoder, echo and I2C rows, and refuses any `X` value while the address row is empty.
+**How the table expresses it:** a trigger row takes `X0` … `X15` in the GPIO column (X0–X7 = MCP23017 port A GPA0–GPA7, X8–X15 = port B GPB0–GPB7), and the row `SCR_EXPANDER_I2C_ADDR` holds the address (`0x20`). The generator writes `#define PIN_US_FL_TRIG (SCR_PIN_EXPANDER_BASE + 0)` (the base is 100, never a GPIO) and `#define SCR_PINS_USE_EXPANDER 1`. Only the four `PIN_US_*_TRIG` rows may use `X` values; the checker refuses `X` on every other row (motor PWM **and direction**, servo, encoder, echo, I2C) — the firmware refuses expander direction pins too, since a direction on I2C fails unsafe — and refuses any `X` value while the address row is empty.
 
 ## 5. Recommendation: **Option B (MCP23017 with the 4 trigger lines)**
 

@@ -22,7 +22,7 @@ Bought locally (MikroElectron, Amman). Full priced list: project doc `claude/har
 ## Pin map — to be confirmed after wiring
 Pin assignments are **not defined yet** (CLAUDE.md rule 8). A proposal on paper, with the ESP32 rules and sources, is in [`docs/PIN_PLAN.md`](PIN_PLAN.md) (**PROPOSAL — the firmware does not use that file**). The firmware takes pins **only from this table**, through the checker:
 
-1. Wire the robot. Fill in this table **from the wired robot**: one GPIO number per row (or `X0`…`X15` for an MCP23017 expander pin, trigger and direction rows only, option B of `PIN_PLAN.md`), `yes` in "Strapping pin OK?" for GPIO 0, 2, 5, 12 or 15, and your name and the date (`YYYY-MM-DD`) in every "Checked by / date" cell.
+1. Wire the robot. Fill in this table **from the wired robot**: one GPIO number per row (or `X0`…`X15` for an MCP23017 expander pin, on the four ultrasonic **trigger** rows only, option B of `PIN_PLAN.md`), `yes` in "Strapping pin OK?" for GPIO 0, 2, 5, 12 or 15, and your name and the date (`YYYY-MM-DD`) in every "Checked by / date" cell.
 2. `python firmware/tools/pins_from_table.py --check` lists every problem with its row. Fix the table until it passes.
 3. `python firmware/tools/pins_from_table.py` writes `firmware/include/pins_generated.h` (the only file that defines `PINS_CONFIRMED`). Commit it together with this table.
 

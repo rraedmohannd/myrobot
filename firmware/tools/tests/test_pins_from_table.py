@@ -94,6 +94,7 @@ def test_checksum_changes_with_the_table(tmp_path: Path) -> None:
         ("invalid_gpio.md", "GPIO24 does not exist"),
         ("expander_no_addr.md", "expander address"),
         ("expander_on_echo.md", "expander pins are allowed only"),
+        ("expander_on_dir.md", "X4: expander pins are allowed only on the four PIN_US_*_TRIG rows"),
     ],
 )
 def test_bad_tables_are_refused_and_nothing_is_written(
