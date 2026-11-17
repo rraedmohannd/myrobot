@@ -214,6 +214,8 @@ async def run_param(s: Session, args: argparse.Namespace) -> int:
     except KeyError:
         raise Refused(f"{args.name}: not a parameter of params.json") from None
     value = float(args.value)
+    if not spec.in_range(value):
+        raise Refused(f"{spec.name} = {value:g} is outside [{spec.min:g}, {spec.max:g}]")
     old = await s.param(spec.name)
     s.say(f"{spec.name}: {old:g} -> {value:g} {spec.unit}  ({spec.note or 'no note'})")
     await s.op.confirm(

@@ -313,10 +313,14 @@ class CtlDevice(Device):
             await self._session.close()
             raise LinkError(f"cannot reach robotd at {self.url}: {exc}") from exc
         self._task = asyncio.create_task(self._reader())
-        await self._send_json({"type": "ctl.hello", "client": "robotctl"})
-        await self._send_json({"type": "ctl.bringup", "on": True})
-        await self._wait_bringup()
-        await self._send_json({"type": "ctl.telemetry_rate", "hz": 50})
+        try:
+            await self._send_json({"type": "ctl.hello", "client": "robotctl"})
+            await self._send_json({"type": "ctl.bringup", "on": True})
+            await self._wait_bringup()
+            await self._send_json({"type": "ctl.telemetry_rate", "hz": 50})
+        except BaseException:
+            await self.close()
+            raise
 
     async def _wait_bringup(self, timeout: float = 3.0) -> None:  # noqa: ASYNC109
         end = time.monotonic() + timeout

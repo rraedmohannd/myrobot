@@ -73,8 +73,8 @@ async def run_servo_cal(s: Session, args: argparse.Namespace) -> int:
                 except ValueError:
                     s.say("  not a number")
                     continue
-                if abs(step) > 500:
-                    s.say("  at most 500 us per key")
+                if abs(step) > 2000:
+                    s.say("  at most 2000 us per key")
                     continue
                 pulse = await _jog(s, step)
                 s.say(f"  pulse {pulse} us")
@@ -87,7 +87,7 @@ async def run_servo_cal(s: Session, args: argparse.Namespace) -> int:
                 break
             else:
                 s.say(JOG_HELP)
-    missing = [k for k in "carl" if k not in marks]
+    missing = [k for k in "calr" if k not in marks]
     if missing:
         raise Refused(f"servo-cal needs the marks c, a, l, r; missing: {', '.join(missing)}")
     pc, pa, pl, pr = marks["c"], marks["a"], marks["l"], marks["r"]
