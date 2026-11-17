@@ -8,6 +8,7 @@
 
 #include "config.h"
 #include "scr_app.h"
+#include "scr_mcp23017.h"
 #include "scr_params.h"
 #include "scr_stub_drivers.h"
 #include "scr_version.h"
@@ -770,6 +771,75 @@ static void test_permanent_safe_never_drives() {
   TEST_ASSERT_TRUE(rig.rx[rig.find(MsgType::DiagReport)].diag_report.diag_flags & kDiagCiPinsDoNotFlash);
 }
 
+// ================================ MCP23017 trigger expander (pin plan option B) ===============
+struct StubRegWriter : public mcp23017::IRegWriter {
+  struct W {
+    uint8_t addr, reg, value;
+  };
+  std::vector<W> writes;
+  uint32_t waited_us = 0;
+  int fail_at = -1;  // index of the write that fails
+  bool writeReg(uint8_t a, uint8_t r, uint8_t v) override {
+    const bool ok = static_cast<int>(writes.size()) != fail_at;
+    writes.push_back({a, r, v});
+    return ok;
+  }
+  void waitUs(uint32_t us) override { waited_us += us; }
+};
+
+static void test_expander_outputs_low_before_direction() {
+  StubRegWriter w;
+  mcp23017::Expander e(0x20);
+  // triggers on X0..X3
+  TEST_ASSERT_TRUE(e.begin(&w, 0x000F));
+  TEST_ASSERT_EQUAL_INT(4, static_cast<int>(w.writes.size()));
+  TEST_ASSERT_EQUAL_HEX8(mcp23017::kRegOlatA, w.writes[0].reg);  // latches low first
+  TEST_ASSERT_EQUAL_HEX8(0x00, w.writes[0].value);
+  TEST_ASSERT_EQUAL_HEX8(mcp23017::kRegOlatB, w.writes[1].reg);
+  TEST_ASSERT_EQUAL_HEX8(0x00, w.writes[1].value);
+  TEST_ASSERT_EQUAL_HEX8(mcp23017::kRegIodirA, w.writes[2].reg);  // then only X0..X3 outputs
+  TEST_ASSERT_EQUAL_HEX8(0xF0, w.writes[2].value);
+  TEST_ASSERT_EQUAL_HEX8(mcp23017::kRegIodirB, w.writes[3].reg);
+  TEST_ASSERT_EQUAL_HEX8(0xFF, w.writes[3].value);
+  for (const auto& x : w.writes) TEST_ASSERT_EQUAL_HEX8(0x20, x.addr);
+}
+
+static void test_expander_pulse_high_wait_low() {
+  StubRegWriter w;
+  mcp23017::Expander e(0x20);
+  TEST_ASSERT_TRUE(e.begin(&w, (1u << 2) | (1u << 9)));
+  w.writes.clear();
+  TEST_ASSERT_TRUE(e.pulse(&w, 9));  // X9 = GPB1
+  TEST_ASSERT_EQUAL_INT(2, static_cast<int>(w.writes.size()));
+  TEST_ASSERT_EQUAL_HEX8(mcp23017::kRegOlatB, w.writes[0].reg);
+  TEST_ASSERT_EQUAL_HEX8(0x02, w.writes[0].value);
+  TEST_ASSERT_EQUAL_HEX8(0x00, w.writes[1].value);
+  TEST_ASSERT_TRUE(w.waited_us >= 10);
+  // a pin that is not an output, or out of range: nothing written
+  w.writes.clear();
+  TEST_ASSERT_FALSE(e.pulse(&w, 3));
+  TEST_ASSERT_FALSE(e.pulse(&w, 16));
+  TEST_ASSERT_EQUAL_INT(0, static_cast<int>(w.writes.size()));
+}
+
+static void test_expander_failures_leave_it_unusable_and_low() {
+  StubRegWriter w;
+  w.fail_at = 2;  // IODIRA write fails
+  mcp23017::Expander e(0x20);
+  TEST_ASSERT_FALSE(e.begin(&w, 0x000F));
+  TEST_ASSERT_FALSE(e.ok());
+  TEST_ASSERT_FALSE(e.pulse(&w, 0));  // never pulses when not set up
+  StubRegWriter none;
+  TEST_ASSERT_FALSE(e.begin(&none, 0));  // no trigger on the expander: not used
+  // a failing HIGH write still writes LOW afterwards (never leaves a trigger high)
+  StubRegWriter f;
+  mcp23017::Expander g(0x20);
+  TEST_ASSERT_TRUE(g.begin(&f, 0x0001));
+  f.fail_at = static_cast<int>(f.writes.size());
+  TEST_ASSERT_FALSE(g.pulse(&f, 0));
+  TEST_ASSERT_EQUAL_HEX8(0x00, f.writes.back().value);
+}
+
 int main(int, char**) {
   UNITY_BEGIN();
   RUN_TEST(test_default_hash_equals_python);
@@ -803,5 +873,8 @@ int main(int, char**) {
   RUN_TEST(test_battery_cutoff_goes_safe_once_and_blocks_modes);
   RUN_TEST(test_battery_cutoff_zero_is_off);
   RUN_TEST(test_permanent_safe_never_drives);
+  RUN_TEST(test_expander_outputs_low_before_direction);
+  RUN_TEST(test_expander_pulse_high_wait_low);
+  RUN_TEST(test_expander_failures_leave_it_unusable_and_low);
   return UNITY_END();
 }

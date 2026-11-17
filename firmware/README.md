@@ -31,6 +31,7 @@ firmware/
     hal/                    driver interfaces (motors, encoders, imu, ultrasonic, servo, power, link)
     app/                    the application: control tick (100 Hz) and telemetry tick (50 Hz),
                             parameters, diagnostics, bring-up, battery cut-off; scr_version.h
+    expander/               MCP23017 register sequence for option B triggers (outputs LOW first)
     params/                 scr_param_table.h (GENERATED from shared/scr_serial/params.json) and
                             ParamStore (bounds, NVS load/save, FNV-1a hash)
     drivers_stub/           STUB drivers + a crude simulated plant, for tests and sim-check
@@ -47,7 +48,8 @@ firmware/
     test_safety/            watchdog, obstacle stop (front, rear, reverse without rear sensor), SAFE
     test_app/               whole application against the stubs
     test_sprint5/           parameters + NVS reboot, voltage compensation, DIAG, slip, bring-up,
-                            battery cut-off, PCNT wrap, I2C recovery event, CI permanent SAFE
+                            battery cut-off, PCNT wrap, I2C recovery event, CI permanent SAFE,
+                            MCP23017 sequence against a stub register writer
   tools/
     Dockerfile, test.sh, test.ps1   run everything in Docker (no compiler needed on the host)
     git_hash.py             PlatformIO extra script: SCR_GIT_HASH for DIAG

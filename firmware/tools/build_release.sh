@@ -4,7 +4,7 @@
 #   bootloader.bin 0x1000, partitions.bin 0x8000, boot_app0.bin 0xe000, firmware.bin 0x10000
 set -euo pipefail
 TOOLS_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-"$TOOLS_DIR/test.sh" 'pio run -e esp32dev \
+bash "$TOOLS_DIR/test.sh" 'pio run -e esp32dev \
   && rm -rf release && mkdir -p release \
   && cp "$PLATFORMIO_WORKSPACE_DIR/build/esp32dev/firmware.bin" \
         "$PLATFORMIO_WORKSPACE_DIR/build/esp32dev/bootloader.bin" \

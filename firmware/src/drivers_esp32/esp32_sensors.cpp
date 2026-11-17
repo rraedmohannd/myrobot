@@ -15,6 +15,7 @@
 #include <freertos/task.h>
 
 #include "esp32_drivers.h"
+#include "scr_mcp23017.h"
 
 namespace scr {
 namespace esp32 {
@@ -50,7 +51,6 @@ bool g_imu_ok = false;      // begin() succeeded
 bool g_power_ok = false;
 bool g_expander_ok = false;
 uint8_t g_expander_trig_bit[4] = {0xFF, 0xFF, 0xFF, 0xFF};  // MCP23017 pin per ultrasonic, 0xFF = GPIO
-uint16_t g_expander_outputs = 0;  // OLAT shadow (all LOW)
 
 constexpr uint32_t kImuFreshMs = 50;
 constexpr uint32_t kPowerFreshMs = 500;
@@ -75,6 +75,10 @@ bool writeReg(uint8_t address, uint8_t reg, uint8_t value) {
   Wire.write(value);
   return noteResult(Wire.endTransmission() == 0);
 }
+
+}  // namespace
+bool writeRegForExpander(uint8_t address, uint8_t reg, uint8_t value) { return writeReg(address, reg, value); }
+namespace {
 
 bool readRegs(uint8_t address, uint8_t reg, uint8_t* out, size_t len) {
   Wire.beginTransmission(address);
@@ -177,45 +181,27 @@ bool powerSample(uint16_t* bus_mv, int32_t* shunt_uv) {
 }
 
 // ---- MCP23017 (pin plan option B: HC-SR04 trigger lines) -------------------------------------
-constexpr uint8_t kMcpIodirA = 0x00;  // BANK = 0 (power-on default)
-constexpr uint8_t kMcpIodirB = 0x01;
-constexpr uint8_t kMcpOlatA = 0x14;
-constexpr uint8_t kMcpOlatB = 0x15;
-
-bool expanderWriteOutputs(uint16_t outputs) {
-  const bool a = writeReg(cfg::EXPANDER_I2C_ADDRESS, kMcpOlatA, static_cast<uint8_t>(outputs & 0xFF));
-  const bool b = writeReg(cfg::EXPANDER_I2C_ADDRESS, kMcpOlatB, static_cast<uint8_t>(outputs >> 8));
-  return a && b;
-}
-
-// Outputs LOW first (latch), then only the trigger pins become outputs; all others stay inputs.
-bool expanderBegin() {
-  uint16_t dir = 0xFFFF;  // 1 = input
-  bool any = false;
-  for (int i = 0; i < 4; ++i) {
-    if (g_expander_trig_bit[i] < 16) {
-      dir = static_cast<uint16_t>(dir & ~(1u << g_expander_trig_bit[i]));
-      any = true;
-    }
+// The register sequence is in lib/expander (unit-tested natively); here only the Wire writer.
+class WireRegWriter : public mcp23017::IRegWriter {
+ public:
+  bool writeReg(uint8_t address, uint8_t reg, uint8_t value) override {
+    return esp32::writeRegForExpander(address, reg, value);
   }
-  if (!any) return false;
-  g_expander_outputs = 0;
-  if (!expanderWriteOutputs(0)) return false;
-  if (!writeReg(cfg::EXPANDER_I2C_ADDRESS, kMcpIodirA, static_cast<uint8_t>(dir & 0xFF))) return false;
-  if (!writeReg(cfg::EXPANDER_I2C_ADDRESS, kMcpIodirB, static_cast<uint8_t>(dir >> 8))) return false;
-  return true;
+  void waitUs(uint32_t us) override { delayMicroseconds(us); }
+};
+WireRegWriter g_wire_writer;
+mcp23017::Expander g_expander(cfg::EXPANDER_I2C_ADDRESS);
+
+uint16_t expanderMask() {
+  uint16_t mask = 0;
+  for (int i = 0; i < 4; ++i) {
+    if (g_expander_trig_bit[i] < 16) mask = static_cast<uint16_t>(mask | (1u << g_expander_trig_bit[i]));
+  }
+  return mask;
 }
 
-// One trigger pulse over I2C: high, at least 10 us (one register write alone takes ~75 us at
-// 400 kHz, ~300 us at 100 kHz), low. The echo is timed from its own GPIO edges.
-void expanderPulse(uint8_t bit) {
-  const uint8_t reg = bit < 8 ? kMcpOlatA : kMcpOlatB;
-  const uint8_t mask = static_cast<uint8_t>(1u << (bit & 7));
-  const uint8_t base = static_cast<uint8_t>(bit < 8 ? (g_expander_outputs & 0xFF) : (g_expander_outputs >> 8));
-  writeReg(cfg::EXPANDER_I2C_ADDRESS, reg, static_cast<uint8_t>(base | mask));
-  delayMicroseconds(10);
-  writeReg(cfg::EXPANDER_I2C_ADDRESS, reg, base);
-}
+bool expanderBegin() { return g_expander.begin(&g_wire_writer, expanderMask()); }
+void expanderPulse(uint8_t bit) { g_expander.pulse(&g_wire_writer, bit); }
 
 // ---- the scan (bounded) ----------------------------------------------------------------------
 void scanBus() {
