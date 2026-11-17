@@ -5,15 +5,21 @@ import csv
 import json
 from pathlib import Path
 
-from app.db.models import PoseSample, ReturnTrial, RobotRun, Session, Turn
-from app.services.report import NO_REAL_TRIALS, export_report, trajectory_file_name
+from app.db.models import CalibrationRecord, PoseSample, ReturnTrial, RobotRun, Session, Turn
+from app.services.report import (
+    NO_REAL_POWER,
+    NO_REAL_TRIALS,
+    export_report,
+    trajectory_file_name,
+)
 
 PNG_SIGNATURE = b"\x89PNG\r\n\x1a\n"
 FIXED_FILES = {
     "latency_stages.csv", "latency_stages.png", "latency_runs.csv", "latency_runs.png",
     "evaluation_runs.csv", "evaluation_pass_rate.png", "found_rate.csv", "found_rate.png",
     "speakers.csv", "speaker_confidence.png", "trajectories.csv", "return_trials.csv",
-    "return_trials_summary.csv", "return_trials.png", "README.md",
+    "return_trials_summary.csv", "return_trials.png", "calibration.csv",
+    "calibration_SIMULATED.csv", "power.csv", "power_energy.png", "README.md",
 }  # fmt: skip
 
 
@@ -212,14 +218,17 @@ async def test_export_without_any_data_writes_the_no_data_outputs(db_session, tm
     golden.mkdir()
     latency.mkdir()
     out = tmp_path / "out"
-    files = await export_report(db_session, out, golden, latency, session_ids=[], run_ids=[])
+    files = await export_report(
+        db_session, out, golden, latency, session_ids=[], run_ids=[], robot_ids=[]
+    )
 
     assert {p.name for p in files} == FIXED_FILES  # no trajectory pictures without runs
     for p in files:
         if p.suffix == ".png":
             assert p.read_bytes().startswith(PNG_SIGNATURE) and p.stat().st_size > 2000, p.name
     for name in ("latency_runs.csv", "evaluation_runs.csv", "speakers.csv", "trajectories.csv",
-                 "return_trials.csv"):  # fmt: skip
+                 "return_trials.csv", "calibration.csv", "calibration_SIMULATED.csv",
+                 "power.csv"):  # fmt: skip
         lines = (out / name).read_text(encoding="utf-8").splitlines()
         assert len(lines) == 1 and "," in lines[0], name  # the header only
     stages = _rows(out / "latency_stages.csv")
@@ -231,3 +240,72 @@ async def test_export_without_any_data_writes_the_no_data_outputs(db_session, tm
         {"n": "0", "success_rate": "", "mean_err_m": "", "median_err_m": "", "max_err_m": ""}
     ]
     assert "Simulated runs are never counted" in NO_REAL_TRIALS
+
+
+# ---------------- sprint 5: calibration table and power chart ----------------
+async def test_calibration_and_power_sections(db_session, tmp_path) -> None:
+    robot = "report-test-robot"
+    db_session.add_all([
+        CalibrationRecord(robot_id=robot, key="METRES_PER_TICK", value=0.0005, unit="m/tick",
+                          operator="Mohannd", method="distance-cal", is_simulated=False),
+        CalibrationRecord(robot_id=robot, key="METRES_PER_TICK", value=0.000512, unit="m/tick",
+                          operator="Mohannd", method="distance-cal | 5 runs", is_simulated=False),
+        CalibrationRecord(robot_id=robot, key="battery_table", value=[[12.6, 100], [9.9, 0]],
+                          is_simulated=False),
+        CalibrationRecord(robot_id=robot, key="GYRO_SCALE", value=1.01, is_simulated=True),
+    ])  # fmt: skip
+    real, sim, empty = (RobotRun(is_simulated=False), RobotRun(is_simulated=True),
+                        RobotRun(is_simulated=False))  # fmt: skip
+    db_session.add_all([real, sim, empty])
+    await db_session.flush()
+    for i, (v, a, wh) in enumerate([(12.1, 1.0, 2.0), (12.0, 1.5, 2.25), (11.9, 2.0, 2.5)]):
+        db_session.add(PoseSample(run_id=real.id, t_ms=i * 2000, x_m=0, y_m=0, theta_rad=0,
+                                  power={"v": v, "a": a, "wh": wh}))  # fmt: skip
+        db_session.add(PoseSample(run_id=sim.id, t_ms=i * 2000, x_m=0, y_m=0, theta_rad=0,
+                                  power={"v": 8.0, "a": 9.0, "wh": 9.0}))  # fmt: skip
+    db_session.add(PoseSample(run_id=empty.id, t_ms=0, x_m=0, y_m=0, theta_rad=0))
+    await db_session.commit()
+
+    out = tmp_path / "out"
+    files = await export_report(db_session, out, tmp_path / "none", tmp_path / "none",
+                                session_ids=[], run_ids=[real.id, sim.id, empty.id],
+                                robot_ids=[robot])  # fmt: skip
+    names = {p.name for p in files}
+    assert {
+        "calibration.csv",
+        "calibration_SIMULATED.csv",
+        "power.csv",
+        "power_energy.png",
+    } <= names
+
+    rows = _rows(out / "calibration.csv")
+    by_key = {}
+    for r in rows:  # every value of a key is a row (the history), oldest first
+        by_key.setdefault(r["key"], []).append((r["value"], r["is_simulated"]))
+    assert by_key == {
+        "METRES_PER_TICK": [("0.0005", "False"), ("0.000512", "False")],
+        "battery_table": [("[[12.6, 100], [9.9, 0]]", "False")],
+    }
+    simulated = _rows(out / "calibration_SIMULATED.csv")
+    assert [(r["key"], r["is_simulated"]) for r in simulated] == [("GYRO_SCALE", "True")]
+
+    readme = (out / "README.md").read_text(encoding="utf-8")
+    real_part, sim_part = readme.split("### Simulated calibration records")
+    assert "| report-test-robot | METRES_PER_TICK | 0.000512 | m/tick |" in real_part
+    assert r"distance-cal \| 5 runs" in real_part and "GYRO_SCALE" not in real_part
+    assert "SIMULATED — not a measurement" in sim_part and "GYRO_SCALE" in sim_part
+
+    power = _rows(out / "power.csv")  # the simulated run and the run without power are left out
+    assert power == [{"run_id": str(real.id), "samples_with_power": "3", "duration_s": "4.0",
+                      "v_start": "12.1", "v_end": "11.9", "v_min": "11.9", "a_mean": "1.5",
+                      "a_max": "2.0", "wh_used": "0.5"}]  # fmt: skip
+    png = (out / "power_energy.png").read_bytes()
+    assert png.startswith(PNG_SIGNATURE) and len(png) > 5000
+
+    # only simulated power: "no data", never made up
+    out2 = tmp_path / "out2"
+    await export_report(db_session, out2, tmp_path / "none", tmp_path / "none", session_ids=[],
+                        run_ids=[sim.id], robot_ids=[])  # fmt: skip
+    assert len((out2 / "power.csv").read_text(encoding="utf-8").splitlines()) == 1
+    assert "No real calibration records yet." in (out2 / "README.md").read_text(encoding="utf-8")
+    assert "No real run" in NO_REAL_POWER

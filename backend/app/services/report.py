@@ -9,6 +9,9 @@ Rules that this module keeps:
   says "No data yet" and why.
 - A simulated run is labelled on the chart ("SIMULATED — not a physical result") and in the
   file name, and simulated runs never enter the return-trial statistics.
+- Calibration records (sprint 5): real ones in `calibration.csv`, simulated ones only in
+  `calibration_SIMULATED.csv` and in their own labelled README section. The power chart uses
+  real runs only.
 """
 
 import csv
@@ -30,7 +33,8 @@ from sqlalchemy import select  # noqa: E402
 from sqlalchemy.ext.asyncio import AsyncSession  # noqa: E402
 
 from app.api.rest.analytics import read_evaluation_runs  # noqa: E402
-from app.db.models import PoseSample, ReturnTrial, RobotRun, Turn  # noqa: E402
+from app.db.models import CalibrationRecord, PoseSample, ReturnTrial, RobotRun, Turn  # noqa: E402
+from app.services.bringup import SIMULATED_CALIBRATION_LABEL, calibration_records  # noqa: E402
 from app.services.evaluate import GOLDEN_DIR  # noqa: E402
 from app.services.latency import RESULTS_DIR as LATENCY_DIR  # noqa: E402
 from app.services.latency import STAGES as RUN_STAGES  # noqa: E402
@@ -39,6 +43,8 @@ from app.services.latency import percentile  # noqa: E402
 SIMULATED_LABEL = "SIMULATED — not a physical result"
 NO_REAL_TRIALS = "No physical return trials recorded yet. Simulated runs are never counted."
 MAX_TRAJECTORY_RUNS = 20
+MAX_POWER_RUNS = 8
+NO_REAL_POWER = "No real run has battery readings (power in the telemetry samples) yet."
 PASS_TARGET_PCT = 90.0
 
 # Column of the turns table -> label on the chart.
@@ -60,6 +66,16 @@ ORANGE = "#eb6834"
 INK = "#0b0b0b"
 MUTED = "#52514e"
 GRID = "#e4e3df"
+RUN_COLORS = (
+    "#2a78d6",
+    "#eb6834",
+    "#1f7a3a",
+    "#7a4fb5",
+    "#a15c00",
+    "#0f8b8d",
+    "#b8336a",
+    "#52514e",
+)
 LABEL_BOX = {"facecolor": "white", "edgecolor": "none", "alpha": 0.8, "pad": 1.0}
 
 
@@ -518,6 +534,135 @@ async def _return_trials(
     return files
 
 
+# ---------------- 7. calibration (sprint 5) ----------------
+CALIBRATION_HEADER = ["robot_id", "key", "value", "unit", "measured_at", "operator", "method",
+                      "received_at", "is_simulated"]  # fmt: skip
+
+
+def _calibration_row(r: CalibrationRecord) -> list[Any]:
+    value = r.value if isinstance(r.value, int | float) else json.dumps(r.value, ensure_ascii=False)
+    return [r.robot_id, r.key, value, r.unit,
+            r.measured_at.isoformat() if r.measured_at else None, r.operator, r.method,
+            r.received_at.isoformat() if r.received_at else None, r.is_simulated]  # fmt: skip
+
+
+async def _calibration(
+    session: AsyncSession, robot_ids: list[str] | None, out_dir: Path
+) -> tuple[list[Path], list[str]]:
+    """CSV files and the README section. Every stored value of a key is a row (its history)."""
+    real, simulated = await calibration_records(session, robot_ids)
+    files = [
+        _write_csv(out_dir / "calibration.csv", CALIBRATION_HEADER,
+                   [_calibration_row(r) for r in real]),
+        _write_csv(out_dir / "calibration_SIMULATED.csv", CALIBRATION_HEADER,
+                   [_calibration_row(r) for r in simulated]),
+    ]  # fmt: skip
+
+    def latest(rows: list[CalibrationRecord]) -> list[str]:
+        current: dict[tuple[str, str], CalibrationRecord] = {}
+        for r in rows:
+            current[(r.robot_id, r.key)] = r  # rows are oldest first
+        lines = [
+            "| Robot | Key | Value | Unit | Measured | Operator | Method |",
+            "|---|---|---|---|---|---|---|",
+        ]
+        for r in current.values():
+            cells = _calibration_row(r)
+            lines.append("| " + " | ".join(
+                str(c if c is not None else "–").replace("|", "\\|")
+                for c in cells[:7]
+            ) + " |")  # fmt: skip
+        return lines
+
+    section = ["", "## Calibration (current values)", ""]
+    if real:
+        intro = (
+            "Real calibration records reported by the robot (latest value of each key; every "
+            "earlier value is a row of `calibration.csv`)."
+        )
+        section += [intro, "", *latest(real)]
+    else:
+        section += ["No real calibration records yet."]
+    section += ["", f"### Simulated calibration records — {SIMULATED_CALIBRATION_LABEL}", ""]
+    if simulated:
+        section += ["Written by tests or against the simulated ESP32. Never report these as "
+                    "measurements.", "", *latest(simulated)]  # fmt: skip
+    else:
+        section += ["None."]
+    return files, section
+
+
+# ---------------- 8. power and energy of real runs (sprint 5) ----------------
+async def _power(session: AsyncSession, run_ids: list[int] | None, out_dir: Path) -> list[Path]:
+    stmt = (
+        select(RobotRun)
+        .where(RobotRun.is_simulated.is_(False))
+        .where(RobotRun.id.in_(select(PoseSample.run_id).where(PoseSample.power.is_not(None))))
+        .order_by(RobotRun.started_at.desc(), RobotRun.id.desc())
+    )
+    if run_ids is not None:
+        stmt = stmt.where(RobotRun.id.in_(run_ids))
+    runs = sorted((await session.scalars(stmt.limit(MAX_POWER_RUNS))).all(), key=lambda r: r.id)
+    series: list[tuple[RobotRun, list[tuple[float, dict[str, Any]]]]] = []
+    rows = []
+    for run in runs:
+        samples = [
+            (t / 1000, p)
+            for t, p in (
+                await session.execute(
+                    select(PoseSample.t_ms, PoseSample.power)
+                    .where(PoseSample.run_id == run.id, PoseSample.power.is_not(None))
+                    .order_by(PoseSample.t_ms, PoseSample.id)
+                )
+            ).all()
+        ]
+        series.append((run, samples))
+        volts = [p["v"] for _, p in samples if p.get("v") is not None]
+        amps = [p["a"] for _, p in samples if p.get("a") is not None]
+        wh = [p["wh"] for _, p in samples if p.get("wh") is not None]
+        rows.append([
+            run.id, len(samples), _r(samples[-1][0] - samples[0][0]) if samples else None,
+            _r(volts[0]) if volts else None, _r(volts[-1]) if volts else None,
+            _r(min(volts)) if volts else None, _r(statistics.mean(amps)) if amps else None,
+            _r(max(amps)) if amps else None, _r(wh[-1] - wh[0]) if len(wh) > 1 else None,
+        ])  # fmt: skip
+    header = ["run_id", "samples_with_power", "duration_s", "v_start", "v_end", "v_min", "a_mean",
+              "a_max", "wh_used"]  # fmt: skip
+    files = [_write_csv(out_dir / "power.csv", header, rows)]
+
+    title = "Battery voltage and energy used, physical runs only"
+    png = out_dir / "power_energy.png"
+    if not any(samples for _, samples in series):
+        files.append(_no_data_png(png, title, NO_REAL_POWER))
+        return files
+    fig, (ax_v, ax_wh) = plt.subplots(2, 1, figsize=(8, 6), dpi=DPI, sharex=True)
+    ax_v.set_title(f"{title} (from the battery monitor)", color=INK, fontsize=12, loc="left")
+    for ax in (ax_v, ax_wh):
+        for side in ("top", "right"):
+            ax.spines[side].set_visible(False)
+        for side in ("left", "bottom"):
+            ax.spines[side].set_color(MUTED)
+        ax.tick_params(colors=MUTED, labelsize=9)
+        ax.grid(color=GRID, linewidth=0.8)
+        ax.set_axisbelow(True)
+    for i, (run, samples) in enumerate(series):
+        color = RUN_COLORS[i % len(RUN_COLORS)]
+        v = [(t, p["v"]) for t, p in samples if p.get("v") is not None]
+        wh = [(t, p["wh"]) for t, p in samples if p.get("wh") is not None]
+        if v:
+            ax_v.plot([t for t, _ in v], [x for _, x in v], color=color, linewidth=1.8,
+                      label=f"run {run.id}")  # fmt: skip
+        if wh:  # energy used during the run: robotd counts Wh since it started
+            ax_wh.plot([t for t, _ in wh], [x - wh[0][1] for _, x in wh], color=color,
+                       linewidth=1.8, label=f"run {run.id}")  # fmt: skip
+    ax_v.set_ylabel("battery voltage (V)")
+    ax_wh.set_ylabel("energy used in the run (Wh)")
+    ax_wh.set_xlabel("time since the run started (s)")
+    ax_v.legend(loc="best", frameon=False, fontsize=9)
+    files.append(_save(fig, png))
+    return files
+
+
 # ---------------- README ----------------
 _DESCRIPTIONS: dict[str, str] = {
     "latency_stages.csv": "Per-stage latency (n, median, p90 nearest-rank, min, max, in ms). "
@@ -551,6 +696,16 @@ _DESCRIPTIONS: dict[str, str] = {
     "Simulated runs and pending trials are never counted.",
     "return_trials.png": "Histogram of the measured return error (m), physical runs only. "
     "Source: return_trials.",
+    "calibration.csv": "Every stored value of every calibration key of the real robot (a new row "
+    "only when a value changed, so older rows are the history), with when, who and how it was "
+    "measured. Source: calibration_records (is_simulated = false), from calibration.report.",
+    "calibration_SIMULATED.csv": "SIMULATED calibration records, not measurements (tests or the "
+    "simulated ESP32). Source: calibration_records (is_simulated = true).",
+    "power.csv": f"One row per physical run with battery readings (most recent {MAX_POWER_RUNS}): "
+    "samples, duration, start/end/minimum voltage, mean and maximum current, Wh used in the run. "
+    "Source: pose_samples.power. Simulated runs are left out.",
+    "power_energy.png": "Battery voltage and energy used over time per physical run. Source: "
+    "pose_samples.power. Simulated runs are left out.",
 }
 
 
@@ -566,7 +721,7 @@ def _describe(name: str) -> str:
     return _DESCRIPTIONS.get(name, "")
 
 
-def _write_readme(out_dir: Path, files: list[Path]) -> Path:
+def _write_readme(out_dir: Path, files: list[Path], extra: list[str] | None = None) -> Path:
     lines = [
         "# Report export",
         "",
@@ -582,6 +737,7 @@ def _write_readme(out_dir: Path, files: list[Path]) -> Path:
         "|---|---|",
     ]
     lines += [f"| `{p.name}` | {_describe(p.name)} |" for p in files]
+    lines += extra or []
     path = out_dir / "README.md"
     path.write_text("\n".join(lines) + "\n", encoding="utf-8")
     return path
@@ -596,13 +752,15 @@ async def export_report(
     *,
     session_ids: list[int] | None = None,
     run_ids: list[int] | None = None,
+    robot_ids: list[str] | None = None,
 ) -> list[Path]:
     """Write the report tables (CSV) and charts (PNG) into `out_dir`; return the files written.
 
     `golden_dir` is the golden-set folder (its `results/` sub-folder is read; a folder that holds
     the result files directly also works). `latency_dir` holds the latency measurement files.
     `session_ids` limits the conversation sections to those sessions and `run_ids` limits the
-    trajectory and return-trial sections to those runs (used by tests; None = everything).
+    trajectory, return-trial and power sections to those runs, `robot_ids` the calibration
+    section to those robots (used by tests; None = everything).
     """
     out_dir = Path(out_dir)
     out_dir.mkdir(parents=True, exist_ok=True)
@@ -616,5 +774,8 @@ async def export_report(
     files += await _speakers(session, session_ids, out_dir)
     files += await _trajectories(session, run_ids, out_dir)
     files += await _return_trials(session, run_ids, out_dir)
-    files.append(_write_readme(out_dir, files))
+    calibration_files, calibration_section = await _calibration(session, robot_ids, out_dir)
+    files += calibration_files
+    files += await _power(session, run_ids, out_dir)
+    files.append(_write_readme(out_dir, files, calibration_section))
     return files
