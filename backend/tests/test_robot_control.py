@@ -12,13 +12,15 @@ import pytest
 from sqlalchemy import select
 from starlette.testclient import TestClient
 
-from app.db.models import Event, ReturnTrial, RobotRun
+from app.db.models import Event, ReturnTrial, RobotRun, Session
 from app.db.session import get_sessionmaker
 from app.main import app
+from app.services.providers import get_embedder
 from app.services.robot_hub import SIMULATED_LABEL, RobotHub, RobotLink, RobotOffline, get_robot_hub
+from app.services.speech import get_tts
 from app.telemetry.sim_robot import SimulatedRobot
 from tests.conftest import ADMIN_HEADERS
-from tests.fakes import OneSession
+from tests.fakes import FakeEmbedder, FakeTTS, OneSession
 
 STATUS = {"type": "robot.status", "state": "IDLE", "is_simulated": True, "battery_v": 7.9,
           "battery_pct": 75, "faults": [], "sensors": {"imu": "ok", "encoders": "ok"},
@@ -347,3 +349,121 @@ def test_command_flow_over_the_websocket_with_a_fake_robot_client() -> None:
     finally:
         app.dependency_overrides.pop(get_robot_hub, None)
         app.dependency_overrides.pop(get_sessionmaker, None)
+
+
+# ---------------- two connections: the screen page talks, robotd records the run ----------------
+class _MemoryDb(_NullSession):
+    """Keeps rows in memory and numbers them, so two WebSocket connections can share runs and
+    sessions without touching the database."""
+
+    def __init__(self) -> None:
+        self.rows: dict[tuple[type, int], object] = {}
+
+    def add(self, row: object) -> None:
+        row.id = len(self.rows) + 1  # type: ignore[attr-defined]
+        self.rows[(type(row), row.id)] = row  # type: ignore[attr-defined]
+
+    async def get(self, model: type, key: int):  # noqa: ANN201
+        return self.rows.get((model, key))
+
+    async def refresh(self, row: object) -> None:
+        return None
+
+    async def scalar(self, *args: object) -> int:
+        return 0
+
+
+def _settle(ws) -> None:  # noqa: ANN001
+    """Wait until the connection's worker has handled everything sent so far."""
+    ws.send_json({"type": "nonsense"})
+    assert ws.receive_json()["code"] == "unknown_type"
+
+
+def _robot_online(ws) -> None:  # noqa: ANN001
+    ws.send_json({"type": "hello", "robot_id": "robotd-test", "protocol_version": 2})
+    assert ws.receive_json()["type"] == "hello.ack"
+    ws.send_json(STATUS)
+    ws.send_json({"type": "heartbeat"})
+    assert ws.receive_json()["type"] == "heartbeat"
+
+
+def _open_run(ws) -> int:  # noqa: ANN001
+    ws.send_json({"type": "run.start", "is_simulated": True})  # SIMULATED run (rule 5)
+    started = ws.receive_json()
+    assert started["type"] == "run.started" and started["is_simulated"] is True
+    _settle(ws)
+    return started["run_id"]
+
+
+def _session_run_id(tc: TestClient, db: _MemoryDb, own_run: bool = False) -> tuple:
+    """A screen page connects and starts a conversation: (the session's robot_run_id, the id
+    of the run opened on the page's own connection when `own_run`)."""
+    with tc.websocket_connect("/ws/robot") as page:
+        own = _open_run(page) if own_run else None
+        page.send_json({"type": "session.start", "lang": "ar"})
+        while (msg := page.receive_json())["type"] != "session.started":
+            pass
+        while not (msg["type"] == "dialogue.state" and msg["state"] == "LISTENING"):
+            msg = page.receive_json()
+        session = next(r for r in db.rows.values() if isinstance(r, Session) and r.ended_at is None)
+        return session.robot_run_id, own
+
+
+def test_session_on_the_page_connection_is_linked_to_the_robots_open_run() -> None:
+    hub, db = RobotHub(), _MemoryDb()
+    app.dependency_overrides[get_robot_hub] = lambda: hub
+    app.dependency_overrides[get_sessionmaker] = lambda: db
+    app.dependency_overrides[get_embedder] = lambda: FakeEmbedder()
+    app.dependency_overrides[get_tts] = lambda: FakeTTS()
+    try:
+        with TestClient(app) as tc:
+            assert _session_run_id(tc, db) == (None, None)  # no robot connected: no link
+            with tc.websocket_connect("/ws/robot") as robot:
+                _robot_online(robot)
+                assert _session_run_id(tc, db) == (None, None)  # robot online, no run open
+                run_id = _open_run(robot)
+                assert hub.open_run_id() == run_id
+                assert _session_run_id(tc, db) == (run_id, None)  # the other connection's run
+
+                linked, own = _session_run_id(tc, db, own_run=True)
+                assert linked == own != run_id  # a connection's own run still comes first
+
+                robot.send_json({"type": "run.end"})
+                assert robot.receive_json()["type"] == "run.ended"
+                _settle(robot)
+                assert _session_run_id(tc, db) == (None, None)  # the run has ended
+
+                run_id = _open_run(robot)
+                assert _session_run_id(tc, db) == (run_id, None)
+            deadline = time.monotonic() + 5
+            while hub.links and time.monotonic() < deadline:
+                time.sleep(0.01)
+            assert hub.links == {}
+            assert _session_run_id(tc, db) == (None, None)  # the robot link is gone
+            assert db.rows[(RobotRun, run_id)].ended_at is not None  # closed by the disconnect
+    finally:
+        for dep in (get_robot_hub, get_sessionmaker, get_embedder, get_tts):
+            app.dependency_overrides.pop(dep, None)
+
+
+def test_open_run_is_only_taken_from_a_live_robot_link() -> None:
+    hub = RobotHub()
+    assert hub.open_run_id() is None
+    page = FakeRobot(hub)  # a browser page: it never sends robot.status
+    page.link.run_id = 11
+    old = FakeRobot(hub, version=1)
+    old.link.run_id = 12
+    old.report()
+    assert hub.open_run_id() is None
+    robot = FakeRobot(hub)
+    robot.link.run_id = 13
+    robot.report()
+    assert hub.open_run_id() == 13
+    robot.link.status_at = time.monotonic() - 60  # silent for a minute: offline
+    assert hub.open_run_id() is None
+    robot.report()
+    robot.link.run_id = None  # run.end
+    assert hub.open_run_id() is None
+    robot.link.run_id = 14
+    hub.unregister(robot.link)
+    assert hub.open_run_id() is None

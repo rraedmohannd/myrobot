@@ -89,6 +89,14 @@ class RobotHub:
         ]  # fmt: skip
         return max(candidates, key=lambda link: link.status_at or 0.0, default=None)
 
+    def open_run_id(self) -> int | None:
+        """The run that is open on the live robot, for conversations that arrive on ANOTHER
+        connection: on the real robot the screen page carries the conversation while `robotd`
+        sends the status and the telemetry. None when no robot is connected, when it went
+        silent, or when it has no open run (`run_id` is cleared at `run.end`)."""
+        link = self.current()
+        return link.run_id if link is not None else None
+
     # ---------- robot -> backend ----------
     def on_status(self, link: RobotLink, msg: dict[str, Any]) -> None:
         try:

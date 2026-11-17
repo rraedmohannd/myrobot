@@ -99,9 +99,13 @@ async def robot_socket(
             try:
                 if msg.get("type") in TelemetryRecorder.TYPES:
                     await recorder.handle(msg)
-                    manager.robot_run_id = recorder.run_id  # conversations during a run link to it
                     link.run_id = recorder.run_id
                 else:
+                    # Conversations during a run link to it: this connection's own run, or
+                    # else the run open on the live robot link (the screen page and `robotd`
+                    # are two connections). Read when the session row is created.
+                    own = recorder.run_id
+                    manager.robot_run_id = own if own is not None else hub.open_run_id()
                     await manager.handle(msg)
             except (WebSocketDisconnect, asyncio.CancelledError):
                 raise
