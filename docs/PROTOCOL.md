@@ -84,6 +84,28 @@ robot  → robot.command.ack {id, accepted, reason?}    stored as event `command
 - An accepted `return_to_start` on a **real** run opens a return trial in the `pending` state. Its error is typed in by hand after measuring on the floor; simulated runs never get a return trial (rule 5).
 - `robot.status.state`: IDLE, ROAMING, ENGAGED (a visitor is detected), CONVERSATION, RETURNING, FAULT, PAUSED. `sensors` maps a sensor name to `ok`, `degraded`, `fault` or `absent`.
 
+### Battery, health, firmware and calibration (sprint 5; additive, version stays 2)
+Every field below is **optional**. A robot that sends none of them (sprints 3–4, `/voice`) is unaffected, and a version-1 client never sees any of it. Unknown fields are still ignored, so a newer robot can talk to this backend.
+
+`robot.status` may add:
+
+| field | meaning |
+|---|---|
+| `battery_a` | battery current in A, positive = discharging (INA219) |
+| `energy_wh` | Wh used since `robotd` started (integrated current × voltage) |
+| `battery_warning` | `true` while the battery is below the warning level (default 10.5 V for the 3S pack) |
+| `health` | Raspberry Pi: `cpu_temp_c`, `under_voltage_now`, `under_voltage_seen`, `throttled_now`, `throttled_seen`, `cpu_load_1m`, `mem_used_pct`, `disk_used_pct` (each optional) |
+| `firmware` | ESP32, from `DIAG_REPORT`: `version`, `git`, `param_hash` (8 hex digits), `pins_confirmed`, `build_env`, `reset_reason` (each optional) |
+| `calibration` | the calibration file: `status` (`none` / `partial` / `complete`), `updated?`, `is_simulated` (required inside the block) |
+
+The admin "Robot (live)" tab shows battery %, V, A, Wh, the warning and a Pi health line; the "Bring-up" tab shows firmware, health, calibration and sensors. Display only: the backend never acts on these values (rule 4).
+
+`calibration.report {is_simulated, robot_id?, version, values: {key: {value, unit?, date?, operator?, method?, raw?}}}` is sent by the robot at connect and whenever its calibration file changes. Keys are the parameter names of `shared/scr_serial/params.json` (e.g. `METRES_PER_TICK`) or lower-case Pi-only keys (e.g. `track_width_m`, `battery_table`); `value` may be a number or a structure such as a table. The backend answers nothing (an invalid report gets `error` `bad_message`). It stores one row in `calibration_records` per key **whose value changed** (per robot and per simulated/real), so older rows of a key are its history; `robot_id` falls back to the `hello.robot_id` of the connection. `is_simulated: true` records (tests, the simulated ESP32) are shown apart with "SIMULATED — not a measurement" and exported only to `calibration_SIMULATED.csv` (rule 5).
+
+Telemetry samples may carry `power: {v?, a?, wh?}` (same meanings as above). The admin "Bring-up" tab draws V, A and Wh over the run time; `export-report` writes `power.csv` and `power_energy.png` from **real** runs only.
+
+Event kinds added in sprint 5 (free strings in `event.kind`): `under_voltage` (the Pi reported under-voltage; evidence for the power design), `battery_warning`, `slip` (`data.side`), `gyro_bias` (`data.bias_rad_s`, `data.source` `start` or `still`), `blackbox` (`data.file`, a black-box dump written on the Pi). `under_voltage` and `battery_warning` are stored even when no run is open (`events.run_id` NULL); every other event still needs `run.start` first (`error` `no_run`).
+
 ### `display.update.card` (optional; sent with found answers)
 | field | meaning |
 |---|---|
