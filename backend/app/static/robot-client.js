@@ -61,9 +61,14 @@
       this.emit("conn", "connecting");
       this.connecting = new Promise(resolve => {
         const proto = location.protocol === "https:" ? "wss" : "ws";
-        const query = this.o.token ? `?token=${encodeURIComponent(this.o.token)}` : "";
+        // robotd's local UI server serves this page from the robot itself and sets
+        // window.SCR_BACKEND ("host:port" of the backend) and window.SCR_ROBOT_TOKEN. Without
+        // them (pages served by the backend) nothing changes: same host, token from the options.
+        const host = global.SCR_BACKEND || location.host;
+        const token = this.o.token || global.SCR_ROBOT_TOKEN || null;
+        const query = token ? `?token=${encodeURIComponent(token)}` : "";
         let ws;
-        try { ws = new WebSocket(`${proto}://${location.host}/ws/robot${query}`); }
+        try { ws = new WebSocket(`${proto}://${host}/ws/robot${query}`); }
         catch (e) { this.connecting = null; this._closed(null, "closed"); resolve(false); return; }
         this.ws = ws;
         ws.onopen = () => {

@@ -70,7 +70,7 @@ class AckStatus(IntEnum):
     BAD_ARGUMENT = 2
     BUSY = 3  # e.g. CALIBRATE_GYRO while moving
     UNKNOWN_TYPE = 4
-    REJECTED_SAFETY = 5  # e.g. forward DRIVE while the front is blocked, reverse without rear sensing
+    REJECTED_SAFETY = 5  # e.g. forward DRIVE while the front is blocked; reverse with no rear sensor
 
 
 def _clamp_i16(value: float) -> int:
@@ -97,7 +97,7 @@ class Drive:
 
 @dataclass(frozen=True)
 class Servo:
-    """Camera pan angle in degrees (wire: centidegrees, i16). 0 = straight ahead, positive = left."""
+    """Camera pan angle in degrees (wire: centidegrees, i16). 0 = straight ahead, + = left."""
 
     pan_deg: float
     TYPE: ClassVar[MsgType] = MsgType.SERVO

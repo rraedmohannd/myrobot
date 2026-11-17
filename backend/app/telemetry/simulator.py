@@ -23,6 +23,8 @@ import random
 from dataclasses import asdict, dataclass, field
 from typing import Any
 
+from scr_odometry.geometry import Box, range_min
+
 from app.telemetry.odometry import (
     Pose,
     encoder_heading_change,
@@ -30,8 +32,6 @@ from app.telemetry.odometry import (
     vector_to_origin,
     wrap_angle,
 )
-
-Box = tuple[float, float, float, float]  # x_min, y_min, x_max, y_max
 
 
 @dataclass
@@ -85,34 +85,10 @@ class SimResult:
         }
 
 
-# ---------------- geometry ----------------
-def _ray_box(px: float, py: float, dx: float, dy: float, box: Box, inside: bool) -> float:
-    """Distance along the ray to the box (from outside), or to its walls (from inside)."""
-    x0, y0, x1, y1 = box
-    t_near, t_far = -math.inf, math.inf
-    for p, d, lo, hi in ((px, dx, x0, x1), (py, dy, y0, y1)):
-        if abs(d) < 1e-12:
-            if p < lo or p > hi:
-                return math.inf
-            continue
-        a, b = (lo - p) / d, (hi - p) / d
-        t_near, t_far = max(t_near, min(a, b)), min(t_far, max(a, b))
-    if t_near > t_far or t_far < 0:
-        return math.inf
-    if inside:
-        return t_far
-    return t_near if t_near >= 0 else 0.0  # already inside an obstacle: distance 0
-
-
+# ---------------- geometry (shared with robotd's simulated ESP32: shared/scr_odometry) ----------
 def range_ahead(cfg: SimConfig, pose: Pose) -> float:
     """Simulated ultrasonic reading: nearest wall or obstacle over three rays (-25, 0, +25 deg)."""
-    best = math.inf
-    for offset in (-0.44, 0.0, 0.44):
-        dx, dy = math.cos(pose.theta + offset), math.sin(pose.theta + offset)
-        best = min(best, _ray_box(pose.x, pose.y, dx, dy, cfg.room, inside=True))
-        for box in cfg.obstacles:
-            best = min(best, _ray_box(pose.x, pose.y, dx, dy, box, inside=False))
-    return best
+    return range_min(pose.x, pose.y, pose.theta, (-0.44, 0.0, 0.44), cfg.room, cfg.obstacles)
 
 
 # ---------------- the simulated robot ----------------

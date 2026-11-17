@@ -1,0 +1,168 @@
+"""robotd configuration: defaults, then an optional JSON file, then environment variables.
+
+Secrets (ROBOT_TOKEN) come from the process environment or the config file given on the command
+line, never from the repository's .env (CLAUDE.md rule 6).
+
+*** The odometry numbers (`metres_per_tick`, `track_width_m`), the battery limits and the
+navigation distances are PLACEHOLDERS. Nothing here was measured on the real Rover 5 yet; they
+are replaced by the calibration of docs/ODOMETRY.md section 5 when the hardware exists. ***
+"""
+
+import json
+import os
+from dataclasses import asdict, dataclass, fields
+from pathlib import Path
+from typing import Any
+
+
+@dataclass
+class Config:
+    # ---- ESP32 link ----
+    serial_port: str = "/dev/esp32"  # udev name on the Pi; e.g. COM5 on Windows
+    serial_baud: int = 460800
+    sim: bool = False  # --sim: start the SIMULATED ESP32 in-process and connect over TCP
+    sim_host: str = "127.0.0.1"
+    sim_port: int = 8766
+    sim_seed: int = 7
+    drive_hz: float = 20.0  # DRIVE while moving
+    heartbeat_hz: float = 10.0  # HEARTBEAT otherwise
+    telemetry_timeout_ms: int = 500  # no TELEMETRY for this long -> FAULT, no more commands
+    reconnect_s: float = 1.0
+
+    # ---- odometry (PLACEHOLDERS, not measured) ----
+    metres_per_tick: float = 0.0005
+    track_width_m: float = 0.19
+    slip_ratio: float = 0.25  # front/rear disagreement on one side (fraction of the motion)
+    slip_min_ticks: int = 30  # ... checked only above this many ticks per window
+    slip_window_s: float = 0.5
+
+    # ---- navigation (proposed values, to be tuned on the floor) ----
+    roam_speed_mps: float = 0.20
+    turn_rate_rps: float = 1.0
+    max_segment_m: float = 5.0
+    min_segment_m: float = 1.5
+    obstacle_stop_m: float = 0.45  # roaming: turn away below this (ESP32 hard stop: 0.25 m)
+    obstacle_clear_m: float = 0.70  # a direction counts as free above this
+    backoff_below_m: float = 0.22  # closer than this: back off first (only with rear sensing)
+    backoff_distance_m: float = 0.15
+    rear_clear_m: float = 0.40
+    breadcrumb_spacing_m: float = 0.3
+    breadcrumb_heading_rad: float = 0.5
+    arrival_tolerance_m: float = 0.15  # proposed in ODOMETRY.md, to be approved by the supervisor
+    crumb_tolerance_m: float = 0.12
+    return_block_m: float = 0.40
+    hard_stop_m: float = 0.28  # the ESP32 stops forward motion at 0.25 m: never push into that
+    return_block_wait_s: float = 5.0  # breadcrumb mode: wait this long before giving up
+    return_timeout_s: float = 180.0
+
+    # ---- supervisor ----
+    engage_timeout_s: float = 10.0  # ENGAGED without a conversation -> resume
+    reengage_cooldown_s: float = 5.0  # after a conversation, ignore "engaged" for this long
+    fault_clear_s: float = 2.0  # faults must be gone for this long before leaving FAULT
+    resume_after_backend_loss: bool = True
+    battery_low_v: float = 9.9  # 3S Li-ion, 3.3 V per cell (placeholder)
+    battery_empty_v: float = 9.0
+    battery_full_v: float = 12.6
+    servo_min_interval_s: float = 0.1
+    servo_min_change_deg: float = 0.5
+    vision_timeout_s: float = 1.5  # no vision.state for this long -> camera "absent"
+
+    # ---- backend link ----
+    backend_url: str = "ws://localhost:8000/ws/robot"
+    robot_token: str = ""
+    robot_id: str = "robotd"
+    backend_reconnect_s: float = 2.0
+    backend_heartbeat_s: float = 5.0
+    backend_lost_after_s: float = 15.0
+    status_period_s: float = 1.0
+    sample_period_ms: int = 100  # 10 Hz pose samples
+    telemetry_batch: int = 10
+    outbox_max: int = 2000  # bounded buffer of run messages while the backend is away
+
+    # ---- local UI server ----
+    ui_host: str = "127.0.0.1"
+    ui_port: int = 8765
+    assets_dir: str = ""  # a local copy of backend/app/static (else: synced over HTTP)
+    cache_dir: str = ""  # where synced assets are kept; default ~/.cache/robotd/assets
+    page_backend: str = ""  # host:port the PAGE uses for /ws/robot; default: from backend_url
+
+    @property
+    def backend_http(self) -> str:
+        """http(s)://host:port of the backend, derived from the WebSocket address."""
+        url = self.backend_url
+        scheme = "https" if url.startswith("wss://") else "http"
+        rest = url.split("://", 1)[-1]
+        return f"{scheme}://{rest.split('/', 1)[0]}"
+
+    @property
+    def page_backend_host(self) -> str:
+        return self.page_backend or self.backend_http.split("://", 1)[1]
+
+    @property
+    def cache_path(self) -> Path:
+        return Path(self.cache_dir) if self.cache_dir else Path.home() / ".cache/robotd/assets"
+
+    def odom_config(self, is_simulated: bool) -> dict[str, Any]:
+        """Stored with every run (robot_runs.odom_config), so a run documents its own settings."""
+        out: dict[str, Any] = {
+            "simulated": is_simulated,
+            "source": "robotd",
+            "metres_per_tick": self.metres_per_tick,
+            "track_width_m": self.track_width_m,
+            "calibrated": False,  # placeholders until ODOMETRY.md section 5 is done
+            "arrival_tolerance_m": self.arrival_tolerance_m,
+            "sample_rate_hz": round(1000 / self.sample_period_ms, 1),
+            "roam_speed_mps": self.roam_speed_mps,
+        }
+        if is_simulated:
+            out["note"] = "SIMULATED run (simulated ESP32) - not a physical result"
+        return out
+
+
+_ENV = {
+    "BACKEND_URL": "backend_url",
+    "ROBOT_TOKEN": "robot_token",
+    "ROBOT_ID": "robot_id",
+    "ROBOTD_SERIAL_PORT": "serial_port",
+    "ROBOTD_UI_PORT": "ui_port",
+    "ROBOTD_UI_HOST": "ui_host",
+    "ROBOTD_SIM_PORT": "sim_port",
+    "ROBOTD_ASSETS_DIR": "assets_dir",
+    "ROBOTD_CACHE_DIR": "cache_dir",
+    "ROBOTD_PAGE_BACKEND": "page_backend",
+}
+
+
+def _coerce(current: Any, value: Any) -> Any:
+    if isinstance(current, bool):
+        return value if isinstance(value, bool) else str(value).lower() in ("1", "true", "yes")
+    return type(current)(value)
+
+
+def load_config(
+    path: str | None = None, env: dict[str, str] | None = None, **overrides: Any
+) -> Config:  # fmt: skip
+    """Defaults < JSON file < environment < explicit overrides (None values are ignored)."""
+    cfg = Config()
+    known = {f.name for f in fields(Config)}
+    if path:
+        data = json.loads(Path(path).read_text(encoding="utf-8"))
+        for key, value in data.items():
+            if key not in known:
+                raise ValueError(f"unknown config key: {key}")
+            setattr(cfg, key, _coerce(getattr(cfg, key), value))
+    source = os.environ if env is None else env
+    for name, key in _ENV.items():
+        if source.get(name):
+            setattr(cfg, key, _coerce(getattr(cfg, key), source[name]))
+    for key, value in overrides.items():
+        if value is not None:
+            setattr(cfg, key, _coerce(getattr(cfg, key), value))
+    return cfg
+
+
+def public_dict(cfg: Config) -> dict[str, Any]:
+    """The configuration without the token (for logs)."""
+    out = asdict(cfg)
+    out["robot_token"] = "set" if cfg.robot_token else ""
+    return out
