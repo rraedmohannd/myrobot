@@ -6,7 +6,7 @@ Fakes only; every row is rolled back after the test.
 """
 
 import pytest
-from sqlalchemy import select
+from sqlalchemy import select, text
 
 from app.db.models import Chunk, Faculty, Faq, Pitch, Program, Source, Turn
 from app.main import app
@@ -17,6 +17,21 @@ from app.services.speech import get_tts
 from tests.fakes import FakeEmbedder, FakeLLM, FakeSTT, FakeTTS, OneSession
 
 SLUG = "intelligent-systems-engineering"  # a real slug, so the spoken-name aliases apply
+
+
+@pytest.fixture(autouse=True)
+async def _only_the_test_rows_are_approved(db_session) -> None:
+    """These tests state what an approved FAQ or pitch does, so the only approved ones must be
+    the rows a test adds. The development database holds the student's own approved FAQs and
+    pitches since 2026-11-17 (before, all were pending). They are set aside here INSIDE the
+    test transaction, which is rolled back: the real rows are never changed."""
+    await db_session.execute(
+        text("UPDATE faqs SET review_status = 'pending' WHERE review_status = 'approved'")
+    )
+    await db_session.execute(
+        text("UPDATE pitches SET review_status = 'pending' WHERE review_status = 'approved'")
+    )
+    await db_session.commit()  # a savepoint of the rolled-back test transaction
 Q_AR, Q_EN = "كم ساعة معتمدة بدها هندسة الأنظمة الذكية؟", "How many credit hours is Intelligent Systems Engineering?"
 A_AR, A_EN = "بدها 162 ساعة معتمدة حسب الخطة.", "It requires 162 credit hours according to the plan."
 
