@@ -38,3 +38,11 @@ if the backend sends anything that is not in the contract.
 
 Safety: every backend → robot command is a request. The robot and the ESP32 decide locally and stop
 safely without the backend (CLAUDE.md rule 4).
+
+## Also in this folder (sprint 4)
+| Path | What it is |
+|---|---|
+| `scr_serial/` | Pi ↔ ESP32 serial frames (COBS + CRC-16 + sequence number), standard library only. Human description: `docs/SERIAL_PROTOCOL.md`. The C++ twin is `firmware/lib/protocol` |
+| `serial_fixtures/` | the same test frames written by the Python side (`python -m scr_serial.vectors`) and by the C++ native tests; each side's tests decode the other's file |
+| `scr_odometry/` | pose update, vector to the start point and room geometry: one implementation used by the backend simulator and by `robotd` |
+| `vision_thresholds.json` | engagement / active-speaker thresholds shared by the browser prototype and `visiond` |

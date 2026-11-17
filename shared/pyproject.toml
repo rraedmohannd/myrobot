@@ -1,7 +1,7 @@
 [project]
 name = "smart-campus-protocol"
 version = "2.0.0"
-description = "Robot <-> backend WebSocket message contract of the MEU reception robot (protocol version 2)"
+description = "Shared contracts of the MEU reception robot: robot <-> backend messages (protocol version 2), Pi <-> ESP32 serial frames, odometry maths"
 requires-python = ">=3.11"
 dependencies = [
     "pydantic>=2.9,<3.0",
@@ -12,7 +12,7 @@ requires = ["setuptools>=70"]
 build-backend = "setuptools.build_meta"
 
 [tool.setuptools.packages.find]
-include = ["scr_protocol*"]
+include = ["scr_protocol*", "scr_serial*", "scr_odometry*"]
 
 [tool.setuptools.package-data]
 scr_protocol = ["py.typed"]
