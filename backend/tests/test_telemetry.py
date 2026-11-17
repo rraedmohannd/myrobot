@@ -282,3 +282,39 @@ async def test_runs_api(admin_client, db_session) -> None:
         )
         assert "No physical return trials" in before["note"]
     assert (await admin_client.get("/api/admin/runs/999999999")).status_code == 404
+
+
+# ---------------- sprint 5: power in samples, warning events ----------------
+async def test_power_samples_and_warning_events_are_stored(db_session) -> None:
+    rec, sent = _recorder(db_session)
+    # outside a run: the power warnings are kept (evidence for the power design), others refused
+    await rec.handle({"type": "event", "t_ms": 5, "kind": "under_voltage",
+                      "data": {"source": "vcgencmd"}})  # fmt: skip
+    await rec.handle({"type": "event", "t_ms": 6, "kind": "obstacle"})
+    assert sent[-1]["code"] == "no_run" and len(sent) == 1
+    await rec.handle({"type": "run.start", "is_simulated": True})  # SIMULATED (rule 5)
+    run_id = sent[-1]["run_id"]
+    await rec.handle({"type": "telemetry", "samples": [
+        {"t_ms": 0, "x_m": 0, "y_m": 0, "theta_rad": 0, "power": {"v": 11.9, "a": 1.5, "wh": 0.1}},
+        {"t_ms": 100, "x_m": 0, "y_m": 0, "theta_rad": 0, "power": {"v": 11.8}},
+        {"t_ms": 200, "x_m": 0, "y_m": 0, "theta_rad": 0, "power": {}},
+        {"t_ms": 300, "x_m": 0, "y_m": 0, "theta_rad": 0},
+    ]})  # fmt: skip
+    for kind in ("under_voltage", "battery_warning", "slip", "gyro_bias", "blackbox"):
+        await rec.handle({"type": "event", "t_ms": 150, "kind": kind, "data": {"x": 1}})
+    await rec.handle({"type": "telemetry", "samples": [
+        {"t_ms": 400, "x_m": 0, "y_m": 0, "theta_rad": 0, "power": {"v": 99}}]})  # fmt: skip
+    assert sent[-1]["code"] == "bad_message"  # out of range: not stored
+    powers = (await db_session.scalars(
+        select(PoseSample.power).where(PoseSample.run_id == run_id).order_by(PoseSample.t_ms)
+    )).all()  # fmt: skip
+    assert powers == [{"v": 11.9, "a": 1.5, "wh": 0.1}, {"v": 11.8}, None, None]
+    kinds = (await db_session.scalars(
+        select(Event.kind).where(Event.run_id == run_id).order_by(Event.id)
+    )).all()  # fmt: skip
+    assert kinds == ["under_voltage", "battery_warning", "slip", "gyro_bias", "blackbox"]
+    loose = await db_session.scalar(
+        select(Event).where(Event.run_id.is_(None), Event.kind == "under_voltage",
+                            Event.t_ms == 5).order_by(Event.id.desc()).limit(1)
+    )  # fmt: skip
+    assert loose is not None and loose.data == {"source": "vcgencmd"}

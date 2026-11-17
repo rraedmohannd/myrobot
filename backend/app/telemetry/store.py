@@ -23,6 +23,14 @@ class TelemetryError(ValueError):
         self.code = code
 
 
+class PowerIn(BaseModel):
+    """Battery reading of a sample (sprint 5): volts, amps (positive = discharging), Wh used."""
+
+    v: float | None = Field(default=None, ge=0, le=60)
+    a: float | None = Field(default=None, ge=-100, le=100)
+    wh: float | None = None
+
+
 class SampleIn(BaseModel):
     t_ms: int = Field(ge=0)
     x_m: float
@@ -33,6 +41,7 @@ class SampleIn(BaseModel):
     enc: dict[str, Any] | None = None
     imu: dict[str, Any] | None = None
     state: str | None = Field(default=None, max_length=32)
+    power: PowerIn | None = None
 
 
 class EventIn(BaseModel):
@@ -72,12 +81,20 @@ async def add_samples(session: AsyncSession, run_id: int, samples: list[dict[str
         parsed = [SampleIn.model_validate(s) for s in samples]
     except ValidationError as e:
         raise TelemetryError("bad_message", f"invalid sample: {e.errors()[0]['msg']}") from e
-    session.add_all([PoseSample(run_id=run_id, **s.model_dump()) for s in parsed])
+    session.add_all([
+        PoseSample(run_id=run_id, **s.model_dump(exclude={"power"}),
+                   power=s.power.model_dump(exclude_none=True) or None if s.power else None)
+        for s in parsed
+    ])  # fmt: skip
     await session.commit()
     return len(parsed)
 
 
-async def add_event(session: AsyncSession, run_id: int, event: dict[str, Any]) -> Event:
+# Power-design evidence (sprint 5): these warnings are stored even when no run is open.
+WARNING_EVENTS = ("under_voltage", "battery_warning")
+
+
+async def add_event(session: AsyncSession, run_id: int | None, event: dict[str, Any]) -> Event:
     try:
         parsed = EventIn.model_validate(event)
     except ValidationError as e:
@@ -150,6 +167,9 @@ class TelemetryRecorder:
                     self.run_id = run.id
                     await self.send({"type": "run.started", "run_id": run.id,
                                      "is_simulated": run.is_simulated})  # fmt: skip
+                    return
+                if self.run_id is None and kind == "event" and msg.get("kind") in WARNING_EVENTS:
+                    await add_event(db, None, {k: msg.get(k) for k in ("t_ms", "kind", "data")})
                     return
                 if self.run_id is None:
                     raise TelemetryError("no_run", f"{kind} needs run.start first")

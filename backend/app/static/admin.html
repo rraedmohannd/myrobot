@@ -612,6 +612,31 @@ function robotTrail(points) {
     <circle cx="${X(0)}" cy="${Y(0)}" r="6" fill="#0b0b0b"><title>Start (0, 0)</title></circle><circle cx="${X(last[0])}" cy="${Y(last[1])}" r="6" fill="${RET}" stroke="#fff" stroke-width="2"><title>Reported position now</title></circle></svg>
     <div class="legend"><span>● start</span><span style="color:${RET}">● reported position now (odometry estimate)</span><span>${points.length} points</span></div>`;
 }
+// Battery and Pi health (sprint 5): every field is optional; only what the robot reports is shown.
+function batteryLine(s) {
+  const parts = [];
+  if (s.battery_pct != null) parts.push(`<span class="battery"><i style="width:${Math.max(0, Math.min(100, s.battery_pct))}%"></i></span> <b>${Math.round(s.battery_pct)} %</b>`);
+  if (s.battery_v != null) parts.push(s.battery_v.toFixed(2) + " V");
+  if (s.battery_a != null) parts.push(s.battery_a.toFixed(2) + " A" + (s.battery_a < 0 ? " (charging)" : ""));
+  if (s.energy_wh != null) parts.push(s.energy_wh.toFixed(2) + " Wh used since robotd started");
+  if (s.battery_warning) parts.push(`<span class="tag bad">! low battery warning</span>`);
+  return parts.length ? parts.join(" · ") : "not reported";
+}
+function healthLine(s) {
+  const h = s.health;
+  if (!h) return "";
+  const parts = [];
+  if (h.cpu_temp_c != null) parts.push(`<span class="tag ${h.cpu_temp_c >= 80 ? "bad" : h.cpu_temp_c >= 70 ? "warn" : ""}">CPU ${h.cpu_temp_c.toFixed(1)} °C</span>`);
+  if (h.under_voltage_now) parts.push(`<span class="tag bad">! under-voltage now</span>`);
+  else if (h.under_voltage_seen) parts.push(`<span class="tag warn">under-voltage seen since boot</span>`);
+  else if (h.under_voltage_now === false) parts.push(`<span class="tag good">✓ no under-voltage</span>`);
+  if (h.throttled_now) parts.push(`<span class="tag bad">! throttled now</span>`);
+  else if (h.throttled_seen) parts.push(`<span class="tag warn">throttled since boot</span>`);
+  if (h.cpu_load_1m != null) parts.push(`load ${h.cpu_load_1m.toFixed(2)}`);
+  if (h.mem_used_pct != null) parts.push(`memory ${Math.round(h.mem_used_pct)} %`);
+  if (h.disk_used_pct != null) parts.push(`disk ${Math.round(h.disk_used_pct)} %`);
+  return parts.join(" ");
+}
 async function loadRobot() {
   let d;
   try { d = await api("/api/admin/robot"); } catch (e) { el("view-robot").innerHTML = `<div class="card"><p>${esc(e.message)}</p></div>`; return; }
@@ -622,7 +647,8 @@ async function loadRobot() {
       ${r ? `${r.is_simulated ? `<div class="banner">⚠ SIMULATED — not a physical robot. This is the software simulator (<code>simulate-robot</code>); nothing here is a measurement.</div>` : ""}
         <p><span class="state ${esc(s.state)}">${esc(s.state)}</span> &nbsp; <b>${esc(r.robot_id || "robot")}</b> <span class="muted">· protocol ${r.protocol_version} · connected ${r.connected_s} s · last status ${r.status_age_s} s ago${s.mode ? " · mode " + esc(s.mode) : ""}${r.run_id ? " · run " + r.run_id : ""}</span></p>
         <table class="data">
-          <tr><th>Battery</th><td>${s.battery_v == null ? "not reported" : s.battery_v.toFixed(2) + " V"}${s.battery_pct == null ? "" : ` &nbsp; <span class="battery"><i style="width:${Math.max(0, Math.min(100, s.battery_pct))}%"></i></span> ${Math.round(s.battery_pct)} %`}</td></tr>
+          <tr><th>Battery</th><td>${batteryLine(s)}</td></tr>
+          ${healthLine(s) ? `<tr><th>Pi health</th><td>${healthLine(s)}</td></tr>` : ""}
           <tr><th>Faults</th><td>${(s.faults || []).length ? s.faults.map(f => `<span class="tag bad">! ${esc(f)}</span>`).join(" ") : `<span class="tag good">✓ none reported</span>`}</td></tr>
           <tr><th>Sensors</th><td>${sensors.length ? sensors.map(([k, v]) => `<span class="tag ${v === "ok" ? "good" : v === "absent" ? "" : v === "degraded" ? "warn" : "bad"}">${v === "ok" ? "✓" : v === "absent" ? "–" : "!"} ${esc(k)}: ${esc(v)}</span>`).join(" ") : "not reported"}</td></tr>
           <tr><th>Pose</th><td>${s.pose ? `x ${s.pose.x_m.toFixed(2)} m · y ${s.pose.y_m.toFixed(2)} m · heading ${(s.pose.theta_rad * 180 / Math.PI).toFixed(0)}°` : "not reported"}</td></tr>

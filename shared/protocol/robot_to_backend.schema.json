@@ -77,6 +77,157 @@
       "title": "AudioEnd",
       "type": "object"
     },
+    "CalibrationReport": {
+      "description": "The robot's calibration file (sprint 5), sent at connect and whenever the file changes.\nThe backend stores a row per key whose value changed (history). `is_simulated` is required:\na simulated calibration is shown apart and never as a measurement. No answer is sent.",
+      "properties": {
+        "type": {
+          "const": "calibration.report",
+          "default": "calibration.report",
+          "title": "Type",
+          "type": "string"
+        },
+        "is_simulated": {
+          "title": "Is Simulated",
+          "type": "boolean"
+        },
+        "robot_id": {
+          "anyOf": [
+            {
+              "maxLength": 64,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Robot Id"
+        },
+        "version": {
+          "default": 1,
+          "title": "Version",
+          "type": "integer"
+        },
+        "values": {
+          "additionalProperties": {
+            "$ref": "#/$defs/CalibrationValue"
+          },
+          "title": "Values",
+          "type": "object"
+        }
+      },
+      "required": [
+        "is_simulated"
+      ],
+      "title": "CalibrationReport",
+      "type": "object"
+    },
+    "CalibrationState": {
+      "description": "Calibration file state in `robot.status.calibration`. `is_simulated` is required: a\nsimulated calibration is never a measurement.",
+      "properties": {
+        "status": {
+          "enum": [
+            "none",
+            "partial",
+            "complete"
+          ],
+          "title": "Status",
+          "type": "string"
+        },
+        "updated": {
+          "anyOf": [
+            {
+              "maxLength": 40,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Updated"
+        },
+        "is_simulated": {
+          "title": "Is Simulated",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "status",
+        "is_simulated"
+      ],
+      "title": "CalibrationState",
+      "type": "object"
+    },
+    "CalibrationValue": {
+      "description": "One value of the calibration file: the value (a number, or e.g. a table) and how it was\nmeasured.",
+      "properties": {
+        "value": {
+          "title": "Value"
+        },
+        "unit": {
+          "anyOf": [
+            {
+              "maxLength": 32,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Unit"
+        },
+        "date": {
+          "anyOf": [
+            {
+              "maxLength": 40,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Date"
+        },
+        "operator": {
+          "anyOf": [
+            {
+              "maxLength": 64,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Operator"
+        },
+        "method": {
+          "anyOf": [
+            {
+              "maxLength": 500,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Method"
+        },
+        "raw": {
+          "default": null,
+          "title": "Raw"
+        }
+      },
+      "required": [
+        "value"
+      ],
+      "title": "CalibrationValue",
+      "type": "object"
+    },
     "ExplainerContinue": {
       "description": "The \"continue\" button during the pause after segment 3.",
       "properties": {
@@ -138,6 +289,90 @@
         }
       },
       "title": "ExplainerStop",
+      "type": "object"
+    },
+    "FirmwareInfo": {
+      "description": "ESP32 firmware in `robot.status.firmware` (from DIAG_REPORT). All fields optional.",
+      "properties": {
+        "version": {
+          "anyOf": [
+            {
+              "maxLength": 32,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Version"
+        },
+        "git": {
+          "anyOf": [
+            {
+              "maxLength": 40,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Git"
+        },
+        "param_hash": {
+          "anyOf": [
+            {
+              "pattern": "^[0-9a-fA-F]{8}$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Param Hash"
+        },
+        "pins_confirmed": {
+          "anyOf": [
+            {
+              "type": "boolean"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Pins Confirmed"
+        },
+        "build_env": {
+          "anyOf": [
+            {
+              "maxLength": 32,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Build Env"
+        },
+        "reset_reason": {
+          "anyOf": [
+            {
+              "maxLength": 32,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Reset Reason"
+        }
+      },
+      "title": "FirmwareInfo",
       "type": "object"
     },
     "Heartbeat": {
@@ -266,6 +501,113 @@
       "title": "ListenTimeout",
       "type": "object"
     },
+    "PiHealth": {
+      "description": "Raspberry Pi health in `robot.status.health` (sprint 5). All fields optional.",
+      "properties": {
+        "cpu_temp_c": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Cpu Temp C"
+        },
+        "under_voltage_now": {
+          "anyOf": [
+            {
+              "type": "boolean"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Under Voltage Now"
+        },
+        "under_voltage_seen": {
+          "anyOf": [
+            {
+              "type": "boolean"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Under Voltage Seen"
+        },
+        "throttled_now": {
+          "anyOf": [
+            {
+              "type": "boolean"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Throttled Now"
+        },
+        "throttled_seen": {
+          "anyOf": [
+            {
+              "type": "boolean"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Throttled Seen"
+        },
+        "cpu_load_1m": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Cpu Load 1M"
+        },
+        "mem_used_pct": {
+          "anyOf": [
+            {
+              "maximum": 100,
+              "minimum": 0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Mem Used Pct"
+        },
+        "disk_used_pct": {
+          "anyOf": [
+            {
+              "maximum": 100,
+              "minimum": 0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Disk Used Pct"
+        }
+      },
+      "title": "PiHealth",
+      "type": "object"
+    },
     "Pose": {
       "description": "Pose estimate in the start frame of the current run.",
       "properties": {
@@ -372,6 +714,17 @@
           ],
           "default": null,
           "title": "State"
+        },
+        "power": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/PowerSample"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
         }
       },
       "required": [
@@ -381,6 +734,53 @@
         "theta_rad"
       ],
       "title": "PoseSampleMessage",
+      "type": "object"
+    },
+    "PowerSample": {
+      "description": "Battery reading attached to a pose sample (sprint 5): volts, amps (positive =\ndischarging) and watt-hours used since robotd started. All optional.",
+      "properties": {
+        "v": {
+          "anyOf": [
+            {
+              "maximum": 60,
+              "minimum": 0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "V"
+        },
+        "a": {
+          "anyOf": [
+            {
+              "maximum": 100,
+              "minimum": -100,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "A"
+        },
+        "wh": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Wh"
+        }
+      },
+      "title": "PowerSample",
       "type": "object"
     },
     "RobotCommandAck": {
@@ -424,7 +824,7 @@
       "type": "object"
     },
     "RobotStatus": {
-      "description": "Live status, about once per second (protocol 2). `sensors` maps a sensor name (encoders,\nimu, ultrasonic, camera, microphone, ...) to `ok` / `degraded` / `fault` / `absent`.\n`is_simulated` is required: a simulator must say so, and the admin shows a SIMULATED label.\nThe backend only displays this; it never drives the robot from it.",
+      "description": "Live status, about once per second (protocol 2). `sensors` maps a sensor name (encoders,\nimu, ultrasonic, camera, microphone, ...) to `ok` / `degraded` / `fault` / `absent`.\n`is_simulated` is required: a simulator must say so, and the admin shows a SIMULATED label.\nThe backend only displays this; it never drives the robot from it. Sprint 5 adds optional\n`battery_a` (positive = discharging), `energy_wh` (since robotd started), `battery_warning`,\n`health`, `firmware` and `calibration` (docs/PROTOCOL.md).",
       "properties": {
         "type": {
           "const": "robot.status",
@@ -532,6 +932,77 @@
           ],
           "default": null,
           "title": "Mode"
+        },
+        "battery_a": {
+          "anyOf": [
+            {
+              "maximum": 100,
+              "minimum": -100,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Battery A"
+        },
+        "energy_wh": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Energy Wh"
+        },
+        "battery_warning": {
+          "anyOf": [
+            {
+              "type": "boolean"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Battery Warning"
+        },
+        "health": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/PiHealth"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "firmware": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/FirmwareInfo"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "calibration": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/CalibrationState"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
         }
       },
       "required": [
@@ -555,7 +1026,7 @@
       "type": "object"
     },
     "RunEvent": {
-      "description": "Something happened during the run: `obstacle`, `return_start`, `return_blocked`,\n`return_done`, `return_failed`, `estop`, `comm_loss`, `slip`, ...",
+      "description": "Something happened during the run: `obstacle`, `return_start`, `return_blocked`,\n`return_done`, `return_failed`, `estop`, `comm_loss`, `slip` (data.side), `gyro_bias`\n(data.bias_rad_s, data.source), `blackbox` (data.file), `under_voltage`, `battery_warning`,\n... The two warnings are also stored when no run is open.",
       "properties": {
         "type": {
           "const": "event",
@@ -747,6 +1218,7 @@
     "mapping": {
       "audio.chunk": "#/$defs/AudioChunk",
       "audio.end": "#/$defs/AudioEnd",
+      "calibration.report": "#/$defs/CalibrationReport",
       "event": "#/$defs/RunEvent",
       "explainer.continue": "#/$defs/ExplainerContinue",
       "explainer.start": "#/$defs/ExplainerStartRequest",
@@ -824,6 +1296,9 @@
     },
     {
       "$ref": "#/$defs/RobotCommandAck"
+    },
+    {
+      "$ref": "#/$defs/CalibrationReport"
     }
   ]
 }

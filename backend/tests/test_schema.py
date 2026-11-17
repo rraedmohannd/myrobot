@@ -33,6 +33,8 @@ EXPECTED_TABLES = {
     "explainer_segments",
     "places",
     "admin_sessions",
+    "calibration_records",
+    "bringup_steps",
 }
 
 

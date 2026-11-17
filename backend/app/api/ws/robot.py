@@ -4,7 +4,8 @@ Every message is JSON with `type`; outgoing messages also carry `id` and `ts` (m
 is the `scr_protocol` package in `shared/` (docs/PROTOCOL.md is generated from it).
 
 Two lanes per connection:
-- conversation and telemetry messages are handled one at a time, in order, by a worker task;
+- conversation, telemetry and `calibration.report` messages are handled one at a time, in order,
+  by a worker task;
 - `heartbeat`, `robot.status` and `robot.command.ack` are answered at once by the reader, so a
   robot stays visible (and its acks arrive) while the backend is busy preparing an answer.
 """
@@ -25,6 +26,7 @@ from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 from app.api.ws.contract import checked
 from app.core.config import get_settings
 from app.db.session import get_sessionmaker
+from app.services.bringup import handle_calibration_report
 from app.services.dialogue import DialogueManager
 from app.services.providers import LLM, Embedder, get_embedder, get_llm
 from app.services.robot_hub import RobotHub, get_robot_hub
@@ -100,6 +102,11 @@ async def robot_socket(
                 if msg.get("type") in TelemetryRecorder.TYPES:
                     await recorder.handle(msg)
                     link.run_id = recorder.run_id
+                elif msg.get("type") == "calibration.report":
+                    try:
+                        await handle_calibration_report(sessionmaker, msg, link.robot_id)
+                    except ProtocolError as e:
+                        await send({"type": "error", "code": "bad_message", "message": str(e)})
                 else:
                     # Conversations during a run link to it: this connection's own run, or
                     # else the run open on the live robot link (the screen page and `robotd`

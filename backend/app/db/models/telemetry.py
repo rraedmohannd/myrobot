@@ -49,6 +49,8 @@ class PoseSample(Base):
     enc: Mapped[dict | None] = mapped_column(JSONB)
     imu: Mapped[dict | None] = mapped_column(JSONB)
     state: Mapped[str | None] = mapped_column(String(32))
+    # {v, a, wh} from the battery monitor (sprint 5), for the power chart of real runs
+    power: Mapped[dict | None] = mapped_column(JSONB)
 
 
 class Event(Base):

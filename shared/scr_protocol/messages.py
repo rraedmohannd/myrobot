@@ -174,6 +174,17 @@ class RunStart(RobotMessage):
     notes: str | None = None
 
 
+class PowerSample(BaseModel):
+    """Battery reading attached to a pose sample (sprint 5): volts, amps (positive =
+    discharging) and watt-hours used since robotd started. All optional."""
+
+    model_config = ConfigDict(extra="ignore")
+
+    v: float | None = Field(default=None, ge=0, le=60)
+    a: float | None = Field(default=None, ge=-100, le=100)
+    wh: float | None = None
+
+
 class PoseSampleMessage(BaseModel):
     """One pose sample: `t_ms` since run start, pose in the start frame (docs/ODOMETRY.md)."""
 
@@ -188,6 +199,7 @@ class PoseSampleMessage(BaseModel):
     enc: dict[str, Any] | None = None
     imu: dict[str, Any] | None = None
     state: str | None = Field(default=None, max_length=32)
+    power: PowerSample | None = None
 
 
 class Telemetry(RobotMessage):
@@ -199,7 +211,9 @@ class Telemetry(RobotMessage):
 
 class RunEvent(RobotMessage):
     """Something happened during the run: `obstacle`, `return_start`, `return_blocked`,
-    `return_done`, `return_failed`, `estop`, `comm_loss`, `slip`, ..."""
+    `return_done`, `return_failed`, `estop`, `comm_loss`, `slip` (data.side), `gyro_bias`
+    (data.bias_rad_s, data.source), `blackbox` (data.file), `under_voltage`, `battery_warning`,
+    ... The two warnings are also stored when no run is open."""
 
     type: Literal["event"] = "event"
     t_ms: int = Field(ge=0)
@@ -223,11 +237,52 @@ class Pose(BaseModel):
     theta_rad: float
 
 
+class PiHealth(BaseModel):
+    """Raspberry Pi health in `robot.status.health` (sprint 5). All fields optional."""
+
+    model_config = ConfigDict(extra="ignore")
+
+    cpu_temp_c: float | None = None
+    under_voltage_now: bool | None = None
+    under_voltage_seen: bool | None = None
+    throttled_now: bool | None = None
+    throttled_seen: bool | None = None
+    cpu_load_1m: float | None = None
+    mem_used_pct: float | None = Field(default=None, ge=0, le=100)
+    disk_used_pct: float | None = Field(default=None, ge=0, le=100)
+
+
+class FirmwareInfo(BaseModel):
+    """ESP32 firmware in `robot.status.firmware` (from DIAG_REPORT). All fields optional."""
+
+    model_config = ConfigDict(extra="ignore")
+
+    version: str | None = Field(default=None, max_length=32)
+    git: str | None = Field(default=None, max_length=40)
+    param_hash: str | None = Field(default=None, pattern=r"^[0-9a-fA-F]{8}$")
+    pins_confirmed: bool | None = None
+    build_env: str | None = Field(default=None, max_length=32)
+    reset_reason: str | None = Field(default=None, max_length=32)
+
+
+class CalibrationState(BaseModel):
+    """Calibration file state in `robot.status.calibration`. `is_simulated` is required: a
+    simulated calibration is never a measurement."""
+
+    model_config = ConfigDict(extra="ignore")
+
+    status: Literal["none", "partial", "complete"]
+    updated: str | None = Field(default=None, max_length=40)
+    is_simulated: bool
+
+
 class RobotStatus(RobotMessage):
     """Live status, about once per second (protocol 2). `sensors` maps a sensor name (encoders,
     imu, ultrasonic, camera, microphone, ...) to `ok` / `degraded` / `fault` / `absent`.
     `is_simulated` is required: a simulator must say so, and the admin shows a SIMULATED label.
-    The backend only displays this; it never drives the robot from it."""
+    The backend only displays this; it never drives the robot from it. Sprint 5 adds optional
+    `battery_a` (positive = discharging), `energy_wh` (since robotd started), `battery_warning`,
+    `health`, `firmware` and `calibration` (docs/PROTOCOL.md)."""
 
     type: Literal["robot.status"] = "robot.status"
     state: RobotState
@@ -239,6 +294,12 @@ class RobotStatus(RobotMessage):
     pose: Pose | None = None
     run_id: int | None = None
     mode: str | None = Field(default=None, max_length=32)
+    battery_a: float | None = Field(default=None, ge=-100, le=100)
+    energy_wh: float | None = None
+    battery_warning: bool | None = None
+    health: PiHealth | None = None
+    firmware: FirmwareInfo | None = None
+    calibration: CalibrationState | None = None
 
 
 class RobotCommandAck(RobotMessage):
@@ -250,6 +311,32 @@ class RobotCommandAck(RobotMessage):
     id: str = Field(min_length=1, max_length=64)
     accepted: bool
     reason: str | None = Field(default=None, max_length=200)
+
+
+class CalibrationValue(BaseModel):
+    """One value of the calibration file: the value (a number, or e.g. a table) and how it was
+    measured."""
+
+    model_config = ConfigDict(extra="ignore")
+
+    value: Any
+    unit: str | None = Field(default=None, max_length=32)
+    date: str | None = Field(default=None, max_length=40)
+    operator: str | None = Field(default=None, max_length=64)
+    method: str | None = Field(default=None, max_length=500)
+    raw: Any = None
+
+
+class CalibrationReport(RobotMessage):
+    """The robot's calibration file (sprint 5), sent at connect and whenever the file changes.
+    The backend stores a row per key whose value changed (history). `is_simulated` is required:
+    a simulated calibration is shown apart and never as a measurement. No answer is sent."""
+
+    type: Literal["calibration.report"] = "calibration.report"
+    is_simulated: bool
+    robot_id: str | None = Field(default=None, max_length=64)
+    version: int = 1
+    values: dict[str, CalibrationValue] = Field(default_factory=dict)
 
 
 # ====================================================================================
@@ -520,7 +607,7 @@ class ErrorMessage(BackendMessage):
 ROBOT_TO_BACKEND: tuple[type[RobotMessage], ...] = (
     Hello, Heartbeat, SessionStart, AudioChunk, AudioEnd, TextInput, ListenTimeout, SessionEnd,
     ExplainerStartRequest, ExplainerContinue, ExplainerStop, InterestStart, InterestChoice,
-    RunStart, Telemetry, RunEvent, RunEnd, RobotStatus, RobotCommandAck,
+    RunStart, Telemetry, RunEvent, RunEnd, RobotStatus, RobotCommandAck, CalibrationReport,
 )  # fmt: skip
 BACKEND_TO_ROBOT: tuple[type[BackendMessage], ...] = (
     HelloAck, HeartbeatReply, SessionStarted, SessionEnded, DialogueState, DisplayUpdate,
@@ -532,7 +619,8 @@ BACKEND_TO_ROBOT: tuple[type[BackendMessage], ...] = (
 RobotToBackend = Annotated[
     Hello | Heartbeat | SessionStart | AudioChunk | AudioEnd | TextInput | ListenTimeout
     | SessionEnd | ExplainerStartRequest | ExplainerContinue | ExplainerStop | InterestStart
-    | InterestChoice | RunStart | Telemetry | RunEvent | RunEnd | RobotStatus | RobotCommandAck,
+    | InterestChoice | RunStart | Telemetry | RunEvent | RunEnd | RobotStatus | RobotCommandAck
+    | CalibrationReport,
     Field(discriminator="type"),
 ]
 BackendToRobot = Annotated[

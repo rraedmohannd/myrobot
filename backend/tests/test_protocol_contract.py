@@ -76,7 +76,26 @@ ROBOT_EXAMPLES: dict[str, dict] = {
         "accepted": False,
         "reason": "a conversation is in progress",
     },
+    "calibration.report": {
+        "type": "calibration.report",
+        "is_simulated": True,
+        "robot_id": "contract-test",
+        "version": 1,
+        "values": {"METRES_PER_TICK": {"value": 0.0005, "unit": "m/tick"}},
+    },
 }
+# Sprint 5: every optional field of robot.status and of a pose sample (all additive, version 2).
+FULL_STATUS = {
+    **ROBOT_EXAMPLES["robot.status"],
+    "battery_a": 1.25, "energy_wh": 3.4, "battery_warning": False,
+    "health": {"cpu_temp_c": 61.5, "under_voltage_now": False, "under_voltage_seen": True,
+               "throttled_now": False, "throttled_seen": False, "cpu_load_1m": 0.8,
+               "mem_used_pct": 41.0, "disk_used_pct": 22.5},
+    "firmware": {"version": "2.0.0", "git": "1a2b3c4d", "param_hash": "89abcdef",
+                 "pins_confirmed": False, "build_env": "sim-check", "reset_reason": "power-on"},
+    "calibration": {"status": "partial", "updated": "2026-12-03T14:05:00+03:00",
+                    "is_simulated": True},
+}  # fmt: skip
 
 
 def _schema(direction: str) -> dict:
@@ -185,6 +204,7 @@ def test_backend_accepts_every_documented_robot_message() -> None:
         "heartbeat",
         "robot.status",
         "robot.command.ack",
+        "calibration.report",
         "run.start",
         "telemetry",
         "event",
@@ -369,3 +389,51 @@ async def test_a_long_conversation_only_sends_contract_messages(db_session) -> N
     assert isinstance(
         messages.RobotCommand(id="c1", cmd="pause").model_dump(exclude_none=True), dict
     )
+
+
+# ---------------- sprint 5: additive fields ----------------
+def test_status_with_every_new_field_and_old_status_both_validate() -> None:
+    validator = jsonschema.Draft202012Validator(_schema("robot_to_backend"))
+    validator.validate(FULL_STATUS)
+    status = parse_robot_message(FULL_STATUS)
+    assert status.health.cpu_temp_c == 61.5 and status.firmware.param_hash == "89abcdef"
+    assert status.calibration.status == "partial" and status.battery_a == 1.25
+    old = ROBOT_EXAMPLES["robot.status"]  # a sprint 3/4 robot sends none of them
+    validator.validate(old)
+    assert parse_robot_message(old).health is None
+    partial = {**old, "health": {"cpu_temp_c": 50}, "firmware": {}}  # every sub-field optional
+    validator.validate(partial)
+    assert parse_robot_message(partial).firmware.version is None
+    for bad in ({"firmware": {"param_hash": "xyz"}}, {"calibration": {"status": "complete"}},
+                {"calibration": {"status": "done", "is_simulated": False}}):  # fmt: skip
+        with pytest.raises(scr_protocol.ProtocolError):
+            parse_robot_message({**old, **bad})
+    assert scr_protocol.PROTOCOL_VERSION == 2
+
+
+def test_pose_samples_may_carry_power() -> None:
+    validator = jsonschema.Draft202012Validator(_schema("robot_to_backend"))
+    msg = {"type": "telemetry", "samples": [
+        {"t_ms": 0, "x_m": 0, "y_m": 0, "theta_rad": 0, "power": {"v": 11.9, "a": 1.2, "wh": 0.5}},
+        {"t_ms": 100, "x_m": 0, "y_m": 0, "theta_rad": 0, "power": {"v": 11.8}},
+        {"t_ms": 200, "x_m": 0, "y_m": 0, "theta_rad": 0},
+    ]}  # fmt: skip
+    validator.validate(msg)
+    samples = parse_robot_message(msg).samples
+    assert samples[0].power.wh == 0.5 and samples[1].power.a is None and samples[2].power is None
+
+
+def test_calibration_report_contract() -> None:
+    validator = jsonschema.Draft202012Validator(_schema("robot_to_backend"))
+    validator.validate(ROBOT_EXAMPLES["calibration.report"])
+    table = {
+        "type": "calibration.report",
+        "is_simulated": False,
+        "version": 1,
+        "values": {"battery_table": {"value": [[12.6, 100], [9.9, 0]], "raw": {"note": "x"}}},
+    }
+    validator.validate(table)  # fmt: skip
+    assert parse_robot_message(table).values["battery_table"].value == [[12.6, 100], [9.9, 0]]
+    with pytest.raises(scr_protocol.ProtocolError):  # is_simulated is required (rule 5)
+        parse_robot_message({"type": "calibration.report", "values": {}})
+    assert "stop_roaming" in scr_protocol.COMMANDS
