@@ -52,6 +52,7 @@ struct Rig {
   uint32_t now = 0;
   uint8_t seq = 0;
   bool keepalive = true;
+  int negate_side = -1;   // 0 left / 1 right: that side's encoders count backwards (inverted)
   int slow_encoder = -1;  // this encoder counts only a third (simulated slip)
   FrameDecoder dec;
   std::vector<Message> rx;  // every frame the firmware sent
@@ -80,6 +81,10 @@ struct Rig {
     if (keepalive && now % 100 == 0) send(makeHeartbeat());
     robot.step(0.01f);
     if (slow_encoder >= 0) robot.encoders.counts[slow_encoder] /= 3;
+    if (negate_side >= 0) {
+      robot.encoders.counts[2 * negate_side] = -robot.encoders.counts[2 * negate_side];
+      robot.encoders.counts[2 * negate_side + 1] = -robot.encoders.counts[2 * negate_side + 1];
+    }
     app->controlTick(now);
     if (now % 20 == 0) app->telemetryTick(now);
     for (uint8_t b : robot.link.tx) {
@@ -323,7 +328,7 @@ static void test_param_save_rules_and_reload_after_reboot() {
   rig.send(makeStop());
   rig.run(1500);
   s = rig.send(makeParamSave());
-  rig.step();
+  rig.run(600);  // one NVS key per tick: the ACK comes after the whole save
   TEST_ASSERT_EQUAL_INT(kAckOk, rig.ackFor(MsgType::ParamSave, s));
   rig.run(40);
   TEST_ASSERT_FALSE(rig.tel.flags & kFlagParamsUnsaved);
@@ -840,6 +845,131 @@ static void test_expander_failures_leave_it_unusable_and_low() {
   TEST_ASSERT_EQUAL_HEX8(0x00, f.writes.back().value);
 }
 
+// ================================ safety-review follow-up (2026-11-17) ========================
+static void test_centre_front_sensor_absent_blocks_forward() {
+  int16_t n = 0;
+  const uint16_t centre_gone[4] = {2000, kUsAbsent, 2000, 2000};
+  TEST_ASSERT_TRUE(Safety::frontBlocked(centre_gone, 250, &n));
+  TEST_ASSERT_EQUAL_INT16(2000, n);
+  const uint16_t side_gone[4] = {kUsAbsent, 2000, kUsNoEcho, 2000};
+  TEST_ASSERT_FALSE(Safety::frontBlocked(side_gone, 250, &n));
+  // in the app: dead centre sensor -> forward DRIVE refused, reverse and turns still allowed
+  Rig rig;
+  rig.robot.ultrasonic.setDead(1);
+  rig.run(600);
+  TEST_ASSERT_EQUAL_INT(kAckOk, rig.mode(kModeDrive));
+  const uint8_t f = rig.send(makeDrive(100, 100));
+  rig.step();
+  TEST_ASSERT_EQUAL_INT(kAckRejectedSafety, rig.ackFor(MsgType::Drive, f));
+  const uint8_t r = rig.send(makeDrive(-100, -100));
+  rig.step();
+  TEST_ASSERT_EQUAL_INT(-1, rig.ackFor(MsgType::Drive, r));  // accepted (no ACK for a good DRIVE)
+}
+
+static void test_classify_echo_late_ping_is_not_no_echo() {
+  uint32_t us = 0;
+  TEST_ASSERT_TRUE(classifyEcho(0, 0, 0, 30000, 25000, &us) == hal::EchoState::NoRise);
+  // rose 29 ms before the slot end and still high: the sensor's own "nothing" pulse -> no echo
+  TEST_ASSERT_TRUE(classifyEcho(1, 1000, 0, 30000, 25000, &us) == hal::EchoState::Timeout);
+  // rose only 6 ms before the slot end (ping sent late over I2C): a miss, never "no echo"
+  TEST_ASSERT_TRUE(classifyEcho(1, 24000, 0, 30000, 25000, &us) == hal::EchoState::Late);
+  // micros() wrap
+  TEST_ASSERT_TRUE(classifyEcho(1, 0xFFFFF000u, 0, 0x00000400u, 25000, &us) == hal::EchoState::Late);
+  TEST_ASSERT_TRUE(classifyEcho(2, 1000, 3000, 30000, 25000, &us) == hal::EchoState::Done);
+  TEST_ASSERT_EQUAL_UINT32(2000, us);
+  TEST_ASSERT_TRUE(classifyEcho(2, 1000, 27000, 30000, 25000, &us) == hal::EchoState::Timeout);
+}
+
+static void test_late_ping_is_a_miss_and_trigger_failure_is_absent_at_once() {
+  stub::StubUltrasonic hw;
+  UltrasonicConfig c;
+  UltrasonicScheduler u(c, &hw);
+  u.begin(true);
+  for (int i = 0; i < 4; ++i) hw.setDistanceMm(static_cast<uint8_t>(i), 800.0f);
+  uint32_t t = 0;
+  for (; t < 300; t += 10) u.tick(t);
+  TEST_ASSERT_EQUAL_UINT16(800, u.distancesMm()[1]);
+  // centre sensor: late pings -> the reading never becomes "no echo"; absent after 3 misses
+  hw.state[1] = hal::EchoState::Late;
+  bool saw_no_echo = false;
+  for (; t < 1200; t += 10) {
+    u.tick(t);
+    if (u.distancesMm()[1] == kUsNoEcho) saw_no_echo = true;
+  }
+  TEST_ASSERT_FALSE(saw_no_echo);
+  TEST_ASSERT_EQUAL_HEX16(kUsAbsent, u.distancesMm()[1]);
+  // front-left: the expander write fails -> ABSENT after that ONE round
+  hw.state[1] = hal::EchoState::Done;
+  for (; t < 1500; t += 10) u.tick(t);
+  TEST_ASSERT_EQUAL_UINT16(800, u.distancesMm()[0]);
+  hw.state[0] = hal::EchoState::TriggerFailed;
+  const uint32_t r0 = u.rounds();
+  while (u.rounds() < r0 + 2) {
+    u.tick(t);
+    t += 10;
+  }
+  TEST_ASSERT_EQUAL_HEX16(kUsAbsent, u.distancesMm()[0]);
+  TEST_ASSERT_EQUAL_UINT8(c.fault_after_misses, u.misses(0));
+}
+
+static void test_speed_sign_mismatch_stops_drive_both_sides() {
+  for (int side = 0; side < 2; ++side) {
+    Rig rig;
+    rig.negate_side = side;
+    TEST_ASSERT_EQUAL_INT(kAckOk, rig.mode(kModeDrive));
+    rig.drive(200, 200, 2000);
+    int16_t arg = -1;
+    TEST_ASSERT_EQUAL_INT(1, rig.events(kEventEncoderFault, &arg));
+    TEST_ASSERT_EQUAL_INT16(10 + side, arg);
+    TEST_ASSERT_EQUAL_UINT8(kModeSafe, rig.app->safety().mode());
+    TEST_ASSERT_FALSE(rig.robot.motors.enabled);
+  }
+  // correct wiring: no fault
+  Rig ok;
+  TEST_ASSERT_EQUAL_INT(kAckOk, ok.mode(kModeDrive));
+  ok.drive(200, 200, 2000);
+  TEST_ASSERT_EQUAL_INT(0, ok.events(kEventEncoderFault));
+}
+
+static void test_speed_sign_mismatch_not_in_test_mode() {
+  Rig rig;
+  rig.negate_side = 0;
+  TEST_ASSERT_EQUAL_INT(kAckOk, rig.mode(kModeTest));
+  rig.drive(300, 300, 2000);  // duty 0.25 > 0.2, left encoders count backwards
+  TEST_ASSERT_TRUE(rig.app->dutyLeft() > 0.2f);
+  TEST_ASSERT_EQUAL_INT(0, rig.events(kEventEncoderFault));
+  TEST_ASSERT_EQUAL_UINT8(kModeTest, rig.app->safety().mode());
+}
+
+static void test_param_save_in_steps_keeps_unsaved_until_done() {
+  Rig rig;
+  TEST_ASSERT_EQUAL_INT(kAckOk, rig.paramSet(params::PID_KP, 4.0f));
+  const int commits = rig.robot.storage.commits;
+  const uint8_t s = rig.send(makeParamSave());
+  rig.run(100);  // 10 ticks: still writing
+  TEST_ASSERT_EQUAL_INT(-1, rig.ackFor(MsgType::ParamSave, s));
+  TEST_ASSERT_TRUE(rig.app->params().saving());
+  TEST_ASSERT_TRUE(rig.app->params().unsaved());
+  TEST_ASSERT_TRUE(rig.tel.flags & kFlagParamsUnsaved);
+  TEST_ASSERT_EQUAL_INT(kAckBusy, rig.paramSet(params::PID_KP, 5.0f));  // no change mid-save
+  const uint8_t again = rig.send(makeParamSave());
+  rig.step();
+  TEST_ASSERT_EQUAL_INT(kAckBusy, rig.ackFor(MsgType::ParamSave, again));
+  rig.run(500);
+  TEST_ASSERT_EQUAL_INT(kAckOk, rig.ackFor(MsgType::ParamSave, s));
+  TEST_ASSERT_EQUAL_INT(commits + 1, rig.robot.storage.commits);
+  TEST_ASSERT_FALSE(rig.app->params().unsaved());
+  TEST_ASSERT_EQUAL_FLOAT(4.0f, rig.robot.storage.committed[params::PID_KP]);
+}
+
+static void test_vcomp_plausibility_floor_is_9_volts() {
+  VoltageCompensator v(vc(1.0f));
+  v.update(8.9f, true, 0.1f);
+  TEST_ASSERT_TRUE(v.fallback());
+  v.update(9.0f, true, 0.1f);
+  TEST_ASSERT_FALSE(v.fallback());
+}
+
 int main(int, char**) {
   UNITY_BEGIN();
   RUN_TEST(test_default_hash_equals_python);
@@ -876,5 +1006,12 @@ int main(int, char**) {
   RUN_TEST(test_expander_outputs_low_before_direction);
   RUN_TEST(test_expander_pulse_high_wait_low);
   RUN_TEST(test_expander_failures_leave_it_unusable_and_low);
+  RUN_TEST(test_centre_front_sensor_absent_blocks_forward);
+  RUN_TEST(test_classify_echo_late_ping_is_not_no_echo);
+  RUN_TEST(test_late_ping_is_a_miss_and_trigger_failure_is_absent_at_once);
+  RUN_TEST(test_speed_sign_mismatch_stops_drive_both_sides);
+  RUN_TEST(test_speed_sign_mismatch_not_in_test_mode);
+  RUN_TEST(test_param_save_in_steps_keeps_unsaved_until_done);
+  RUN_TEST(test_vcomp_plausibility_floor_is_9_volts);
   return UNITY_END();
 }

@@ -2,6 +2,7 @@
 // ESP32; compiled for Arduino-ESP32 core 2.x and 3.x only).
 #include <Arduino.h>  // first: defines ESP_ARDUINO_VERSION_MAJOR for the branches below
 #include <Preferences.h>
+#include <esp_task_wdt.h>
 
 #if defined(ESP_ARDUINO_VERSION_MAJOR) && ESP_ARDUINO_VERSION_MAJOR >= 3
 #define SCR_IDF5_PCNT 1
@@ -253,6 +254,9 @@ void Esp32Servo::writePulseUs(uint16_t pulse_us) {
 // ---- link -----------------------------------------------------------------------------------
 void Esp32Link::begin() {
   Serial.setRxBufferSize(1024);
+  // A full PARAM_GET answer (40 x 22-byte frames + ACK, about 0.9 kB) must fit in the TX buffer so
+  // that Serial.write never blocks the control task (safety review 7b). Before begin() on both cores.
+  Serial.setTxBufferSize(2048);
   Serial.begin(proto::kBaudRate);
 }
 
@@ -292,7 +296,11 @@ bool Esp32Storage::write(uint16_t id, float value) {
   if (!ok_) return false;
   char key[8];
   keyOf(id, key);
-  return g_prefs.putFloat(key, value) == sizeof(float);  // Preferences commits each put
+  const bool ok = g_prefs.putFloat(key, value) == sizeof(float);  // Preferences commits each put
+  // The application writes one key per control tick; this keeps the caller's task watchdog fed
+  // even if one NVS write is slow (no effect on a task that is not subscribed).
+  esp_task_wdt_reset();
+  return ok;
 }
 
 bool Esp32Storage::commit() { return ok_; }

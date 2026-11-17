@@ -73,6 +73,10 @@ struct AppConfig {
   uint32_t still_ms = 300;                 // no encoder change for this long = "still"
   float busy_speed_m_s = 0.010f;           // PARAM_SET is BUSY above this measured track speed
   uint32_t diag_scan_wait_ms = 250;        // DIAG_REPORT waits at most this long for the I2C scan
+  // Speed-sign mismatch fault (MODE DRIVE only), see FirmwareApp::checkSpeedSign.
+  float sign_fault_min_duty = 0.2f;
+  float sign_fault_min_speed_m_s = 0.050f;
+  uint32_t sign_fault_ms = 300;
 
   // Build identity (DIAG_REPORT), set by the main of each build.
   uint8_t build_env = proto::kBuildNativeTest;
@@ -131,6 +135,8 @@ class FirmwareApp {
   void stepGyroCalibration(uint32_t now_ms);
   void stepBringup(uint32_t now_ms);
   void endBringup();
+  void stepParamSave();
+  void checkSpeedSign(uint32_t now_ms);
   void driveOutputs(float dt_s);
   bool moving(uint32_t now_ms) const;
   bool tracksMoving() const;
@@ -191,6 +197,11 @@ class FirmwareApp {
   bool cutoff_ = false;
   bool cutoff_below_ = false;
   uint32_t cutoff_below_since_ms_ = 0;
+
+  // PARAM_SAVE in steps; speed-sign mismatch timers.
+  uint8_t save_seq_ = 0;
+  bool sign_timing_[2] = {false, false};
+  uint32_t sign_since_ms_[2] = {0, 0};
 
   // Diagnostics.
   bool diag_pending_ = false;

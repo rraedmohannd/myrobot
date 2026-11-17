@@ -44,6 +44,14 @@ class ParamStore {
   int load(hal::IParamStorage* storage);
   // Writes every parameter and commits. False when the storage failed (nothing is marked saved).
   bool save(hal::IParamStorage* storage);
+  // The same in steps (one NVS key per call), so the control task never blocks for the whole
+  // save. Values are marked saved only after the LAST key and the commit succeeded: until then
+  // PARAMS_UNSAVED stays set. A failed or half-done save leaves NVS with a mix of old and new
+  // values, every one of them within bounds (each was checked when it was set).
+  enum class SaveStep : uint8_t { InProgress, Done, Failed };
+  void beginSave() { save_index_ = 0; saving_ = true; }
+  SaveStep saveStep(hal::IParamStorage* storage);
+  bool saving() const { return saving_; }
   int rejectedOnLoad() const { return rejected_on_load_; }
 
   uint32_t hash() const { return hash_; }  // FNV-1a over (id u16, value f32) in id order
@@ -58,6 +66,8 @@ class ParamStore {
   uint8_t source_[params::kCount];
   uint32_t hash_ = 0;
   int rejected_on_load_ = 0;
+  bool saving_ = false;
+  int save_index_ = 0;
 };
 
 // FNV-1a of the compiled defaults of the table (what robotd computes for an empty calibration).

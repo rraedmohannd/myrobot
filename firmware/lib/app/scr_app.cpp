@@ -390,9 +390,9 @@ void FirmwareApp::sendParamReport(int i) {
 void FirmwareApp::handleParamSet(uint32_t now_ms, const proto::ParamSet& m, uint8_t seq) {
   const uint8_t type = static_cast<uint8_t>(proto::MsgType::ParamSet);
   // Order of the checks: unknown id and bounds first (they do not depend on the state), then
-  // BUSY. Nothing is changed unless the answer is OK.
+  // BUSY (tracks moving, or a PARAM_SAVE in progress). Nothing changes unless the answer is OK.
   uint8_t st = ParamStore::check(m.id, m.value);
-  if (st == proto::kAckOk && tracksMoving()) st = proto::kAckBusy;
+  if (st == proto::kAckOk && (tracksMoving() || params_.saving())) st = proto::kAckBusy;
   if (st != proto::kAckOk) {
     sendAck(type, seq, st);
     return;
@@ -433,9 +433,56 @@ void FirmwareApp::handleParamSave(uint32_t now_ms, uint8_t seq) {
     sendAck(type, seq, proto::kAckRejectedMode);
     return;
   }
-  // NVS write failed or no storage: BUSY ("not done, try again"), nothing is marked saved.
-  const bool ok = storage_ok_ && params_.save(hw_.storage);
-  sendAck(type, seq, ok ? proto::kAckOk : proto::kAckBusy);
+  if (params_.saving()) {  // one save at a time
+    sendAck(type, seq, proto::kAckBusy);
+    return;
+  }
+  if (!storage_ok_) {  // no storage: BUSY ("not done"), nothing is marked saved
+    sendAck(type, seq, proto::kAckBusy);
+    return;
+  }
+  // The save runs one NVS key per control tick (stepParamSave), so no tick blocks for the whole
+  // save and every task keeps feeding the task watchdog. The ACK comes when it is finished
+  // (about 41 ticks = 0.41 s): OK, or BUSY when a write failed.
+  params_.beginSave();
+  save_seq_ = seq;
+}
+
+void FirmwareApp::stepParamSave() {
+  if (!params_.saving()) return;
+  const ParamStore::SaveStep st = params_.saveStep(hw_.storage);
+  if (st == ParamStore::SaveStep::InProgress) return;
+  sendAck(static_cast<uint8_t>(proto::MsgType::ParamSave), save_seq_,
+          st == ParamStore::SaveStep::Done ? proto::kAckOk : proto::kAckBusy);
+}
+
+// Speed-sign mismatch (safety review 5b), MODE DRIVE only: a track driven with |duty| above
+// sign_fault_min_duty whose measured speed has the opposite sign and is faster than
+// sign_fault_min_speed_m_s for sign_fault_ms means an inverted motor or encoder: the closed loop
+// would run away. -> STOP, MODE SAFE, EVENT ENCODER_FAULT arg 10 (left) / 11 (right).
+// Not in TEST mode: motor-test must be able to discover the inversions.
+void FirmwareApp::checkSpeedSign(uint32_t now_ms) {
+  for (int side = 0; side < 2; ++side) {
+    const float duty = side == 0 ? duty_left_ : duty_right_;
+    const float speed = side == 0 ? speed_left_m_s_ : speed_right_m_s_;
+    const bool bad = encoders_ok_ && motors_enabled_ && safety_.mode() == proto::kModeDrive &&
+                     std::fabs(duty) > cfg_.sign_fault_min_duty && duty * speed < 0.0f &&
+                     std::fabs(speed) > cfg_.sign_fault_min_speed_m_s;
+    if (!bad) {
+      sign_timing_[side] = false;
+      continue;
+    }
+    if (!sign_timing_[side]) {
+      sign_timing_[side] = true;
+      sign_since_ms_[side] = now_ms;
+      continue;
+    }
+    if (now_ms - sign_since_ms_[side] >= cfg_.sign_fault_ms) {
+      sign_timing_[side] = false;
+      safety_.onMode(proto::kModeSafe, motors_ok_, false);  // targets zero, drivers off
+      sendEvent(now_ms, proto::kEventEncoderFault, static_cast<int16_t>(10 + side));
+    }
+  }
 }
 
 // ---- diagnostics ----------------------------------------------------------------------------
@@ -788,11 +835,13 @@ void FirmwareApp::controlTick(uint32_t now_ms) {
   }
 
   driveOutputs(dt_s);
+  checkSpeedSign(now_ms);
 
   SafetyEvent ev{};
   while (safety_.popEvent(&ev)) sendEvent(now_ms, ev.code, ev.arg);
 
   stepBringup(now_ms);
+  stepParamSave();
 
   if (hw_.system != nullptr) {
     const uint8_t attempts = hw_.system->takeI2cRecovered();

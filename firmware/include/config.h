@@ -50,6 +50,14 @@ constexpr uint16_t I2C_TIMEOUT_MS = 5;           // Wire timeout of one transfer
 constexpr uint8_t I2C_SCAN_FIRST = 0x08;         // scan range (7-bit, reserved addresses skipped)
 constexpr uint8_t I2C_SCAN_LAST = 0x77;
 
+// ---- Speed-sign mismatch fault (MODE DRIVE only; safety review 5b) --------------------------
+// PLACEHOLDERS to check on the robot: |duty| above SIGN_FAULT_MIN_DUTY while the measured track
+// speed has the opposite sign and is above SIGN_FAULT_MIN_SPEED_MM_S for SIGN_FAULT_MS
+// -> STOP, MODE SAFE, EVENT ENCODER_FAULT arg 10 (left) / 11 (right).
+constexpr float SIGN_FAULT_MIN_DUTY = 0.2f;
+constexpr float SIGN_FAULT_MIN_SPEED_MM_S = 50.0f;
+constexpr uint32_t SIGN_FAULT_MS = 300;
+
 // ---- Open-loop TEST mode ---------------------------------------------------------------------
 constexpr float TEST_FULL_SCALE_MM_S = 1000.0f;  // a DRIVE of this many mm/s means duty 1.0 (a convention, not a measurement)
 
@@ -115,6 +123,9 @@ inline AppConfig makeAppConfig() {
   c.ultrasonic.fault_after_misses = US_FAULT_AFTER_MISSES;
   c.ultrasonic.max_range_mm = US_MAX_RANGE_MM;
   c.driver_type = DRIVER_TYPE;
+  c.sign_fault_min_duty = SIGN_FAULT_MIN_DUTY;
+  c.sign_fault_min_speed_m_s = SIGN_FAULT_MIN_SPEED_MM_S / 1000.0f;
+  c.sign_fault_ms = SIGN_FAULT_MS;
   const ParamStore table_defaults;  // every parameter at its params.json default
   paramsToConfig(table_defaults, &c);
   return c;

@@ -243,7 +243,7 @@ run time with `robotctl` (`docs/BRINGUP.md`), no reflashing:
 `V_batt` is the INA219 bus voltage × `BATTERY_VOLTAGE_SCALE`, filtered **asymmetrically**: a rise
 is followed at once (the cap drops at once), a fall only with a 2 s time constant (a sag under
 load does not raise the cap at once). Without a valid reading (no INA219, read error, or a value
-outside 3..20 V, e.g. USB power only) the full-pack constant **12.6 V** is used and telemetry flag
+outside 9..20 V, e.g. USB power only) the full-pack constant **12.6 V** is used and telemetry flag
 `VOLTAGE_COMP_FALLBACK` (bit 13) is set. Motor inversion is applied after the cap, at the output.
 
 ## Diagnostics (S2.3)
@@ -351,6 +351,28 @@ Implemented as follows (also sent to the coordinator; to be confirmed in `docs/S
 - Low battery is reported (flag + event) but does not stop the robot; the separate hard cut-off
   (`BATTERY_CUTOFF_MV`, off by default) does.
 - The gyro bias is measured only on `CALIBRATE_GYRO` (no automatic re-estimation while stopped).
+
+## Safety-review follow-up (2026-11-17)
+
+- **Centre front sensor:** absent/faulty (`0xFFFE`) blocks forward `DRIVE` even when both side
+  sensors work (stricter than protocol §5 rule 5; coordinator's decision).
+- **Expander trigger failure:** when the MCP23017 pulse cannot be written (or the expander/I2C task
+  is not running) that sensor is `ABSENT` after that one slot (`EchoState::TriggerFailed`), not after 3 misses.
+- **Late ping:** at the end of a slot, an echo that is still high but rose less than
+  `US_ECHO_TIMEOUT_US` ago is a **miss** (`EchoState::Late`: last reading kept, absent after 3), never
+  "no echo" `0xFFFF` (`scr::classifyEcho`, unit-tested).
+- **Speed-sign mismatch (MODE DRIVE only):** |duty| > `SIGN_FAULT_MIN_DUTY` (0.2) while the measured
+  track speed has the opposite sign and exceeds `SIGN_FAULT_MIN_SPEED_MM_S` (50) for `SIGN_FAULT_MS`
+  (300 ms) (config.h, placeholders) → STOP, `MODE SAFE`, `EVENT ENCODER_FAULT` arg 10 (left) / 11
+  (right). Not checked in TEST mode (motor-test finds the inversions there).
+- **PARAM_SAVE in steps:** one NVS key per control tick (40 keys + commit ≈ 0.41 s); the `ACK` comes
+  at the end (OK, or BUSY when a write failed). During the save `PARAM_SET` and a second
+  `PARAM_SAVE` are `BUSY`; `PARAMS_UNSAVED` stays set until the commit succeeded. Every NVS write
+  also resets the task watchdog. A half-done save leaves old and new values in NVS, all within bounds.
+- **Serial TX buffer 2048 bytes** (`Serial.setTxBufferSize` before `begin`, both cores): a full
+  `PARAM_GET` answer (~0.9 kB) never blocks the control task.
+- **Voltage-compensation floor 9.0 V** (`VoltageCompensator::kPlausibleMinV`): a lower reading is
+  treated as missing → 12.6 V fallback, flag 13.
 
 ## What is and is not verified
 

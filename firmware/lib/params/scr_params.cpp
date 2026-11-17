@@ -90,16 +90,34 @@ int ParamStore::load(hal::IParamStorage* storage) {
 }
 
 bool ParamStore::save(hal::IParamStorage* storage) {
-  if (storage == nullptr) return false;
-  for (int i = 0; i < params::kCount; ++i) {
-    if (!storage->write(params::kTable[i].id, value_[i])) return false;
+  beginSave();
+  for (;;) {
+    const SaveStep st = saveStep(storage);
+    if (st != SaveStep::InProgress) return st == SaveStep::Done;
   }
-  if (!storage->commit()) return false;
+}
+
+ParamStore::SaveStep ParamStore::saveStep(hal::IParamStorage* storage) {
+  if (!saving_) return SaveStep::Failed;
+  if (storage == nullptr) {
+    saving_ = false;
+    return SaveStep::Failed;
+  }
+  if (save_index_ < params::kCount) {
+    if (!storage->write(params::kTable[save_index_].id, value_[save_index_])) {
+      saving_ = false;
+      return SaveStep::Failed;
+    }
+    ++save_index_;
+    return SaveStep::InProgress;
+  }
+  saving_ = false;
+  if (!storage->commit()) return SaveStep::Failed;
   for (int i = 0; i < params::kCount; ++i) {
     saved_[i] = value_[i];
     if (source_[i] == proto::kParamSourceSet) source_[i] = proto::kParamSourceNvs;
   }
-  return true;
+  return SaveStep::Done;
 }
 
 bool ParamStore::unsaved() const {
