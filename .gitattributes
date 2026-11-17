@@ -1,3 +1,10 @@
 backend/app/static/vendor/** -text
 shared/protocol/*.json text eol=lf
 docs/PROTOCOL.md text eol=lf
+# Files that run on Linux (Raspberry Pi, Docker) must keep LF line ends on Windows checkouts too
+*.sh text eol=lf
+*.service text eol=lf
+*.rules text eol=lf
+*.desktop text eol=lf
+robot/deploy/robot.env.example text eol=lf
+shared/serial_fixtures/*.txt text eol=lf

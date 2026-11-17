@@ -1,0 +1,39 @@
+{
+  "_comment": [
+    "Thresholds of the 'who is speaking now' camera logic, shared by the browser prototype",
+    "(backend/app/static/speaker-camera.js) and the robot's visiond (robot/visiond).",
+    "The 'prototype' block is a COPY of the constants in speaker-camera.js;",
+    "robot/tests/visiond/test_thresholds_sync.py fails when the two drift apart.",
+    "The 'visiond' block exists only on the robot. All values are first guesses that have",
+    "not been calibrated on real faces yet."
+  ],
+  "prototype": {
+    "iou_min": 0.25,
+    "max_age_ms": 1000,
+    "window_ms": 500,
+    "activity_min": 0.025,
+    "overlap_share": 0.3,
+    "engage_ms": 1500,
+    "rearm_no_face_ms": 2000,
+    "looking_pos_min": 0.3,
+    "looking_pos_max": 0.7,
+    "max_faces": 4,
+    "landmarks": {
+      "lipTop": 13,
+      "lipBottom": 14,
+      "mouthLeft": 78,
+      "mouthRight": 308,
+      "nose": 1,
+      "cheekLeft": 234,
+      "cheekRight": 454
+    }
+  },
+  "visiond": {
+    "yaw_max_deg": 30.0,
+    "pitch_max_deg": 25.0,
+    "switch_hold_ms": 800,
+    "min_dwell_ms": 2000,
+    "fallback_activity_min": 0.02,
+    "assumed_vad_hangover_ms": 700
+  }
+}

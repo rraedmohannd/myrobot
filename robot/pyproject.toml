@@ -1,0 +1,47 @@
+[project]
+name = "smart-campus-robot-runtime"
+version = "0.1.0"
+description = "Raspberry Pi runtime of the MEU reception robot: robotd (serial link, odometry, navigation, supervisor, backend link, local UI) and visiond (camera, faces, engagement, pan servo target)"
+requires-python = ">=3.11"
+dependencies = [
+    "aiohttp>=3.10,<4",        # local UI server, local WebSockets, backend WebSocket client
+    "pyserial>=3.5,<4",        # the real ESP32 link (not needed with --sim)
+    "pydantic>=2.9,<3.0",      # robot <-> backend contract (shared/scr_protocol)
+]
+
+[project.optional-dependencies]
+# visiond only. On the Raspberry Pi these are installed by robot/deploy/setup.sh.
+vision = [
+    "numpy>=1.26,<3",
+    # mediapipe brings its own OpenCV (opencv-contrib-python); without mediapipe install
+    # opencv-python-headless instead. Tried on the laptop with OpenCV 5.1 and mediapipe 1.2.3
+    # (Python 3.14, Windows); nothing was installed on a Raspberry Pi yet.
+    "mediapipe>=0.10.14",      # optional at run time: visiond falls back to YuNet landmarks
+    "opencv-contrib-python>=4.10,<6",
+]
+dev = [
+    "pytest>=8.3,<10",
+    "pytest-asyncio>=0.24,<2",
+    "ruff>=0.8",
+]
+
+[build-system]
+requires = ["setuptools>=70"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+include = ["robotd*", "visiond*"]
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+asyncio_default_fixture_loop_scope = "function"
+testpaths = ["tests"]
+# shared/ holds scr_protocol (backend contract), scr_serial (ESP32 link) and scr_odometry (pose maths)
+pythonpath = [".", "../shared"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py311"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "B", "UP", "ASYNC"]

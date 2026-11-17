@@ -12,3 +12,9 @@ backend/data/tts_cache/
 backend/data/media/
 reports/
 backups/
+
+# sprint 4: robot runtime and firmware
+.pio/
+robot/models/*.onnx
+robot/models/*.task
+robot/logs/
