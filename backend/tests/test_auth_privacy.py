@@ -40,23 +40,33 @@ async def test_passwords_are_stored_as_argon2_hashes(db_session) -> None:
     user, created = await auth.create_admin(db_session, "Mohannd.Test", PASSWORD)
     assert created and user.username == "mohannd.test"
     assert user.password_hash.startswith("$argon2id$") and PASSWORD not in user.password_hash
-    assert auth.verify_password(user.password_hash, PASSWORD) and not auth.verify_password(user.password_hash, "wrong")
+    assert auth.verify_password(user.password_hash, PASSWORD) and not auth.verify_password(
+        user.password_hash, "wrong"
+    )
     assert not auth.verify_password("not-a-hash", PASSWORD)
     with pytest.raises(auth.AuthError):
         await auth.create_admin(db_session, "short.pw", "123456789")
     with pytest.raises(auth.AuthError):
         await auth.create_admin(db_session, "bad name!", PASSWORD)
     again, created = await auth.create_admin(db_session, "mohannd.test", PASSWORD + "2")
-    assert not created and again.id == user.id and auth.verify_password(again.password_hash, PASSWORD + "2")
+    assert (
+        not created
+        and again.id == user.id
+        and auth.verify_password(again.password_hash, PASSWORD + "2")
+    )
 
 
 async def test_login_session_cookie_and_logout(anon, db_session) -> None:
     await auth.create_admin(db_session, "tester", PASSWORD)
     assert (await anon.get("/api/admin/stats")).status_code == 401
     assert (await anon.get("/api/admin/me")).status_code == 401
-    wrong = await anon.post("/api/admin/login", json={"username": "tester", "password": "nope-nope-nope"})
+    wrong = await anon.post(
+        "/api/admin/login", json={"username": "tester", "password": "nope-nope-nope"}
+    )
     assert wrong.status_code == 401 and "set-cookie" not in wrong.headers
-    assert (await anon.post("/api/admin/login", json={"username": "ghost", "password": PASSWORD})).status_code == 401
+    assert (
+        await anon.post("/api/admin/login", json={"username": "ghost", "password": PASSWORD})
+    ).status_code == 401
 
     ok = await anon.post("/api/admin/login", json={"username": "Tester", "password": PASSWORD})
     assert ok.status_code == 200 and ok.json() == {"user": "tester"}
@@ -64,12 +74,17 @@ async def test_login_session_cookie_and_logout(anon, db_session) -> None:
     assert "admin_session=" in cookie and "HttpOnly" in cookie and "SameSite=strict" in cookie
     token = ok.cookies["admin_session"]
     stored = (await db_session.scalars(select(AdminSession))).all()
-    assert len(stored) == 1 and stored[0].token_hash != token and len(stored[0].token_hash) == 64  # only a hash
+    assert (
+        len(stored) == 1 and stored[0].token_hash != token and len(stored[0].token_hash) == 64
+    )  # only a hash
 
     assert (await anon.get("/api/admin/stats")).status_code == 200  # the cookie is enough
     assert (await anon.get("/api/admin/me")).json() == {"user": "tester", "via": "session"}
     system = (await anon.get("/api/admin/system")).json()
-    assert set(system["providers"]) == {"stt", "llm", "tts", "embeddings"} and system["admin_users"] >= 1
+    assert (
+        set(system["providers"]) == {"stt", "llm", "tts", "embeddings"}
+        and system["admin_users"] >= 1
+    )
     assert system["privacy"]["retention_days"] == 30 and "robot_page" in system["lan"]
 
     assert (await anon.post("/api/admin/logout")).json() == {"ok": True}
@@ -90,23 +105,37 @@ async def test_expired_sessions_and_the_script_token(anon, admin_client, db_sess
     # X-Admin-Token keeps working for scripts
     assert (await admin_client.get("/api/admin/stats")).status_code == 200
     assert (await admin_client.get("/api/admin/me")).json() == {"user": None, "via": "token"}
-    assert (await anon.get("/api/admin/stats", headers={"X-Admin-Token": "wrong"})).status_code == 401
+    assert (
+        await anon.get("/api/admin/stats", headers={"X-Admin-Token": "wrong"})
+    ).status_code == 401
 
 
 async def test_repeated_wrong_passwords_are_slowed_down(anon, db_session) -> None:
     await auth.create_admin(db_session, "tester", PASSWORD)
     for _ in range(auth.MAX_FAILURES):
-        assert (await anon.post("/api/admin/login", json={"username": "tester", "password": "x" * 12})).status_code == 401
+        assert (
+            await anon.post("/api/admin/login", json={"username": "tester", "password": "x" * 12})
+        ).status_code == 401
     locked = await anon.post("/api/admin/login", json={"username": "tester", "password": PASSWORD})
     assert locked.status_code == 429  # even the right password waits
     auth.reset_failures()
-    assert (await anon.post("/api/admin/login", json={"username": "tester", "password": PASSWORD})).status_code == 200
+    assert (
+        await anon.post("/api/admin/login", json={"username": "tester", "password": PASSWORD})
+    ).status_code == 200
 
 
 async def test_admin_page_has_the_login_form(client) -> None:
     page = (await client.get("/admin")).text
-    for needle in ('id="loginUser"', 'id="loginPass"', "/api/admin/login", "/api/admin/logout", 'data-view="system"',
-                   'data-view="robot"', 'data-view="faqs"', 'data-view="places"'):  # fmt: skip
+    for needle in (
+        'id="loginUser"',
+        'id="loginPass"',
+        "/api/admin/login",
+        "/api/admin/logout",
+        'data-view="system"',
+        'data-view="robot"',
+        'data-view="faqs"',
+        'data-view="places"',
+    ):
         assert needle in page, needle
 
 
@@ -142,18 +171,33 @@ def test_no_audio_or_face_columns_exist() -> None:
     """Privacy by schema: nothing can store audio, images of faces or voiceprints."""
     from app.db.base import Base
 
-    forbidden = ("audio_blob", "wav", "pcm", "voiceprint", "embedding_voice", "face_image", "photo", "frame")
+    forbidden = (
+        "audio_blob",
+        "wav",
+        "pcm",
+        "voiceprint",
+        "embedding_voice",
+        "face_image",
+        "photo",
+        "frame",
+    )
     columns = [f"{t.name}.{c.name}" for t in Base.metadata.tables.values() for c in t.columns]
     conversation = [c for c in columns if c.startswith(("sessions.", "turns."))]
     assert not [c for c in conversation if any(word in c.lower() for word in forbidden)]
-    assert "explainer_segments.audio_cache_key" in columns  # only the robot's own speech is cached, by key
+    assert (
+        "explainer_segments.audio_cache_key" in columns
+    )  # only the robot's own speech is cached, by key
 
 
 # ---------------- S6: token for robots that are not local ----------------
 def test_local_peer_detection(monkeypatch) -> None:
     assert is_local_peer("127.0.0.1") and is_local_peer("::1")
     assert not is_local_peer("192.168.1.50") and not is_local_peer("172.18.0.1")
-    assert not is_local_peer(None) and not is_local_peer("testclient") and not is_local_peer("localhost")
+    assert (
+        not is_local_peer(None)
+        and not is_local_peer("testclient")
+        and not is_local_peer("localhost")
+    )
     monkeypatch.setenv("ROBOT_LOCAL_NETS", "127.0.0.1/32, 192.168.1.0/24, not-a-network")
     get_settings.cache_clear()
     try:

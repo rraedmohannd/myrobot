@@ -26,12 +26,16 @@ def upgrade() -> None:
     op.add_column("faqs", sa.Column("embedding_model", sa.String(64), nullable=True))
     op.add_column(
         "faqs",
-        sa.Column("created_at", sa.DateTime(timezone=True), server_default=sa.func.now(), nullable=False),
+        sa.Column(
+            "created_at", sa.DateTime(timezone=True), server_default=sa.func.now(), nullable=False
+        ),
     )
     op.add_column("labs", sa.Column("keywords", sa.Text(), nullable=True))
     op.add_column(
         "labs",
-        sa.Column("review_status", sa.String(16), server_default=sa.text("'pending'"), nullable=False),
+        sa.Column(
+            "review_status", sa.String(16), server_default=sa.text("'pending'"), nullable=False
+        ),
     )
     op.create_check_constraint("ck_labs_review_status", "labs", STATUS)
     op.create_table(
@@ -47,14 +51,25 @@ def upgrade() -> None:
         sa.Column("keywords", sa.Text(), nullable=True),
         sa.Column("contact_chunk_id", sa.Integer(), nullable=True),
         sa.Column("media_id", sa.Integer(), nullable=True),
-        sa.Column("review_status", sa.String(16), server_default=sa.text("'pending'"), nullable=False),
-        sa.Column("created_at", sa.DateTime(timezone=True), server_default=sa.func.now(), nullable=False),
-        sa.Column("updated_at", sa.DateTime(timezone=True), server_default=sa.func.now(), nullable=False),
+        sa.Column(
+            "review_status", sa.String(16), server_default=sa.text("'pending'"), nullable=False
+        ),
+        sa.Column(
+            "created_at", sa.DateTime(timezone=True), server_default=sa.func.now(), nullable=False
+        ),
+        sa.Column(
+            "updated_at", sa.DateTime(timezone=True), server_default=sa.func.now(), nullable=False
+        ),
         sa.CheckConstraint(STATUS, name="ck_places_review_status"),
         sa.ForeignKeyConstraint(
-            ["contact_chunk_id"], ["chunks.id"], name="fk_places_contact_chunk_id_chunks", ondelete="SET NULL"
+            ["contact_chunk_id"],
+            ["chunks.id"],
+            name="fk_places_contact_chunk_id_chunks",
+            ondelete="SET NULL",
         ),
-        sa.ForeignKeyConstraint(["media_id"], ["media.id"], name="fk_places_media_id_media", ondelete="SET NULL"),
+        sa.ForeignKeyConstraint(
+            ["media_id"], ["media.id"], name="fk_places_media_id_media", ondelete="SET NULL"
+        ),
         sa.PrimaryKeyConstraint("id", name="pk_places"),
     )
     op.add_column("turns", sa.Column("answer_kind", sa.String(16), nullable=True))

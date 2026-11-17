@@ -22,7 +22,9 @@ def upgrade() -> None:
     op.alter_column("events", "run_id", existing_type=sa.Integer(), nullable=True)
     op.add_column(
         "events",
-        sa.Column("created_at", sa.DateTime(timezone=True), server_default=sa.func.now(), nullable=False),
+        sa.Column(
+            "created_at", sa.DateTime(timezone=True), server_default=sa.func.now(), nullable=False
+        ),
     )
     op.add_column(
         "return_trials",
@@ -31,7 +33,9 @@ def upgrade() -> None:
     op.add_column("return_trials", sa.Column("command_id", sa.String(64), nullable=True))
     op.add_column(
         "return_trials",
-        sa.Column("created_at", sa.DateTime(timezone=True), server_default=sa.func.now(), nullable=False),
+        sa.Column(
+            "created_at", sa.DateTime(timezone=True), server_default=sa.func.now(), nullable=False
+        ),
     )
     op.create_check_constraint(
         "ck_return_trials_status", "return_trials", "status IN ('pending', 'measured')"

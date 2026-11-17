@@ -20,13 +20,26 @@ async def _seed(db_session) -> dict[str, int]:
     db_session.add(src)
     await db_session.flush()
     rows = {
-        "hit": Chunk(source_id=src.id, lang="en", review_status="approved",
-                     text=f"The {UNIQUE} {UNIQUE2} program requires 162 credit hours and includes robot programming."),
-        "other": Chunk(source_id=src.id, lang="en", review_status="approved",
-                       text="Unrelated text about parking spaces near the library."),
-        "pending": Chunk(source_id=src.id, lang="en", review_status="pending",
-                         text=f"The {UNIQUE} program costs 999 dinars per hour."),
-    }  # fmt: skip
+        "hit": Chunk(
+            source_id=src.id,
+            lang="en",
+            review_status="approved",
+            text=f"The {UNIQUE} {UNIQUE2} program requires 162 credit hours and "
+            "includes robot programming.",
+        ),
+        "other": Chunk(
+            source_id=src.id,
+            lang="en",
+            review_status="approved",
+            text="Unrelated text about parking spaces near the library.",
+        ),
+        "pending": Chunk(
+            source_id=src.id,
+            lang="en",
+            review_status="pending",
+            text=f"The {UNIQUE} program costs 999 dinars per hour.",
+        ),
+    }
     db_session.add_all(rows.values())
     await db_session.commit()
     return {k: v.id for k, v in rows.items()}
@@ -71,7 +84,9 @@ def test_evaluator_check() -> None:
     assert check(unans, "ما عندي هاي المعلومة", False, []) == []
     assert check(unans, "سعر الساعة 80 دينار", True, ["80"]) != []
     assert normalize("أيمن") == normalize("ايمن")
-    assert normalize("الأنظمة المضمّنة") == normalize("الأنظمة المضمنة")  # diacritics do not change a word
+    assert normalize("الأنظمة المضمّنة") == normalize(
+        "الأنظمة المضمنة"
+    )  # diacritics do not change a word
 
 
 # ---------- database ----------
@@ -99,7 +114,9 @@ async def test_answer_question_logs_turn_with_sources(db_session) -> None:
     assert turn.used_chunk_ids == [ids["hit"]] and turn.retrieval_ms is not None
 
     # follow-up in the same session gets the previous turn as context
-    r2 = await answer_question(db_session, FakeEmbedder(), llm, "And robots?", session_id=r.session_id)
+    r2 = await answer_question(
+        db_session, FakeEmbedder(), llm, "And robots?", session_id=r.session_id
+    )
     assert r2.session_id == r.session_id
     assert "CONVERSATION SO FAR" in llm.calls[1][1]
 
@@ -139,7 +156,9 @@ async def test_editing_chunk_text_clears_its_embedding(admin_client, db_session)
     await embed_missing(db_session, FakeEmbedder())
     r = await admin_client.patch(f"/api/admin/chunks/{ids['hit']}", json={"text": "edited text"})
     assert r.status_code == 200
-    emb = await db_session.scalar(text("SELECT embedding IS NULL FROM chunks WHERE id = :i"), {"i": ids["hit"]})
+    emb = await db_session.scalar(
+        text("SELECT embedding IS NULL FROM chunks WHERE id = :i"), {"i": ids["hit"]}
+    )
     assert emb is True
 
 

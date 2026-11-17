@@ -149,7 +149,11 @@ class OpenAITTS:
     async def synthesize(self, text: str, voice: str | None = None) -> bytes:
         try:
             resp = await self._client.audio.speech.create(**self._kwargs(text, voice, "mp3"))
-            data = resp.content if isinstance(getattr(resp, "content", None), bytes) else await resp.aread()
+            data = (
+                resp.content
+                if isinstance(getattr(resp, "content", None), bytes)
+                else await resp.aread()
+            )
         except Exception as e:  # noqa: BLE001
             raise ProviderError(f"text-to-speech failed: {type(e).__name__}: {e}") from e
         return data

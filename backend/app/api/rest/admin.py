@@ -199,9 +199,10 @@ async def patch_chunk(chunk_id: int, body: ChunkPatch, session: SessionDep) -> C
     if chunk is None:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Chunk not found")
     changes = body.model_dump(exclude_unset=True)
-    if changes.get("program_id") is not None and await session.get(
-        Program, changes["program_id"]
-    ) is None:
+    if (
+        changes.get("program_id") is not None
+        and await session.get(Program, changes["program_id"]) is None
+    ):
         raise HTTPException(422, "Unknown program_id")
     for key, value in changes.items():
         setattr(chunk, key, value)

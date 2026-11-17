@@ -29,7 +29,8 @@ HOME = """<html lang="en"><head><title>Faculty of Engineering</title></head><bod
 <main><h1>Faculty of Engineering</h1><p>The faculty has two departments.</p></main></body></html>"""
 
 PROGRAMS_V1 = """<html lang="ar"><head><title>البرامج</title></head><body><main>
-<h1>برامج كلية الهندسة</h1><p>هندسة الأنظمة الذكية.</p><p>الهندسة المدنية.</p></main></body></html>"""
+<h1>برامج كلية الهندسة</h1><p>هندسة الأنظمة الذكية.</p><p>الهندسة المدنية.</p></main>\
+</body></html>"""
 
 PROGRAMS_V2 = PROGRAMS_V1.replace("الهندسة المدنية.", "الهندسة المدنية وهندسة الطاقة المتجددة.")
 
@@ -62,7 +63,9 @@ async def test_crawl_stays_in_scope_and_stores_pending(db_session) -> None:
     assert hits["other.test/engineering/"] == 0  # external host
     assert hits["meu.test/engineering-programs/"] == 1  # fragment duplicate fetched once
 
-    sources = (await db_session.scalars(select(Source).where(Source.url.like("https://meu.test/%")))).all()
+    sources = (
+        await db_session.scalars(select(Source).where(Source.url.like("https://meu.test/%")))
+    ).all()
     assert {s.review_status for s in sources} == {"pending"}
     programs = next(s for s in sources if s.url.endswith("/engineering-programs/"))
     assert programs.lang == "ar"
@@ -80,11 +83,17 @@ async def test_recrawl_detects_changes(db_session) -> None:
 
         # A reviewer approves everything.
         await db_session.execute(
-            update(Source).where(Source.url.like("https://meu.test/%")).values(review_status="approved")
+            update(Source)
+            .where(Source.url.like("https://meu.test/%"))
+            .values(review_status="approved")
         )
-        await db_session.execute(update(Chunk).values(review_status="approved").where(
-            Chunk.source_id.in_(select(Source.id).where(Source.url.like("https://meu.test/%")))
-        ))
+        await db_session.execute(
+            update(Chunk)
+            .values(review_status="approved")
+            .where(
+                Chunk.source_id.in_(select(Source.id).where(Source.url.like("https://meu.test/%")))
+            )
+        )
         await db_session.commit()
 
         # The university edits the programs page.
@@ -95,14 +104,22 @@ async def test_recrawl_detects_changes(db_session) -> None:
     assert by_url["https://meu.test/faculty-of-engineering/"] == "unchanged"
     assert by_url["https://meu.test/engineering-programs/"] == "changed"
 
-    home = await db_session.scalar(select(Source).where(Source.url == "https://meu.test/faculty-of-engineering/"))
-    programs = await db_session.scalar(select(Source).where(Source.url == "https://meu.test/engineering-programs/"))
+    home = await db_session.scalar(
+        select(Source).where(Source.url == "https://meu.test/faculty-of-engineering/")
+    )
+    programs = await db_session.scalar(
+        select(Source).where(Source.url == "https://meu.test/engineering-programs/")
+    )
     await db_session.refresh(home)
     await db_session.refresh(programs)
     assert home.review_status == "approved"  # unchanged page keeps its approval
     assert programs.review_status == "stale"  # changed page needs re-review
     statuses = Counter(
-        (await db_session.scalars(select(Chunk.review_status).where(Chunk.source_id == programs.id))).all()
+        (
+            await db_session.scalars(
+                select(Chunk.review_status).where(Chunk.source_id == programs.id)
+            )
+        ).all()
     )
     assert statuses["approved"] == 0  # old text is no longer usable by the robot
     assert statuses["stale"] >= 1 and statuses["pending"] >= 1
@@ -114,14 +131,18 @@ async def test_failed_fetch_marks_approved_source_stale(db_session) -> None:
     async with make_site(pages, hits) as client:
         await crawl(db_session, Fetcher(CFG, client=client), CFG)
         await db_session.execute(
-            update(Source).where(Source.url.like("https://meu.test/%")).values(review_status="approved")
+            update(Source)
+            .where(Source.url.like("https://meu.test/%"))
+            .values(review_status="approved")
         )
         await db_session.commit()
         del pages["/engineering-programs/"]  # page removed from the site
         report = await recrawl(db_session, Fetcher(CFG, client=client), CFG)
 
     assert dict(report.pages)["https://meu.test/engineering-programs/"] == "failed"
-    programs = await db_session.scalar(select(Source).where(Source.url == "https://meu.test/engineering-programs/"))
+    programs = await db_session.scalar(
+        select(Source).where(Source.url == "https://meu.test/engineering-programs/")
+    )
     await db_session.refresh(programs)
     assert programs.review_status == "stale"
     assert programs.http_status == 404

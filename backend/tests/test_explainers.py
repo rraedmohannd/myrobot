@@ -25,11 +25,26 @@ SLUG = "zorbology-engineering"  # a program that exists in no real data
 PLAN_URL = "https://example.test/plan/zorbology"
 COURSE = "Introduction to Zorbology"
 GOOD_SEGMENTS = [
-    {"text": "تخصص الزوربولوجي بيعلمك تبني أنظمة ذكية.", "scene": {"type": "title", "tagline": "أنظمة ذكية"}},
-    {"text": "الخطة بدها 162 ساعة معتمدة.", "scene": {"type": "stat", "value": "162", "unit": "ساعة معتمدة"}},
-    {"text": "من المواد اللي بتدرسها مقدمة بالزوربولوجي.", "scene": {"type": "courses", "courses": [COURSE]}},
-    {"text": "وفيه مشروع تخرج وتدريب ميداني.", "scene": {"type": "keypoints", "points": ["مشروع تخرج", "تدريب ميداني"]}},
-    {"text": "بتطلع بمهارات عملية.", "scene": {"type": "diagram", "nodes": ["حساسات", "معالجة", "حركة"]}},
+    {
+        "text": "تخصص الزوربولوجي بيعلمك تبني أنظمة ذكية.",
+        "scene": {"type": "title", "tagline": "أنظمة ذكية"},
+    },
+    {
+        "text": "الخطة بدها 162 ساعة معتمدة.",
+        "scene": {"type": "stat", "value": "162", "unit": "ساعة معتمدة"},
+    },
+    {
+        "text": "من المواد اللي بتدرسها مقدمة بالزوربولوجي.",
+        "scene": {"type": "courses", "courses": [COURSE]},
+    },
+    {
+        "text": "وفيه مشروع تخرج وتدريب ميداني.",
+        "scene": {"type": "keypoints", "points": ["مشروع تخرج", "تدريب ميداني"]},
+    },
+    {
+        "text": "بتطلع بمهارات عملية.",
+        "scene": {"type": "diagram", "nodes": ["حساسات", "معالجة", "حركة"]},
+    },
     {"text": "صوّر الكود وشوف الخطة.", "scene": {"type": "qr", "caption": "صوّر الكود"}},
 ]
 
@@ -40,18 +55,44 @@ async def _program(db_session, slug: str = SLUG, plan_url: str = PLAN_URL) -> Pr
         faculty = Faculty(slug="test-faculty", name_ar="كلية", name_en="Faculty")
         db_session.add(faculty)
         await db_session.flush()
-    program = Program(faculty_id=faculty.id, slug=slug, name_ar="هندسة الزوربولوجي", name_en="Zorbology Engineering")
+    program = Program(
+        faculty_id=faculty.id,
+        slug=slug,
+        name_ar="هندسة الزوربولوجي",
+        name_en="Zorbology Engineering",
+    )
     plan = Source(url=plan_url, title="Zorbology study plan", review_status="approved")
     db_session.add_all([program, plan])
     await db_session.flush()
-    db_session.add_all([
-        Chunk(source_id=plan.id, program_id=program.id, lang="en", category="study_plan", review_status="approved",
-              text="Zorbology Engineering requires 162 credit hours in total. Graduation project and field training."),
-        Chunk(source_id=plan.id, program_id=program.id, lang="en", category="courses", review_status="approved",
-              text=f"1900101 {COURSE} (مقدمة بالزوربولوجي): 3 credit hours."),
-        Chunk(source_id=plan.id, program_id=program.id, lang="en", category="careers", review_status="pending",
-              text="Graduates earn 98765 dinars."),  # pending: must never be used
-    ])  # fmt: skip
+    db_session.add_all(
+        [
+            Chunk(
+                source_id=plan.id,
+                program_id=program.id,
+                lang="en",
+                category="study_plan",
+                review_status="approved",
+                text="Zorbology Engineering requires 162 credit hours in total. "
+                "Graduation project and field training.",
+            ),
+            Chunk(
+                source_id=plan.id,
+                program_id=program.id,
+                lang="en",
+                category="courses",
+                review_status="approved",
+                text=f"1900101 {COURSE} (مقدمة بالزوربولوجي): 3 credit hours.",
+            ),
+            Chunk(
+                source_id=plan.id,
+                program_id=program.id,
+                lang="en",
+                category="careers",
+                review_status="pending",
+                text="Graduates earn 98765 dinars.",
+            ),  # pending: must never be used
+        ]
+    )
     await db_session.commit()
     return program
 
@@ -75,7 +116,9 @@ def _manager(db_session, llm: FakeLLM | None = None):  # noqa: ANN202
         sent.append(msg)
 
     tts = FakeTTS()
-    dm = DialogueManager(send, OneSession(db_session), FakeEmbedder(), llm or FakeLLM(), FakeSTT([]), tts)
+    dm = DialogueManager(
+        send, OneSession(db_session), FakeEmbedder(), llm or FakeLLM(), FakeSTT([]), tts
+    )
     return dm, sent, tts
 
 
@@ -115,11 +158,17 @@ def test_explainer_requests_are_recognised() -> None:
 
 
 def test_clean_scene_keeps_known_fields_only() -> None:
-    scene = clean_scene({"type": "qr", "caption": "صوّر الكود", "url": "https://evil.example", "x": 1})
+    scene = clean_scene(
+        {"type": "qr", "caption": "صوّر الكود", "url": "https://evil.example", "x": 1}
+    )
     assert scene == {"type": "qr", "caption": "صوّر الكود"}  # the address never comes from a draft
     assert clean_scene({"type": "hologram"}) == {"type": "title"}
-    assert clean_scene({"type": "keypoints", "points": ["a", "", "b", "c", "d", "e"]})["points"] == ["a", "b", "c", "d"]
-    steps = clean_scene({"type": "timeline", "steps": [{"label": "L1", "items": ["x"] * 9}, "junk"]})["steps"]
+    assert clean_scene({"type": "keypoints", "points": ["a", "", "b", "c", "d", "e"]})[
+        "points"
+    ] == ["a", "b", "c", "d"]
+    steps = clean_scene(
+        {"type": "timeline", "steps": [{"label": "L1", "items": ["x"] * 9}, "junk"]}
+    )["steps"]
     assert steps == [{"label": "L1", "items": ["x", "x", "x"]}]
     assert clean_scene({"type": "media", "media": {"url": "/media/1"}}) == {"type": "media"}
 
@@ -142,11 +191,20 @@ def test_find_issues_numbers_courses_and_promises() -> None:
 # ---------------- drafting ----------------
 async def test_drafting_stores_pending_only_and_uses_approved_chunks(db_session) -> None:
     program = await _program(db_session)
-    llm = FakeLLM({"segments": [*GOOD_SEGMENTS[:5], {"text": "الراتب 98765 دينار.", "scene": {"type": "keypoints"}}]})
+    llm = FakeLLM(
+        {
+            "segments": [
+                *GOOD_SEGMENTS[:5],
+                {"text": "الراتب 98765 دينار.", "scene": {"type": "keypoints"}},
+            ]
+        }
+    )
     result = await draft_explainer(db_session, llm, program, "ar")
     assert result.outcome == "created" and result.segments == 6
     assert result.explainer.status == "pending"  # a draft is never approved by the tool
-    assert [(i.segment, i.kind) for i in result.issues] == [(6, "number")]  # 98765 is only in a PENDING chunk
+    assert [(i.segment, i.kind) for i in result.issues] == [
+        (6, "number")
+    ]  # 98765 is only in a PENDING chunk
     instructions, prompt = llm.calls[0]
     assert "162 credit hours" in prompt and COURSE in prompt and "LANGUAGE: ar" in prompt
     assert "98765" not in prompt  # pending chunks are not given to the model
@@ -160,7 +218,9 @@ async def test_drafting_stores_pending_only_and_uses_approved_chunks(db_session)
     assert again.outcome == "skipped-approved" and len(llm.calls) == 1
     forced = await draft_explainer(db_session, llm, program, "ar", force=True)
     assert forced.outcome == "replaced" and forced.explainer.status == "pending"
-    rows = await db_session.scalars(select(ExplainerSegment).where(ExplainerSegment.explainer_id == forced.explainer.id))
+    rows = await db_session.scalars(
+        select(ExplainerSegment).where(ExplainerSegment.explainer_id == forced.explainer.id)
+    )
     assert len(rows.all()) == 6
 
 
@@ -178,19 +238,26 @@ async def test_drafting_without_approved_sources_does_nothing(db_session) -> Non
 async def test_explainer_admin_needs_the_token(client) -> None:
     for path in ("/api/admin/explainers", "/api/admin/explainers/1", "/api/admin/interests"):
         assert (await client.get(path)).status_code == 401
-    assert (await client.post("/api/admin/explainers/1/review", json={"decision": "approve"})).status_code == 401
+    assert (
+        await client.post("/api/admin/explainers/1/review", json={"decision": "approve"})
+    ).status_code == 401
 
 
 async def test_invented_number_blocks_approval(admin_client, db_session, fake_tts) -> None:
     program = await _program(db_session)
-    segments = [*GOOD_SEGMENTS[:5], {"text": "معدل القبول 85 بالمية.", "scene": {"type": "keypoints", "points": ["85%"]}}]
+    segments = [
+        *GOOD_SEGMENTS[:5],
+        {"text": "معدل القبول 85 بالمية.", "scene": {"type": "keypoints", "points": ["85%"]}},
+    ]
     explainer = await _explainer(db_session, program, status="pending", segments=segments)
 
     listing = (await admin_client.get("/api/admin/explainers")).json()
     row = next(i for i in listing["items"] if i["id"] == explainer.id)
     assert row["status"] == "pending" and row["issues"] == 1 and row["segments"] == 6
 
-    r = await admin_client.post(f"/api/admin/explainers/{explainer.id}/review", json={"decision": "approve"})
+    r = await admin_client.post(
+        f"/api/admin/explainers/{explainer.id}/review", json={"decision": "approve"}
+    )
     assert r.status_code == 409
     assert r.json()["detail"]["issues"][0] == {
         "segment": 6, "kind": "number", "detail": "85 is not in the program's approved sources",
@@ -208,14 +275,20 @@ async def test_invented_number_blocks_approval(admin_client, db_session, fake_tt
     })  # fmt: skip
     assert fixed.status_code == 200 and fixed.json()["can_approve"]
     assert fixed.json()["segments"][5]["preview_scene"]["url"] == PLAN_URL  # from the source record
-    ok = await admin_client.post(f"/api/admin/explainers/{explainer.id}/review", json={"decision": "approve"})
+    ok = await admin_client.post(
+        f"/api/admin/explainers/{explainer.id}/review", json={"decision": "approve"}
+    )
     assert ok.status_code == 200 and ok.json()["status"] == "approved"
     assert len(fake_tts.spoken) == 6  # one cached speech file per segment
 
     # editing approved content sends it back to review
-    edited = await admin_client.patch(f"/api/admin/explainers/segments/{seg6}", json={"text": "نص جديد."})
+    edited = await admin_client.patch(
+        f"/api/admin/explainers/segments/{seg6}", json={"text": "نص جديد."}
+    )
     assert edited.json()["status"] == "pending"
-    rejected = await admin_client.post(f"/api/admin/explainers/{explainer.id}/review", json={"decision": "reject"})
+    rejected = await admin_client.post(
+        f"/api/admin/explainers/{explainer.id}/review", json={"decision": "reject"}
+    )
     assert rejected.json()["status"] == "rejected"
 
 
@@ -234,7 +307,9 @@ async def test_only_approved_explainers_play_and_the_rest_is_rag(db_session, ali
     assert await load_playable(db_session, SLUG, "ar") is None
     explainer.status = "approved"
     await db_session.commit()
-    assert await load_playable(db_session, SLUG, "en") is None  # no English explainer: RAG for English
+    assert (
+        await load_playable(db_session, SLUG, "en") is None
+    )  # no English explainer: RAG for English
     assert (await load_playable(db_session, SLUG, "ar")).name == "هندسة الزوربولوجي"
 
 
@@ -265,14 +340,20 @@ async def test_explainer_segments_scenes_pause_and_continue(db_session, alias) -
     start = next(m for m in sent if m["type"] == "explainer.start")
     assert start["total"] == 6 and start["program"] == {"slug": SLUG, "name": "هندسة الزوربولوجي"}
     segs = [m for m in sent if m["type"] == "explainer.segment"]
-    assert [(m["index"], m["total"], m["scene"]["type"]) for m in segs] == [(1, 6, "title"), (2, 6, "stat"), (3, 6, "courses")]
+    assert [(m["index"], m["total"], m["scene"]["type"]) for m in segs] == [
+        (1, 6, "title"),
+        (2, 6, "stat"),
+        (3, 6, "courses"),
+    ]
     assert segs[1]["scene"]["value"] == "162" and segs[0]["scene"]["program"]["slug"] == SLUG
     # each scene message comes right before the audio of its segment
     for seg in segs:
         audio = sent[sent.index(seg) + 1]
         assert audio["type"] == "answer.audio" and audio["segment"] == seg["index"]
         assert audio["text"] == GOOD_SEGMENTS[seg["index"] - 1]["text"]
-    assert sent[-3]["type"] == "explainer.pause" or any(m["type"] == "explainer.pause" for m in sent)
+    assert sent[-3]["type"] == "explainer.pause" or any(
+        m["type"] == "explainer.pause" for m in sent
+    )
     assert tts.spoken[-1] == PHRASES["explainer_ask"]["ar"] and dm.state == "FOLLOW_UP"
     states = [m["state"] for m in sent if m["type"] == "dialogue.state"]
     assert "EXPLAINING" in states
@@ -281,11 +362,21 @@ async def test_explainer_segments_scenes_pause_and_continue(db_session, alias) -
     segs = [m for m in sent if m["type"] == "explainer.segment"]
     assert [m["index"] for m in segs] == [1, 2, 3, 4, 5, 6]
     assert segs[5]["scene"]["type"] == "qr" and segs[5]["scene"]["url"] == PLAN_URL
-    assert [m for m in sent if m["type"] == "answer.audio" and m.get("segment") == 6][0]["last"] is True
+    assert [m for m in sent if m["type"] == "answer.audio" and m.get("segment") == 6][0][
+        "last"
+    ] is True
     assert any(m["type"] == "explainer.end" and m["reason"] == "finished" for m in sent)
-    assert tts.spoken[-1] == PHRASES["follow_up"]["ar"] and dm.state == "FOLLOW_UP" and dm.explainer is None
+    assert (
+        tts.spoken[-1] == PHRASES["follow_up"]["ar"]
+        and dm.state == "FOLLOW_UP"
+        and dm.explainer is None
+    )
 
-    turns = (await db_session.scalars(select(Turn).where(Turn.session_id == dm.session_id).order_by(Turn.idx))).all()
+    turns = (
+        await db_session.scalars(
+            select(Turn).where(Turn.session_id == dm.session_id).order_by(Turn.idx)
+        )
+    ).all()
     assert [t.intent for t in turns] == ["explainer", "explainer_more"]
     assert turns[0].found is None and GOOD_SEGMENTS[0]["text"] in turns[0].answer_text
 
@@ -307,7 +398,9 @@ async def test_silence_during_the_pause_continues_and_stop_button_stops(db_sessi
     program = await _program(db_session)
     await _explainer(db_session, program)
     dm, sent, tts = _manager(db_session)
-    await dm.handle({"type": "explainer.start", "program": SLUG})  # the program button, no session yet
+    await dm.handle(
+        {"type": "explainer.start", "program": SLUG}
+    )  # the program button, no session yet
     assert dm.session_id and PHRASES["greeting"]["ar"] not in " ".join(tts.spoken)
     assert len([m for m in sent if m["type"] == "explainer.segment"]) == 3
     await dm.handle({"type": "listen.timeout"})
@@ -340,15 +433,22 @@ async def test_qr_uses_the_source_url_and_media_must_be_approved(db_session) -> 
     await db_session.commit()
     assert await study_plan_url(db_session, program) == "https://example.test/official-plan.pdf"
 
-    other = await _program(db_session, slug="document-only", plan_url="meu-document://study-plans/document-only")
+    other = await _program(
+        db_session, slug="document-only", plan_url="meu-document://study-plans/document-only"
+    )
     assert await study_plan_url(db_session, other) is None  # an identifier is not a web address
 
-    pending = Media(kind="image", path="x.png", program_id=program.id, review_status="pending", mime="image/png")
+    pending = Media(
+        kind="image", path="x.png", program_id=program.id, review_status="pending", mime="image/png"
+    )
     db_session.add(pending)
     segments = [*GOOD_SEGMENTS[:3], {"text": "شوف الصورة.", "scene": {"type": "media"}}]
     await _explainer(db_session, program, segments=segments)
     playable = await load_playable(db_session, SLUG, "ar")
-    assert playable.segments[3].scene["type"] == "media" and playable.segments[3].scene["media"] is None
+    assert (
+        playable.segments[3].scene["type"] == "media"
+        and playable.segments[3].scene["media"] is None
+    )
     pending.review_status = "approved"
     await db_session.commit()
     playable = await load_playable(db_session, SLUG, "ar")

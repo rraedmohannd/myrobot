@@ -86,7 +86,9 @@ async def robot_socket(
             await ws.send_json(out)
 
     send = checked(raw_send)
-    manager = DialogueManager(send, sessionmaker, embedder, llm, stt, tts, speaker_embedder=speaker_embedder)
+    manager = DialogueManager(
+        send, sessionmaker, embedder, llm, stt, tts, speaker_embedder=speaker_embedder
+    )
     recorder = TelemetryRecorder(send, sessionmaker)  # run.start / telemetry / event / run.end
     link = hub.register(send)
     queue: asyncio.Queue[dict[str, Any]] = asyncio.Queue()
@@ -106,14 +108,18 @@ async def robot_socket(
             except Exception as e:  # noqa: BLE001 - keep the connection alive, report the problem
                 log.exception("error while handling %s", msg.get("type"))
                 with contextlib.suppress(Exception):
-                    await send({"type": "error", "code": "internal", "message": f"{type(e).__name__}: {e}"})
+                    await send(
+                        {"type": "error", "code": "internal", "message": f"{type(e).__name__}: {e}"}
+                    )
 
     work = asyncio.create_task(worker())
     try:
         while True:
             msg = await ws.receive_json()
             if not isinstance(msg, dict):
-                await send({"type": "error", "code": "bad_message", "message": "expected a JSON object"})
+                await send(
+                    {"type": "error", "code": "bad_message", "message": "expected a JSON object"}
+                )
                 continue
             kind = msg.get("type")
             if kind == "heartbeat":

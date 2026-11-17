@@ -33,7 +33,8 @@ def test_study_plan_hours_match_the_official_pdfs() -> None:
             required[c["group"]] = c["group_credit_hours"]
             rules[c["group"]] = c["group_rule"]
             assert c["title_ar"] and c["title_en"]
-            # a missing value is only allowed when the plan itself leaves it blank (explained in a note)
+            # a missing value is only allowed when the plan itself leaves it blank
+            # (explained in a note)
             assert c["credit_hours"] is not None or c.get("note"), c["code"]
         for group, rule in rules.items():
             if rule == "compulsory":
@@ -58,7 +59,15 @@ def test_student_handbook_file() -> None:
     assert (DEFAULT_DIR / doc["source"]["file"]).exists()
     assert not doc.get("faculty") and not doc.get("program")  # university-wide rules, no program
     text = "\n".join(c["text"] for c in doc["chunks"])
-    for fact in ("(18) ساعة", "(15%)", "(2.00)", "3.65", "06 4790222", "319 و320", "الطبية الحيوية"):
+    for fact in (
+        "(18) ساعة",
+        "(15%)",
+        "(2.00)",
+        "3.65",
+        "06 4790222",
+        "319 و320",
+        "الطبية الحيوية",
+    ):
         assert fact in text, fact
     assert all(len(c["text"].split()) <= 280 for c in doc["chunks"])
 
@@ -78,20 +87,56 @@ def _write(tmp: Path, name: str, doc: dict) -> None:
 
 def _fixture_docs() -> tuple[dict, dict]:
     plan = {
-        "source": {"url": "test-doc://plan", "title": "Test plan", "lang": "en", "academic_year": "2099/2100"},
+        "source": {
+            "url": "test-doc://plan",
+            "title": "Test plan",
+            "lang": "en",
+            "academic_year": "2099/2100",
+        },
         "faculty": {"slug": "test-faculty", "name_en": "Test Faculty", "name_ar": "كلية اختبار"},
-        "program": {"slug": "test-program", "name_en": "Test Program", "name_ar": "برنامج اختبار",
-                    "credit_hours": 10, "academic_year": "2099/2100"},
-        "chunks": [{"category": "study_plan", "lang": "en", "text": "Test Program needs 10 credit hours."}],
-        "courses": [
-            {"group": "core", "group_title": "Core", "group_credit_hours": 6, "group_rule": "compulsory",
-             "code": "T1", "title_en": "Intro", "title_ar": "مقدمة", "credit_hours": 3, "theory_hours": 3,
-             "practical_hours": 0, "prerequisites": [], "learning": "face-to-face", "jnqf_level": 6},
-            {"group": "core", "group_title": "Core", "group_credit_hours": 6, "group_rule": "compulsory",
-             "code": "T2", "title_en": "Advanced", "title_ar": "متقدم", "credit_hours": 3, "theory_hours": 3,
-             "practical_hours": 0, "prerequisites": ["T1"], "learning": "blended", "jnqf_level": 7},
+        "program": {
+            "slug": "test-program",
+            "name_en": "Test Program",
+            "name_ar": "برنامج اختبار",
+            "credit_hours": 10,
+            "academic_year": "2099/2100",
+        },
+        "chunks": [
+            {"category": "study_plan", "lang": "en", "text": "Test Program needs 10 credit hours."}
         ],
-    }  # fmt: skip
+        "courses": [
+            {
+                "group": "core",
+                "group_title": "Core",
+                "group_credit_hours": 6,
+                "group_rule": "compulsory",
+                "code": "T1",
+                "title_en": "Intro",
+                "title_ar": "مقدمة",
+                "credit_hours": 3,
+                "theory_hours": 3,
+                "practical_hours": 0,
+                "prerequisites": [],
+                "learning": "face-to-face",
+                "jnqf_level": 6,
+            },
+            {
+                "group": "core",
+                "group_title": "Core",
+                "group_credit_hours": 6,
+                "group_rule": "compulsory",
+                "code": "T2",
+                "title_en": "Advanced",
+                "title_ar": "متقدم",
+                "credit_hours": 3,
+                "theory_hours": 3,
+                "practical_hours": 0,
+                "prerequisites": ["T1"],
+                "learning": "blended",
+                "jnqf_level": 7,
+            },
+        ],
+    }
     page = {
         "source": {"url": "test-web://page", "title": "Test page", "lang": "en"},
         "program": {"slug": "test-program", "summary_en": "A test program."},
@@ -114,7 +159,11 @@ async def test_import_creates_pending_records(db_session, tmp_path) -> None:
     assert prog.review_status == "pending"
 
     src = await db_session.scalar(select(Source).where(Source.url == "test-doc://plan"))
-    chunks = (await db_session.scalars(select(Chunk).where(Chunk.source_id == src.id).order_by(Chunk.position))).all()
+    chunks = (
+        await db_session.scalars(
+            select(Chunk).where(Chunk.source_id == src.id).order_by(Chunk.position)
+        )
+    ).all()
     assert [c.review_status for c in chunks] == ["pending", "pending"]
     assert all(c.program_id == prog.id for c in chunks)
     assert "T2 Advanced (متقدم)" in chunks[1].text and "prerequisites: T1 Intro" in chunks[1].text
@@ -133,7 +182,9 @@ async def test_reimport_unchanged_then_changed(db_session, tmp_path) -> None:
     # Reviewer approves the plan, then the university changes it.
     src = await db_session.scalar(select(Source).where(Source.url == "test-doc://plan"))
     src.review_status = "approved"
-    await db_session.execute(update(Chunk).where(Chunk.source_id == src.id).values(review_status="approved"))
+    await db_session.execute(
+        update(Chunk).where(Chunk.source_id == src.id).values(review_status="approved")
+    )
     await db_session.commit()
     plan["chunks"][0]["text"] = "Test Program needs 12 credit hours."
     plan["program"]["credit_hours"] = 12
@@ -143,7 +194,9 @@ async def test_reimport_unchanged_then_changed(db_session, tmp_path) -> None:
     assert dict(report.files)["b_plan.json"] == "changed"
     await db_session.refresh(src)
     assert src.review_status == "stale"
-    statuses = (await db_session.scalars(select(Chunk.review_status).where(Chunk.source_id == src.id))).all()
+    statuses = (
+        await db_session.scalars(select(Chunk.review_status).where(Chunk.source_id == src.id))
+    ).all()
     assert "approved" not in statuses and "pending" in statuses and "stale" in statuses
     prog = await db_session.scalar(select(Program).where(Program.slug == "test-program"))
     await db_session.refresh(prog)
@@ -153,17 +206,28 @@ async def test_reimport_unchanged_then_changed(db_session, tmp_path) -> None:
 async def test_real_files_import(db_session) -> None:
     report = await import_dir(db_session)
     assert {name for name, _ in report.files} >= {
-        "ise_study_plan_2025_2026.json", "ise_department_page.json",
-        "ree_study_plan_2025_2026.json", "ree_department_page.json",
-        "arch_study_plan_2025_2026.json", "arch_department_page.json",
-        "interior_design_study_plan_2025_2026.json", "interior_design_department_page.json",
-        "graphic_design_study_plan_2025_2026.json", "graphic_design_department_page.json",
-        "faculty_overview.json", "meu_student_handbook_2025_2026.json",
+        "ise_study_plan_2025_2026.json",
+        "ise_department_page.json",
+        "ree_study_plan_2025_2026.json",
+        "ree_department_page.json",
+        "arch_study_plan_2025_2026.json",
+        "arch_department_page.json",
+        "interior_design_study_plan_2025_2026.json",
+        "interior_design_department_page.json",
+        "graphic_design_study_plan_2025_2026.json",
+        "graphic_design_department_page.json",
+        "faculty_overview.json",
+        "meu_student_handbook_2025_2026.json",
         "bme_study_plan_2025_2026.json",
     }
-    expected = {"intelligent-systems-engineering": 162, "renewable-energy-engineering": 162,
-                "architectural-engineering": 165, "interior-design": 141, "graphic-design": 135,
-                "biomedical-engineering": 162}
+    expected = {
+        "intelligent-systems-engineering": 162,
+        "renewable-energy-engineering": 162,
+        "architectural-engineering": 165,
+        "interior-design": 141,
+        "graphic-design": 135,
+        "biomedical-engineering": 162,
+    }
     for slug, hours in expected.items():
         prog = await db_session.scalar(select(Program).where(Program.slug == slug))
         assert prog is not None and prog.credit_hours == hours

@@ -14,10 +14,26 @@ from app.db.base import Base
 from app.db.types import alembic_compare_type
 
 EXPECTED_TABLES = {
-    "sources", "faculties", "programs", "media", "labs", "chunks", "faqs", "pitches",
-    "robot_runs", "pose_samples", "events", "return_trials",
-    "sessions", "turns", "admin_users", "explainers", "explainer_segments", "places", "admin_sessions",
-}  # fmt: skip
+    "sources",
+    "faculties",
+    "programs",
+    "media",
+    "labs",
+    "chunks",
+    "faqs",
+    "pitches",
+    "robot_runs",
+    "pose_samples",
+    "events",
+    "return_trials",
+    "sessions",
+    "turns",
+    "admin_users",
+    "explainers",
+    "explainer_segments",
+    "places",
+    "admin_sessions",
+}
 
 
 async def test_all_tables_exist(engine) -> None:

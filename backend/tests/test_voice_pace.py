@@ -85,7 +85,9 @@ async def test_hello_ack_carries_pace_and_vad_settings(db_session, monkeypatch) 
     monkeypatch.setenv("VAD_SILENCE_MS", "650")
     get_settings.cache_clear()
     try:
-        dm = DialogueManager(send, OneSession(db_session), FakeEmbedder(), FakeStreamingLLM(), FakeSTT([]), FakeTTS())
+        dm = DialogueManager(
+            send, OneSession(db_session), FakeEmbedder(), FakeStreamingLLM(), FakeSTT([]), FakeTTS()
+        )
         await dm.handle({"type": "hello", "robot_id": "test", "protocol_version": 1})
     finally:
         monkeypatch.undo()
@@ -98,13 +100,20 @@ async def test_hello_ack_carries_pace_and_vad_settings(db_session, monkeypatch) 
 
 async def test_client_applies_rate_and_vad_silence(client) -> None:
     js = (await client.get("/static/robot-client.js")).text
-    assert "m.speech_rate" in js and "preservesPitch = true" in js and "playbackRate = this.speechRate" in js
+    assert (
+        "m.speech_rate" in js
+        and "preservesPitch = true" in js
+        and "playbackRate = this.speechRate" in js
+    )
     assert "m.vad_silence_ms" in js and "this.silenceFrames >= this.silenceFramesEnd" in js
     assert "answer.audio.chunk" in js and "pcm16" in js
 
 
 def test_first_piece_length_is_configurable() -> None:
-    long = "خريجين هندسة الأنظمة الذكية بشتغلوا بمجالات زي تكنولوجيا المعلومات والاتصالات، والبنوك والرقابة المالية."
+    long = (
+        "خريجين هندسة الأنظمة الذكية بشتغلوا بمجالات زي تكنولوجيا المعلومات والاتصالات، والبنوك "
+        "والرقابة المالية."
+    )
     first, rest = split_for_speech(long, 6)
     assert len(first.split()) == 6 and f"{first} {rest}" == long
     assert split_for_speech("جملة قصيرة من خمس كلمات فقط.", 6) == ["جملة قصيرة من خمس كلمات فقط."]
@@ -142,23 +151,33 @@ def streaming_on(monkeypatch):
     get_settings.cache_clear()
 
 
-async def _ask(db_session, hello: dict, reply: dict, tts: FakeTTS) -> tuple[list[dict], DialogueManager]:
+async def _ask(
+    db_session, hello: dict, reply: dict, tts: FakeTTS
+) -> tuple[list[dict], DialogueManager]:
     sent: list[dict] = []
 
     async def send(msg: dict) -> None:
         sent.append(msg)
 
-    dm = DialogueManager(send, OneSession(db_session), FakeEmbedder(), FakeStreamingLLM(reply), FakeSTT([]), tts)
+    dm = DialogueManager(
+        send, OneSession(db_session), FakeEmbedder(), FakeStreamingLLM(reply), FakeSTT([]), tts
+    )
     await dm.handle({"type": "hello", **hello})
     await dm.handle({"type": "text.input", "text": f"{UNIQUE}?"})
     return sent, dm
 
 
-async def test_answer_is_streamed_as_pcm_chunks_when_the_client_asks(db_session, streaming_on) -> None:
+async def test_answer_is_streamed_as_pcm_chunks_when_the_client_asks(
+    db_session, streaming_on
+) -> None:
     await _seed(db_session)
     tts = StreamingFakeTTS()
-    sent, dm = await _ask(db_session, {"audio_stream": ["pcm16"]},
-                          {"answer": f"{GOOD} {LAST}", "found": True, "used": [1]}, tts)  # fmt: skip
+    sent, dm = await _ask(
+        db_session,
+        {"audio_stream": ["pcm16"]},
+        {"answer": f"{GOOD} {LAST}", "found": True, "used": [1]},
+        tts,
+    )
     assert next(m for m in sent if m["type"] == "hello.ack")["audio_stream"] is True
     stream = [m for m in sent if m["type"].startswith("answer.audio.")]
     assert [(m["type"].rsplit(".", 1)[1], m["seq"]) for m in stream] == [
@@ -187,22 +206,30 @@ async def test_streaming_is_off_by_default(db_session) -> None:
     assert GOOD in [m["text"] for m in sent if m["type"] == "answer.audio"]  # whole mp3 pieces
 
 
-async def test_streaming_needs_the_client_flag_and_a_streaming_tts(db_session, streaming_on) -> None:
+async def test_streaming_needs_the_client_flag_and_a_streaming_tts(
+    db_session, streaming_on
+) -> None:
     await _seed(db_session)
     reply = {"answer": f"{GOOD} {LAST}", "found": True, "used": [1]}
     sent, _ = await _ask(db_session, {}, reply, StreamingFakeTTS())  # an older client
     assert not any(m["type"].startswith("answer.audio.") for m in sent)
     assert GOOD in [m["text"] for m in sent if m["type"] == "answer.audio"]
 
-    sent, _ = await _ask(db_session, {"audio_stream": ["pcm16"]}, reply, FakeTTS())  # TTS cannot stream
+    sent, _ = await _ask(
+        db_session, {"audio_stream": ["pcm16"]}, reply, FakeTTS()
+    )  # TTS cannot stream
     assert not any(m["type"].startswith("answer.audio.") for m in sent)
 
 
 async def test_invented_number_is_never_streamed(db_session, streaming_on) -> None:
     await _seed(db_session)
     tts = StreamingFakeTTS()
-    sent, _ = await _ask(db_session, {"audio_stream": ["pcm16"]},
-                         {"answer": f"{GOOD} {BAD} {LAST}", "found": True, "used": [1]}, tts)  # fmt: skip
+    sent, _ = await _ask(
+        db_session,
+        {"audio_stream": ["pcm16"]},
+        {"answer": f"{GOOD} {BAD} {LAST}", "found": True, "used": [1]},
+        tts,
+    )
     assert not any("987654" in entry for entry in tts.log)
     assert not any("987654" in m.get("text", "") for m in sent)
     assert [m["text"] for m in sent if m["type"] == "answer.audio.start"] == [GOOD, LAST]
@@ -217,8 +244,12 @@ async def test_stream_failure_ends_the_piece_and_reports_it(db_session, streamin
             raise ProviderError("text-to-speech failed: boom")
 
     await _seed(db_session)
-    sent, dm = await _ask(db_session, {"audio_stream": ["pcm16"]},
-                          {"answer": f"{GOOD} {LAST}", "found": True, "used": [1]}, BrokenTTS())  # fmt: skip
+    sent, dm = await _ask(
+        db_session,
+        {"audio_stream": ["pcm16"]},
+        {"answer": f"{GOOD} {LAST}", "found": True, "used": [1]},
+        BrokenTTS(),
+    )
     kinds = [m["type"] for m in sent if m["type"].startswith("answer.audio.")]
     assert kinds == ["answer.audio.start", "answer.audio.chunk", "answer.audio.end"]
     assert any(m["type"] == "error" and m["code"] == "tts_failed" for m in sent)
@@ -226,16 +257,25 @@ async def test_stream_failure_ends_the_piece_and_reports_it(db_session, streamin
 
 
 @pytest.mark.parametrize("audio_stream", [True, False])
-async def test_latency_through_the_conversation_manager(db_session, streaming_on, audio_stream) -> None:
+async def test_latency_through_the_conversation_manager(
+    db_session, streaming_on, audio_stream
+) -> None:
     from app.services.latency import measure_dialogue
 
     await _seed(db_session)
     questions = [{"id": "q1", "question": f"{UNIQUE}?"}, {"id": "q2", "question": f"{UNIQUE}?"}]
     reply = {"answer": f"{GOOD} {LAST}", "found": True, "used": [1]}
     rows, session_ids = await measure_dialogue(
-        OneSession(db_session), FakeEmbedder(), FakeStreamingLLM(reply), FakeSTT([]), StreamingFakeTTS(), questions,
+        OneSession(db_session),
+        FakeEmbedder(),
+        FakeStreamingLLM(reply),
+        FakeSTT([]),
+        StreamingFakeTTS(),
+        questions,
         audio_stream,
     )
     assert len(rows) == 2 and len(set(session_ids)) == 2
-    assert all(r.first_piece == GOOD and r.pieces == 2 and r.found and r.error is None for r in rows)
+    assert all(
+        r.first_piece == GOOD and r.pieces == 2 and r.found and r.error is None for r in rows
+    )
     assert all(r.first_audio_ms is not None and r.llm_first_ms is not None for r in rows)

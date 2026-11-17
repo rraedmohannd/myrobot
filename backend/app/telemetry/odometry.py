@@ -26,7 +26,9 @@ class Pose:
     theta: float = 0.0  # radians, counter-clockwise, 0 = the start heading
 
 
-def track_distances(ticks_left: float, ticks_right: float, metres_per_tick: float) -> tuple[float, float]:
+def track_distances(
+    ticks_left: float, ticks_right: float, metres_per_tick: float
+) -> tuple[float, float]:
     """Encoder ticks of one step -> metres per side (each side = mean of its front/rear motor)."""
     return ticks_left * metres_per_tick, ticks_right * metres_per_tick
 

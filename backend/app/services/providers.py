@@ -167,10 +167,15 @@ class OpenAILLM:
         if getattr(resp, "status", "completed") == "incomplete":
             raise ProviderError(CUT_OFF)
         return LLMResult(
-            data=parse_json_object(resp.output_text), model=self.model, ms=ms, usage=self._usage(resp)
+            data=parse_json_object(resp.output_text),
+            model=self.model,
+            ms=ms,
+            usage=self._usage(resp),
         )
 
-    async def stream_json(self, instructions: str, user_input: str) -> AsyncIterator[str | LLMResult]:
+    async def stream_json(
+        self, instructions: str, user_input: str
+    ) -> AsyncIterator[str | LLMResult]:
         """Same request with `stream=True`: yields output text deltas, then the parsed result."""
         start = time.perf_counter()
         parts: list[str] = []
@@ -199,7 +204,10 @@ class OpenAILLM:
         if status == "failed":
             raise ProviderError(f"LLM call failed: {getattr(final, 'error', None)}")
         yield LLMResult(
-            data=parse_json_object("".join(parts)), model=self.model, ms=ms, usage=self._usage(final)
+            data=parse_json_object("".join(parts)),
+            model=self.model,
+            ms=ms,
+            usage=self._usage(final),
         )
 
 

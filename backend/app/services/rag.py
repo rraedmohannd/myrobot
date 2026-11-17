@@ -165,9 +165,7 @@ async def retrieve(
     t1 = time.perf_counter()
 
     fts_ids = list((await session.scalars(FTS_SQL, {"q": query, "k": n})).all())
-    vec_ids = list(
-        (await session.scalars(VECTOR_SQL, {"e": to_pgvector(query_vec), "k": n})).all()
-    )
+    vec_ids = list((await session.scalars(VECTOR_SQL, {"e": to_pgvector(query_vec), "k": n})).all())
     scores = rrf([fts_ids, vec_ids])
     ranked = sorted(scores, key=lambda cid: (-scores[cid], cid))
 
@@ -183,10 +181,19 @@ async def retrieve(
             r = rows[cid]
             passages.append(
                 Passage(
-                    chunk_id=cid, text=r.text, lang=r.lang, category=r.category,
-                    program_id=r.program_id, source_title=r.title, source_url=r.url,
-                    score=round(scores[cid], 5), in_fts=cid in fts_set, in_vector=cid in vec_set,
+                    chunk_id=cid,
+                    text=r.text,
+                    lang=r.lang,
+                    category=r.category,
+                    program_id=r.program_id,
+                    source_title=r.title,
+                    source_url=r.url,
+                    score=round(scores[cid], 5),
+                    in_fts=cid in fts_set,
+                    in_vector=cid in vec_set,
                 )  # fmt: skip
             )
     t2 = time.perf_counter()
-    return Retrieval(passages=passages, embed_ms=int((t1 - t0) * 1000), search_ms=int((t2 - t1) * 1000))
+    return Retrieval(
+        passages=passages, embed_ms=int((t1 - t0) * 1000), search_ms=int((t2 - t1) * 1000)
+    )

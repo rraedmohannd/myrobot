@@ -50,7 +50,9 @@ async def test_approve_moves_pending_and_drops_stale(admin_client, db_session) -
     body = r.json()
     assert body["review_status"] == "approved"
     assert body["chunk_counts"] == {"approved": 2}
-    rows = (await db_session.scalars(select(Chunk.review_status).where(Chunk.source_id == sid))).all()
+    rows = (
+        await db_session.scalars(select(Chunk.review_status).where(Chunk.source_id == sid))
+    ).all()
     assert sorted(rows) == ["approved", "approved"]
 
 
@@ -71,9 +73,13 @@ async def test_edit_chunk_text_and_status(admin_client, db_session) -> None:
     assert r.json()["text"] == "نص معدل"
     assert r.json()["review_status"] == "rejected"
 
-    bad = await admin_client.patch(f"/api/admin/chunks/{chunk_id}", json={"review_status": "published"})
+    bad = await admin_client.patch(
+        f"/api/admin/chunks/{chunk_id}", json={"review_status": "published"}
+    )
     assert bad.status_code == 422
-    assert (await admin_client.patch("/api/admin/chunks/999999999", json={"text": "x"})).status_code == 404
+    assert (
+        await admin_client.patch("/api/admin/chunks/999999999", json={"text": "x"})
+    ).status_code == 404
 
 
 # ---------- sprint 4 P0.1 ----------
@@ -90,7 +96,9 @@ async def test_reject_switches_off_approved_chunks_too(admin_client, db_session)
     assert r.status_code == 200, r.text
     assert r.json()["review_status"] == "rejected"
     assert r.json()["chunk_counts"] == {"rejected": 3}
-    rows = (await db_session.scalars(select(Chunk.review_status).where(Chunk.source_id == sid))).all()
+    rows = (
+        await db_session.scalars(select(Chunk.review_status).where(Chunk.source_id == sid))
+    ).all()
     assert set(rows) == {"rejected"}
 
 
@@ -102,13 +110,19 @@ async def test_reject_leaves_other_sources_alone(admin_client, db_session) -> No
     db_session.add(Chunk(source_id=other.id, lang="ar", text="نص آخر", review_status="approved"))
     await db_session.commit()
     await admin_client.post(f"/api/admin/sources/{sid}/review", json={"decision": "reject"})
-    rows = (await db_session.scalars(select(Chunk.review_status).where(Chunk.source_id == other.id))).all()
+    rows = (
+        await db_session.scalars(select(Chunk.review_status).where(Chunk.source_id == other.id))
+    ).all()
     assert rows == ["approved"]
 
 
-async def test_overview_warns_about_approved_chunks_of_unapproved_sources(admin_client, db_session) -> None:
+async def test_overview_warns_about_approved_chunks_of_unapproved_sources(
+    admin_client, db_session
+) -> None:
     key = "approved_chunks_of_unapproved_sources"
-    before = (await admin_client.get("/api/admin/analytics/overview")).json()["knowledge_warnings"][key]
+    before = (await admin_client.get("/api/admin/analytics/overview")).json()["knowledge_warnings"][
+        key
+    ]
     assert before["chunks"] == sum(s["approved_chunks"] for s in before["sources"])
 
     ok = Source(url="https://meu.test/warn-ok/", title="Fine", review_status="approved")
@@ -125,7 +139,9 @@ async def test_overview_warns_about_approved_chunks_of_unapproved_sources(admin_
     ])  # fmt: skip
     await db_session.commit()
 
-    after = (await admin_client.get("/api/admin/analytics/overview")).json()["knowledge_warnings"][key]
+    after = (await admin_client.get("/api/admin/analytics/overview")).json()["knowledge_warnings"][
+        key
+    ]
     assert after["chunks"] - before["chunks"] == 3
     listed = {s["id"]: s for s in after["sources"]}
     assert ok.id not in listed
@@ -135,7 +151,9 @@ async def test_overview_warns_about_approved_chunks_of_unapproved_sources(admin_
 
     # rejecting the source through the API clears its part of the warning
     await admin_client.post(f"/api/admin/sources/{bad.id}/review", json={"decision": "reject"})
-    again = (await admin_client.get("/api/admin/analytics/overview")).json()["knowledge_warnings"][key]
+    again = (await admin_client.get("/api/admin/analytics/overview")).json()["knowledge_warnings"][
+        key
+    ]
     assert bad.id not in {s["id"] for s in again["sources"]}
 
 

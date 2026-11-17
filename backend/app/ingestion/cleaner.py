@@ -135,5 +135,8 @@ def clean_html(html: str) -> CleanPage:
     parser.close()
     title = re.sub(r"\s+", " ", "".join(parser.title_parts)).strip() or None
     return CleanPage(
-        title=title, html_lang=parser.html_lang, text=_tidy("".join(parser.parts)), links=parser.links
+        title=title,
+        html_lang=parser.html_lang,
+        text=_tidy("".join(parser.parts)),
+        links=parser.links,
     )

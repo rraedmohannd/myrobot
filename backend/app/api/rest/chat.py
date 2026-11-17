@@ -1,4 +1,5 @@
-"""POST /api/chat — text question in, grounded answer + sources out (used by the robot and tests)."""
+"""POST /api/chat — text question in, grounded answer + sources out (used by the robot and
+tests)."""
 
 from typing import Annotated
 

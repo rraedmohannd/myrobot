@@ -1,31 +1,37 @@
 """Command line for ingestion.
 
-    python -m app.ingestion.cli crawl [--max-pages 60] [--max-depth 2] [--url URL ...]
-    python -m app.ingestion.cli recrawl
-    python -m app.ingestion.cli stats
-    python -m app.ingestion.cli import-knowledge [--dir data/knowledge]
-    python -m app.ingestion.cli debug-page URL
-    python -m app.ingestion.cli check-openai          # key + model check (B3)
-    python -m app.ingestion.cli embed                 # embeddings for approved chunks
-    python -m app.ingestion.cli ask "question"        # one grounded answer with sources
-    python -m app.ingestion.cli evaluate              # golden set -> data/golden/results/
-    python -m app.ingestion.cli tts-samples           # one mp3 per voice (accent test)
-    python -m app.ingestion.cli bench                 # LLM/STT model latency + correctness
-    python -m app.ingestion.cli latency [--n 8]       # retrieval -> LLM -> first TTS piece timings
-    python -m app.ingestion.cli latency --dialogue    # the same through the conversation manager
-    python -m app.ingestion.cli bench --stt-only      # STT models on the same spoken sentences
-    python -m app.ingestion.cli prepare-phrases       # fixed phrases with the current voice/pace
-    python -m app.ingestion.cli draft-explainers [--program slug] [--lang ar|en]   # PENDING drafts (1 LLM call each)
-    python -m app.ingestion.cli prepare-explainers    # speech of the APPROVED explainers -> cache
-    python -m app.ingestion.cli seed-interests        # PENDING interest -> program rows
-    python -m app.ingestion.cli draft-faqs [--program slug | --general]   # PENDING FAQs and pitches (1 LLM call each)
-    python -m app.ingestion.cli seed-demo-media       # dev only: labelled placeholder images
-    python -m app.ingestion.cli simulate-run [--seed 7]   # SIMULATED robot run (never a real result)
-    python -m app.ingestion.cli simulate-robot [--seconds 120]   # SIMULATED robot client (status, commands)
-    python -m app.ingestion.cli create-admin NAME     # admin login (asks for the password)
-    python -m app.ingestion.cli purge-conversations [--days 30] [--dry-run]   # privacy: delete old conversations
-    python -m app.ingestion.cli export-report [--out /reports]   # CSVs and charts for the graduation report
-    python -m app.ingestion.cli soak [--minutes 30]   # SIMULATED mixed session (see docs/HOW_TO_START.md)
+python -m app.ingestion.cli crawl [--max-pages 60] [--max-depth 2] [--url URL ...]
+python -m app.ingestion.cli recrawl
+python -m app.ingestion.cli stats
+python -m app.ingestion.cli import-knowledge [--dir data/knowledge]
+python -m app.ingestion.cli debug-page URL
+python -m app.ingestion.cli check-openai          # key + model check (B3)
+python -m app.ingestion.cli embed                 # embeddings for approved chunks
+python -m app.ingestion.cli ask "question"        # one grounded answer with sources
+python -m app.ingestion.cli evaluate              # golden set -> data/golden/results/
+python -m app.ingestion.cli tts-samples           # one mp3 per voice (accent test)
+python -m app.ingestion.cli bench                 # LLM/STT model latency + correctness
+python -m app.ingestion.cli latency [--n 8]       # retrieval -> LLM -> first TTS piece timings
+python -m app.ingestion.cli latency --dialogue    # the same through the conversation manager
+python -m app.ingestion.cli bench --stt-only      # STT models on the same spoken sentences
+python -m app.ingestion.cli prepare-phrases       # fixed phrases with the current voice/pace
+python -m app.ingestion.cli draft-explainers [--program slug] [--lang ar|en]
+                                        # PENDING drafts (1 LLM call each)
+python -m app.ingestion.cli prepare-explainers    # speech of the APPROVED explainers -> cache
+python -m app.ingestion.cli seed-interests        # PENDING interest -> program rows
+python -m app.ingestion.cli draft-faqs [--program slug | --general]
+                                        # PENDING FAQs and pitches (1 LLM call each)
+python -m app.ingestion.cli seed-demo-media       # dev only: labelled placeholder images
+python -m app.ingestion.cli simulate-run [--seed 7]   # SIMULATED robot run (never a real result)
+python -m app.ingestion.cli simulate-robot [--seconds 120]
+                                        # SIMULATED robot client (status, commands)
+python -m app.ingestion.cli create-admin NAME     # admin login (asks for the password)
+python -m app.ingestion.cli purge-conversations [--days 30] [--dry-run]
+                                        # privacy: delete old conversations
+python -m app.ingestion.cli export-report [--out /reports]
+                                        # CSVs and charts for the graduation report
+python -m app.ingestion.cli soak [--minutes 30]
+                                        # SIMULATED mixed session (see docs/HOW_TO_START.md)
 """
 
 import argparse
@@ -101,7 +107,8 @@ async def _check_openai() -> None:
         print(f"embedding FAILED: {e}")
     try:
         r = await OpenAILLM().complete_json(
-            'Reply with the JSON object {"ok": true, "answer": "<one short Jordanian Arabic greeting>"}',
+            'Reply with the JSON object {"ok": true, "answer": "<one short Jordanian Arabic '
+            'greeting>"}',
             "Say hello. Reply in JSON.",
         )
         print(f"LLM OK — {r.ms} ms, reply: {r.data}")
@@ -109,7 +116,10 @@ async def _check_openai() -> None:
         print(f"LLM FAILED: {e}\nPick a chat model from the list above and set LLM_MODEL in .env")
     from app.services.speech import OpenAISTT, OpenAITTS
 
-    print(f"TTS_MODEL={settings.tts_model} TTS_VOICE={settings.tts_voice} STT_MODEL={settings.stt_model}")
+    print(
+        f"TTS_MODEL={settings.tts_model} TTS_VOICE={settings.tts_voice} "
+        f"STT_MODEL={settings.stt_model}"
+    )
     try:
         mp3 = await OpenAITTS().synthesize("أهلاً وسهلاً فيك بكلية الهندسة والتصميم")
         print(f"TTS OK — {len(mp3)} bytes of mp3")
@@ -298,8 +308,10 @@ async def _bench_stt(stt_models: list[str], repeats: int = 2) -> None:
     except ProviderError as e:
         print(f"TTS failed, cannot test STT: {e}")
         return
-    print(f"\nSTT comparison: {len(recordings)} sentences spoken by the TTS voice (synthetic speech, "
-          f"not human recordings), {repeats} pass(es) per model, the same audio for every model.")  # fmt: skip
+    print(
+        f"\nSTT comparison: {len(recordings)} sentences spoken by the TTS voice (synthetic speech, "
+        f"not human recordings), {repeats} pass(es) per model, the same audio for every model."
+    )
     rows = []
     for m in stt_models:
         stt = OpenAISTT()
@@ -321,7 +333,18 @@ async def _bench_stt(stt_models: list[str], repeats: int = 2) -> None:
                 if want != got:
                     print(f"  {m}: heard {r.text!r} for {sentence!r}")
         if times:
-            rows.append((m, statistics.median(times), max(times), exact, len(times), word_hits, word_total, errors))
+            rows.append(
+                (
+                    m,
+                    statistics.median(times),
+                    max(times),
+                    exact,
+                    len(times),
+                    word_hits,
+                    word_total,
+                    errors,
+                )
+            )
     print("\nSTT model                median_ms  max_ms  exact  words_heard  errors")
     for m, med, mx, exact, n, hits, total, errors in rows:
         print(f"{m:24s} {med:9.0f} {mx:7.0f}  {exact:>2}/{n:<3} {hits:>5}/{total:<5} {errors:>6}")
@@ -382,7 +405,9 @@ async def _bench(models: list[str], effort: str | None, stt_models: list[str],
                 print(f"{m:24s} {r.ms:6d} ms  heard: {r.text}")
             except ProviderError as e:
                 print(f"{m:24s} ERROR {str(e)[:100]}")
-    print("\nPut the fastest model that still passes ~10/10 in .env (LLM_MODEL=..., STT_MODEL=...).")
+    print(
+        "\nPut the fastest model that still passes ~10/10 in .env (LLM_MODEL=..., STT_MODEL=...)."
+    )
 
 
 async def _prepare_phrases() -> None:
@@ -404,8 +429,10 @@ async def _prepare_phrases() -> None:
         except ProviderError as e:
             failed += 1
             print(f"ERR {piece[:40]}: {e}")
-    print(f"fixed phrases: {made} generated, {ready} already cached, {failed} failed "
-          f"(model {tts.model}, voice {tts.voice}, speed {getattr(tts.inner, 'speed', 1.0)})")  # fmt: skip
+    print(
+        f"fixed phrases: {made} generated, {ready} already cached, {failed} failed "
+        f"(model {tts.model}, voice {tts.voice}, speed {getattr(tts.inner, 'speed', 1.0)})"
+    )
 
 
 async def _draft_explainers(slug: str | None, lang: str | None, force: bool) -> None:
@@ -432,7 +459,9 @@ async def _draft_explainers(slug: str | None, lang: str | None, force: bool) -> 
                 calls += r.outcome in ("created", "replaced", "failed")
                 line = f"{r.outcome:16s} {program.slug} [{code}]"
                 if r.segments:
-                    line += f": {r.segments} segments, {len(r.issues)} issue(s) to fix before approval"
+                    line += (
+                        f": {r.segments} segments, {len(r.issues)} issue(s) to fix before approval"
+                    )
                 if r.error:
                     line += f": {r.error[:160]}"
                 print(line)
@@ -465,7 +494,9 @@ async def _draft_faqs(slug: str | None, general: bool, n: int, force: bool) -> N
         if general or not slug:
             targets.append(None)  # the handbook rules
         for program in targets:
-            r = await draft_curated(session, llm, program, n_faqs=n if program else n + 2, force=force)
+            r = await draft_curated(
+                session, llm, program, n_faqs=n if program else n + 2, force=force
+            )
             calls += r.outcome in ("drafted", "failed")
             line = f"{r.outcome:11s} {r.target}: {r.faqs_created} FAQ(s)"
             if r.faqs_skipped:
@@ -497,11 +528,17 @@ async def _prepare_explainers() -> None:
             )
         ).all()  # fmt: skip
         if not rows:
-            print("No approved explainers yet. Approve drafts at http://localhost:8000/admin -> Explainers")
+            print(
+                "No approved explainers yet. Approve drafts at http://localhost:8000/admin -> "
+                "Explainers"
+            )
         for explainer, program in rows:
             try:
                 made, ready = await prepare_audio(session, tts, explainer)
-                print(f"ok   {program.slug} [{explainer.lang}]: {made} generated, {ready} already cached")
+                print(
+                    f"ok   {program.slug} [{explainer.lang}]: {made} generated, {ready} already "
+                    "cached"
+                )
             except ProviderError as e:
                 print(f"ERR  {program.slug} [{explainer.lang}]: {e}")
 
@@ -514,7 +551,10 @@ async def _seed_interests() -> None:
     for outcome, rows in report.items():
         for row in rows:
             print(f"{outcome:22s} {row}")
-    print("New rows are PENDING: review them at http://localhost:8000/admin -> Explainers -> Interests")
+    print(
+        "New rows are PENDING: review them at http://localhost:8000/admin -> Explainers -> "
+        "Interests"
+    )
 
 
 DEMO_MEDIA = (
@@ -541,7 +581,9 @@ async def _seed_demo_media() -> None:
                 print(f"skip {filename}: program '{slug}' is not in the database")
                 continue
             existing = await session.scalar(
-                select(Media).where(Media.program_id == program.id, Media.source_note == DEMO_MEDIA_NOTE)
+                select(Media).where(
+                    Media.program_id == program.id, Media.source_note == DEMO_MEDIA_NOTE
+                )
             )
             if existing is not None:
                 print(f"exists  media {existing.id} for {slug}")
@@ -557,14 +599,24 @@ async def _seed_demo_media() -> None:
             )  # fmt: skip
             session.add(media)
             await session.commit()
-            print(f"created media {media.id} for {slug} (approved, source_note='{DEMO_MEDIA_NOTE}')")
-    print("Replace these with real MEU media in /admin → Media (upload, link to a program, approve).")
+            print(
+                f"created media {media.id} for {slug} (approved, source_note='{DEMO_MEDIA_NOTE}')"
+            )
+    print(
+        "Replace these with real MEU media in /admin → Media (upload, link to a program, approve)."
+    )
 
 
 async def _simulate_run(seed: int, roam_seconds: float) -> None:
     """Store one SIMULATED Rover 5 run (roaming + return-to-origin) with is_simulated = true."""
     from app.telemetry.simulator import SimConfig, simulate_run
-    from app.telemetry.store import MAX_SAMPLES_PER_MESSAGE, add_event, add_samples, end_run, start_run
+    from app.telemetry.store import (
+        MAX_SAMPLES_PER_MESSAGE,
+        add_event,
+        add_samples,
+        end_run,
+        start_run,
+    )
 
     result = simulate_run(SimConfig(seed=seed, roam_seconds=roam_seconds))
     async with get_sessionmaker()() as session:
@@ -579,10 +631,15 @@ async def _simulate_run(seed: int, roam_seconds: float) -> None:
         counts = await end_run(session, run.id)
     last = result.events[-1]
     print("*** SIMULATED - not a physical result ***")
-    print(f"run {run.id}: {counts['samples']} samples, {counts['events']} events, "
-          f"{result.samples[-1]['t_ms'] / 1000:.0f} s, outcome {result.outcome} ({last['data'].get('method')})")  # fmt: skip
-    print(f"odometry end distance {last['data']['odom_distance_m']} m; simulated true error "
-          f"{last['data']['simulated_true_error_m']} m (a simulation value, not a measurement)")
+    print(
+        f"run {run.id}: {counts['samples']} samples, {counts['events']} events, "
+        f"{result.samples[-1]['t_ms'] / 1000:.0f} s, outcome {result.outcome} "
+        f"({last['data'].get('method')})"
+    )
+    print(
+        f"odometry end distance {last['data']['odom_distance_m']} m; simulated true error "
+        f"{last['data']['simulated_true_error_m']} m (a simulation value, not a measurement)"
+    )
     print("See it at http://localhost:8000/admin -> Robot runs")
 
 
@@ -621,7 +678,10 @@ async def _purge_conversations(days: int | None, dry_run: bool) -> None:
     async with get_sessionmaker()() as session:
         r = await purge_conversations(session, days, dry_run)
     verb = "would delete" if dry_run else "deleted"
-    print(f"{verb} {r['sessions']} conversation(s) with {r['turns']} turn(s) older than {r['days']} days")
+    print(
+        f"{verb} {r['sessions']} conversation(s) with {r['turns']} turn(s) older than {r['days']} "
+        "days"
+    )
 
 
 async def _export_report(out: str | None) -> None:
@@ -630,12 +690,15 @@ async def _export_report(out: str | None) -> None:
 
     from app.services.report import export_report
 
-    out_dir = Path(out) if out else (Path("/reports") if Path("/reports").is_dir() else Path("reports"))
+    out_dir = (
+        Path(out) if out else (Path("/reports") if Path("/reports").is_dir() else Path("reports"))
+    )
     async with get_sessionmaker()() as session:
         files = await export_report(session, out_dir)
     for path in files:
         print(f"  {path.name}")
-    print(f"{len(files)} file(s) written to {out_dir} (on the laptop: the reports folder of the project). "
+    print(f"{len(files)} file(s) written to {out_dir} (on the laptop: the reports folder of the "
+          "project). "
           "Simulated runs are titled SIMULATED; they are not results.")  # fmt: skip
 
 
@@ -644,7 +707,10 @@ async def _simulate_robot(url: str, seconds: float, seed: int, token: str | None
     roams, and answers to the command buttons of the admin "Robot" tab."""
     from app.telemetry.sim_robot import run_sim_robot
 
-    print("*** SIMULATED robot - not a physical robot. Its runs are stored with is_simulated = true. ***")
+    print(
+        "*** SIMULATED robot - not a physical robot. Its runs are stored with is_simulated = true. "
+        "***"
+    )
     print(f"connecting to {url} for {seconds:g} s; open http://localhost:8000/admin -> Robot")
     try:
         report = await run_sim_robot(url, seconds, seed=seed, token=token)
@@ -710,7 +776,9 @@ async def _main(args: argparse.Namespace) -> None:
         await _simulate_robot(args.url, args.seconds, args.seed, args.token)
         return
     if args.cmd == "latency":
-        await _latency(args.n, not args.no_stream, args.effort, args.dialogue, not args.no_stream_audio)
+        await _latency(
+            args.n, not args.no_stream, args.effort, args.dialogue, not args.no_stream_audio
+        )
         await get_engine().dispose()
         return
     if args.cmd == "ask":
@@ -759,7 +827,11 @@ def main() -> None:
     c = sub.add_parser("crawl", help="crawl MEU Faculty of Engineering pages from the seeds")
     c.add_argument("--max-pages", type=int, default=CrawlConfig.max_pages)
     c.add_argument("--max-depth", type=int, default=CrawlConfig.max_depth)
-    c.add_argument("--url", action="append", help="crawl from this URL instead of the default seeds (repeatable)")
+    c.add_argument(
+        "--url",
+        action="append",
+        help="crawl from this URL instead of the default seeds (repeatable)",
+    )
     sub.add_parser("recrawl", help="re-fetch known pages and flag changes as stale/pending")
     sub.add_parser("stats", help="count sources and chunks by review status")
     d = sub.add_parser("debug-page", help="fetch one URL, save raw HTML, show cleaned text")
@@ -773,53 +845,112 @@ def main() -> None:
     sub.add_parser("evaluate", help="run the golden question set and write a report")
     sub.add_parser("tts-samples", help="write one mp3 per TTS voice for the accent listening test")
     b = sub.add_parser("bench", help="compare LLM (and STT) models: latency and correctness")
-    b.add_argument("--models", nargs="+", default=["gpt-6-luna", "gpt-4.1-mini", "gpt-5.4-nano", "gpt-5.4-mini"])
-    b.add_argument("--effort", default=None, help="reasoning effort for reasoning models, e.g. low / minimal")
-    b.add_argument("--stt", nargs="*", default=["gpt-transcribe", "gpt-4o-transcribe", "gpt-4o-mini-transcribe"])
-    b.add_argument("--stt-only", action="store_true",
-                   help="only compare the STT models, on several sentences spoken by the TTS voice")
-    sub.add_parser("seed-demo-media", help="dev only: add labelled placeholder images as approved media")
-    sub.add_parser("prepare-phrases", help="generate the fixed phrases with the current voice and pace")
-    dx = sub.add_parser("draft-explainers", help="draft PENDING program explainers from approved sources")
+    b.add_argument(
+        "--models",
+        nargs="+",
+        default=["gpt-6-luna", "gpt-4.1-mini", "gpt-5.4-nano", "gpt-5.4-mini"],
+    )
+    b.add_argument(
+        "--effort", default=None, help="reasoning effort for reasoning models, e.g. low / minimal"
+    )
+    b.add_argument(
+        "--stt",
+        nargs="*",
+        default=["gpt-transcribe", "gpt-4o-transcribe", "gpt-4o-mini-transcribe"],
+    )
+    b.add_argument(
+        "--stt-only",
+        action="store_true",
+        help="only compare the STT models, on several sentences spoken by the TTS voice",
+    )
+    sub.add_parser(
+        "seed-demo-media", help="dev only: add labelled placeholder images as approved media"
+    )
+    sub.add_parser(
+        "prepare-phrases", help="generate the fixed phrases with the current voice and pace"
+    )
+    dx = sub.add_parser(
+        "draft-explainers", help="draft PENDING program explainers from approved sources"
+    )
     dx.add_argument("--program", help="program slug (default: every program)")
     dx.add_argument("--lang", choices=["ar", "en"], help="one language (default: both)")
-    dx.add_argument("--force", action="store_true", help="also replace an APPROVED explainer (it becomes pending)")
+    dx.add_argument(
+        "--force",
+        action="store_true",
+        help="also replace an APPROVED explainer (it becomes pending)",
+    )
     df = sub.add_parser("draft-faqs", help="draft PENDING FAQs and pitches from approved sources")
     df.add_argument("--program", help="program slug (default: every program, then the handbook)")
-    df.add_argument("--general", action="store_true", help="only the university-wide handbook rules")
+    df.add_argument(
+        "--general", action="store_true", help="only the university-wide handbook rules"
+    )
     df.add_argument("--n", type=int, default=6, help="FAQs per program (default 6)")
-    df.add_argument("--force", action="store_true", help="also replace existing why/compare pitches")
-    sub.add_parser("prepare-explainers", help="generate and cache the speech of approved explainers")
-    sub.add_parser("seed-interests", help="pending interest -> program rows from approved explainers")
-    sim = sub.add_parser("simulate-run", help="store a SIMULATED robot run (trajectory + return-to-origin)")
-    sim.add_argument("--seed", type=int, default=7, help="random seed (16 shows the breadcrumb fallback)")
+    df.add_argument(
+        "--force", action="store_true", help="also replace existing why/compare pitches"
+    )
+    sub.add_parser(
+        "prepare-explainers", help="generate and cache the speech of approved explainers"
+    )
+    sub.add_parser(
+        "seed-interests", help="pending interest -> program rows from approved explainers"
+    )
+    sim = sub.add_parser(
+        "simulate-run", help="store a SIMULATED robot run (trajectory + return-to-origin)"
+    )
+    sim.add_argument(
+        "--seed", type=int, default=7, help="random seed (16 shows the breadcrumb fallback)"
+    )
     sim.add_argument("--roam-seconds", type=float, default=45.0)
     ca = sub.add_parser("create-admin", help="create an admin login (or change its password)")
     ca.add_argument("username")
-    ca.add_argument("--password-stdin", action="store_true", help="read the password from standard input")
-    pc = sub.add_parser("purge-conversations", help="delete conversations older than the retention period")
-    pc.add_argument("--days", type=int, default=None, help="default: CONVERSATION_RETENTION_DAYS (30)")
+    ca.add_argument(
+        "--password-stdin", action="store_true", help="read the password from standard input"
+    )
+    pc = sub.add_parser(
+        "purge-conversations", help="delete conversations older than the retention period"
+    )
+    pc.add_argument(
+        "--days", type=int, default=None, help="default: CONVERSATION_RETENTION_DAYS (30)"
+    )
     pc.add_argument("--dry-run", action="store_true", help="only count, delete nothing")
     er = sub.add_parser("export-report", help="write CSVs and PNG charts for the graduation report")
-    er.add_argument("--out", default=None, help="output folder (default: /reports = reports/ on the laptop)")
-    so = sub.add_parser("soak", help="SIMULATED mixed session against a preview backend (fake providers)")
+    er.add_argument(
+        "--out", default=None, help="output folder (default: /reports = reports/ on the laptop)"
+    )
+    so = sub.add_parser(
+        "soak", help="SIMULATED mixed session against a preview backend (fake providers)"
+    )
     so.add_argument("--minutes", type=float, default=30.0)
     so.add_argument("--url", default="ws://localhost:8000/ws/robot")
     so.add_argument("--admin-url", default="http://localhost:8000")
     so.add_argument("--out", default=None, help="folder for the JSON result (default: data/soak)")
-    bot = sub.add_parser("simulate-robot", help="connect a SIMULATED robot client (status + commands)")
+    bot = sub.add_parser(
+        "simulate-robot", help="connect a SIMULATED robot client (status + commands)"
+    )
     bot.add_argument("--url", default="ws://localhost:8000/ws/robot")
     bot.add_argument("--seconds", type=float, default=120.0)
     bot.add_argument("--seed", type=int, default=7)
-    bot.add_argument("--token", default=None, help="ROBOT_TOKEN when the backend is on another machine")
-    lat = sub.add_parser("latency", help="time retrieval, LLM and first TTS piece on golden questions")
+    bot.add_argument(
+        "--token", default=None, help="ROBOT_TOKEN when the backend is on another machine"
+    )
+    lat = sub.add_parser(
+        "latency", help="time retrieval, LLM and first TTS piece on golden questions"
+    )
     lat.add_argument("--n", type=int, default=8, help="number of golden questions (default 8)")
-    lat.add_argument("--no-stream", action="store_true", help="wait for the whole LLM answer (old behaviour)")
+    lat.add_argument(
+        "--no-stream", action="store_true", help="wait for the whole LLM answer (old behaviour)"
+    )
     lat.add_argument("--effort", default=None, help="reasoning effort override, e.g. low")
-    lat.add_argument("--dialogue", action="store_true",
-                     help="run the questions through the conversation manager (real audio path)")
-    lat.add_argument("--no-stream-audio", action="store_true",
-                     help="with --dialogue: whole mp3 pieces instead of PCM chunks")
+    lat.add_argument(
+        "--dialogue",
+        action="store_true",
+        help="run the questions through the conversation manager (real audio path)",
+    )
+    lat.add_argument(
+        "--no-stream-audio",
+        action="store_true",
+        help="with --dialogue: whole mp3 pieces instead of PCM chunks",
+    )
     asyncio.run(_main(p.parse_args()))
 
 

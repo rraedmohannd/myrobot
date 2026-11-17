@@ -49,7 +49,9 @@ class Explainer(Base):
 
 class ExplainerSegment(Base):
     __tablename__ = "explainer_segments"
-    __table_args__ = (Index("ix_explainer_segments_explainer_position", "explainer_id", "position"),)
+    __table_args__ = (
+        Index("ix_explainer_segments_explainer_position", "explainer_id", "position"),
+    )
 
     id: Mapped[int] = mapped_column(primary_key=True)
     explainer_id: Mapped[int] = mapped_column(ForeignKey("explainers.id", ondelete="CASCADE"))

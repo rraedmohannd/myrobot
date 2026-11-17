@@ -36,14 +36,18 @@ async def _program(db_session, slug: str = "test-program") -> Program:
     faculty = Faculty(slug=f"{slug}-faculty", name_ar="كلية تجريبية", name_en="Test faculty")
     db_session.add(faculty)
     await db_session.flush()
-    program = Program(faculty_id=faculty.id, slug=slug, name_ar="تخصص تجريبي", name_en="Test program")
+    program = Program(
+        faculty_id=faculty.id, slug=slug, name_ar="تخصص تجريبي", name_en="Test program"
+    )
     db_session.add(program)
     await db_session.commit()
     return program
 
 
 async def _upload(client, name: str, data: bytes, **fields):  # noqa: ANN202
-    return await client.post("/api/admin/media", files={"file": (name, data)}, data={**NOTE, **fields})
+    return await client.post(
+        "/api/admin/media", files={"file": (name, data)}, data={**NOTE, **fields}
+    )
 
 
 # ---------------- validation ----------------
@@ -53,8 +57,16 @@ def test_validate_accepts_only_the_five_types() -> None:
     assert validate("a.webp", WEBP) == ("image", "image/webp", "webp")
     assert validate("clip.mp4", MP4) == ("video", "video/mp4", "mp4")
     assert validate("clip.webm", WEBM) == ("video", "video/webm", "webm")
-    for name, data in (("a.gif", b"GIF89a"), ("a.svg", b"<svg/>"), ("a.exe", PNG), ("noext", PNG),
-                       ("a.png", JPG), ("a.mp4", PNG), ("a.png", b""), ("a.png", b"<html>")):  # fmt: skip
+    for name, data in (
+        ("a.gif", b"GIF89a"),
+        ("a.svg", b"<svg/>"),
+        ("a.exe", PNG),
+        ("noext", PNG),
+        ("a.png", JPG),
+        ("a.mp4", PNG),
+        ("a.png", b""),
+        ("a.png", b"<html>"),
+    ):
         with pytest.raises(MediaError):
             validate(name, data)
     assert sniff(b"hello") is None
@@ -62,8 +74,9 @@ def test_validate_accepts_only_the_five_types() -> None:
 
 def test_parse_multipart() -> None:
     body = (
-        b"--XX\r\nContent-Disposition: form-data; name=\"title\"\r\n\r\n\xd8\xb5\xd9\x88\xd8\xb1\xd8\xa9\r\n"
-        b"--XX\r\nContent-Disposition: form-data; name=\"file\"; filename=\"a.png\"\r\n"
+        b'--XX\r\nContent-Disposition: form-data; name="title"\r\n\r\n'
+        b"\xd8\xb5\xd9\x88\xd8\xb1\xd8\xa9\r\n"
+        b'--XX\r\nContent-Disposition: form-data; name="file"; filename="a.png"\r\n'
         b"Content-Type: image/png\r\n\r\n" + PNG + b"\r\n--XX--\r\n"
     )
     fields, files = parse_multipart("multipart/form-data; boundary=XX", body)
@@ -122,10 +135,16 @@ async def test_upload_review_and_serve(media_client, db_session, tmp_path) -> No
     assert r.json()["review_status"] == "rejected"
     assert (await media_client.get(m["url"])).status_code == 404  # rejected: gone again
 
-    r = await media_client.patch(f"/api/admin/media/{m['id']}", json={"title": "New", "program_id": None})
+    r = await media_client.patch(
+        f"/api/admin/media/{m['id']}", json={"title": "New", "program_id": None}
+    )
     assert r.json()["title"] == "New" and r.json()["program_id"] is None
-    assert (await media_client.patch(f"/api/admin/media/{m['id']}", json={"program_id": 999999999})).status_code == 422
-    bad = await media_client.post(f"/api/admin/media/{m['id']}/review", json={"decision": "publish"})
+    assert (
+        await media_client.patch(f"/api/admin/media/{m['id']}", json={"program_id": 999999999})
+    ).status_code == 422
+    bad = await media_client.post(
+        f"/api/admin/media/{m['id']}/review", json={"decision": "publish"}
+    )
     assert bad.status_code == 422
 
     assert (await media_client.delete(f"/api/admin/media/{m['id']}")).status_code == 204
@@ -133,7 +152,9 @@ async def test_upload_review_and_serve(media_client, db_session, tmp_path) -> No
     assert (await media_client.get(f"/api/admin/media/{m['id']}/file")).status_code == 404
 
 
-async def test_public_route_does_not_need_a_token_but_only_serves_approved(media_client, client, db_session) -> None:
+async def test_public_route_does_not_need_a_token_but_only_serves_approved(
+    media_client, client, db_session
+) -> None:
     m = (await _upload(media_client, "clip.webm", WEBM)).json()
     assert m["kind"] == "video"
     assert (await client.get(m["url"])).status_code == 404
@@ -145,12 +166,16 @@ async def test_public_route_does_not_need_a_token_but_only_serves_approved(media
 
 async def test_upload_validation(media_client, db_session, monkeypatch) -> None:
     assert (await _upload(media_client, "a.gif", b"GIF89a")).status_code == 422
-    assert (await _upload(media_client, "fake.png", b"<html>not an image</html>")).status_code == 422
+    assert (
+        await _upload(media_client, "fake.png", b"<html>not an image</html>")
+    ).status_code == 422
     assert (await _upload(media_client, "a.png", PNG, program_id="999999999")).status_code == 422
     assert (await _upload(media_client, "a.png", PNG, program_id="abc")).status_code == 422
     no_note = await media_client.post("/api/admin/media", files={"file": ("a.png", PNG)})
     assert no_note.status_code == 422 and "source_note" in no_note.json()["detail"]
-    no_file = await media_client.post("/api/admin/media", data=NOTE, files={"other": ("a.png", PNG)})
+    no_file = await media_client.post(
+        "/api/admin/media", data=NOTE, files={"other": ("a.png", PNG)}
+    )
     assert no_file.status_code == 422
     not_form = await media_client.post("/api/admin/media", json={"file": "x"})
     assert not_form.status_code == 422
@@ -173,7 +198,9 @@ async def _ask(db_session) -> dict | None:
     async def send(msg: dict) -> None:
         sent.append(msg)
 
-    dm = DialogueManager(send, OneSession(db_session), FakeEmbedder(), FakeLLM(), FakeSTT([]), FakeTTS())
+    dm = DialogueManager(
+        send, OneSession(db_session), FakeEmbedder(), FakeLLM(), FakeSTT([]), FakeTTS()
+    )
     await dm.handle({"type": "text.input", "text": f"{UNIQUE}?"})
     return next((m["card"] for m in sent if m["type"] == "display.update" and m.get("card")), None)
 
@@ -185,8 +212,16 @@ async def test_card_has_media_only_when_approved_and_for_one_program(db_session)
     await db_session.flush()
     chunk = Chunk(source_id=src.id, lang="en", review_status="approved", program_id=program.id,
                   text=f"The {UNIQUE} program requires 162 credit hours.")  # fmt: skip
-    image = Media(kind="image", path="x.png", mime="image/png", program_id=program.id,
-                  alt_ar="مختبر", alt_en="A lab", source_note="test", review_status="pending")  # fmt: skip
+    image = Media(
+        kind="image",
+        path="x.png",
+        mime="image/png",
+        program_id=program.id,
+        alt_ar="مختبر",
+        alt_en="A lab",
+        source_note="test",
+        review_status="pending",
+    )
     db_session.add_all([chunk, image])
     await db_session.commit()
 

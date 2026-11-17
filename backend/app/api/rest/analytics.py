@@ -102,7 +102,9 @@ async def _counts(session, since: datetime) -> dict[str, int]:
 
 
 @router.get("/analytics/overview")
-async def overview(session: SessionDep, days: int = Query(default=7, ge=1, le=90)) -> dict[str, Any]:
+async def overview(
+    session: SessionDep, days: int = Query(default=7, ge=1, le=90)
+) -> dict[str, Any]:
     tz = ZoneInfo(get_settings().local_timezone)
     since = _local_day_start(days - 1)
 
@@ -194,8 +196,15 @@ async def knowledge_gaps(
         if not key:
             continue
         g = groups.setdefault(
-            key, {"question": text, "lang": lang, "count": 0, "last_asked": created,
-                  "last_answer": answer, "variants": []},  # fmt: skip
+            key,
+            {
+                "question": text,
+                "lang": lang,
+                "count": 0,
+                "last_asked": created,
+                "last_answer": answer,
+                "variants": [],
+            },  # fmt: skip
         )
         g["count"] += 1
         if text not in g["variants"] and len(g["variants"]) < 5:
@@ -236,9 +245,13 @@ async def conversations(
         "total": total,
         "items": [
             {
-                "id": s.id, "started_at": s.started_at, "ended_at": s.ended_at,
-                "end_reason": s.end_reason, "lang": s.lang_detected,
-                "turns": info[s.id]["turns"], "speakers": len(info[s.id]["speakers"]),
+                "id": s.id,
+                "started_at": s.started_at,
+                "ended_at": s.ended_at,
+                "end_reason": s.end_reason,
+                "lang": s.lang_detected,
+                "turns": info[s.id]["turns"],
+                "speakers": len(info[s.id]["speakers"]),
                 "first_question": info[s.id]["first"],
             }  # fmt: skip
             for s in sessions
@@ -384,9 +397,7 @@ async def coverage(session: SessionDep) -> dict[str, Any]:
         row["category"] = row.pop("key") or "(none)"
     categories.sort(key=lambda r: (-r["approved"], r["category"]))
 
-    names = {
-        p.id: p for p in (await session.scalars(select(Program).order_by(Program.id))).all()
-    }
+    names = {p.id: p for p in (await session.scalars(select(Program).order_by(Program.id))).all()}
     programs = table(
         await session.execute(
             select(Chunk.program_id, Chunk.review_status, func.count())

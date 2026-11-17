@@ -54,19 +54,55 @@ async def _seed(db_session) -> dict:
     def turn(idx: int, **kw) -> Turn:
         return Turn(session_id=s.id, idx=idx, user_lang="ar", created_at=now, **kw)
 
-    db_session.add_all([
-        turn(0, intent="question", user_text=f"كم ساعة {UNIQUE}؟", answer_text="162 ساعة.",
-             found=True, used_chunk_ids=[chunk.id, 999999999], speaker_label=1,
-             speaker_source="voice", stt_ms=1000, retrieval_ms=200, llm_first_ms=1100,
-             llm_ms=2000, ack_ms=1300, tts_ms=4000, total_ms=4000),
-        turn(1, intent="question", user_text=f"كم رسوم {UNIQUE}؟", answer_text="ما عندي.",
-             found=False, speaker_label=2, stt_ms=1400, retrieval_ms=300, llm_ms=3000,
-             ack_ms=1500, tts_ms=5000, total_ms=5000),
-        turn(2, intent="question", user_text=f"كم رُسوم {UNIQUE} ؟!", answer_text="ما عندي.",
-             found=False, speaker_label=2, stt_ms=1200, tts_ms=6000),
-        turn(3, intent="question", user_text=f"سؤال قديم {UNIQUE}", answer_text="جواب"),  # found unknown
-        turn(4, intent="done", user_text="شكرا", answer_text="مع السلامة"),
-    ])  # fmt: skip
+    db_session.add_all(
+        [
+            turn(
+                0,
+                intent="question",
+                user_text=f"كم ساعة {UNIQUE}؟",
+                answer_text="162 ساعة.",
+                found=True,
+                used_chunk_ids=[chunk.id, 999999999],
+                speaker_label=1,
+                speaker_source="voice",
+                stt_ms=1000,
+                retrieval_ms=200,
+                llm_first_ms=1100,
+                llm_ms=2000,
+                ack_ms=1300,
+                tts_ms=4000,
+                total_ms=4000,
+            ),
+            turn(
+                1,
+                intent="question",
+                user_text=f"كم رسوم {UNIQUE}؟",
+                answer_text="ما عندي.",
+                found=False,
+                speaker_label=2,
+                stt_ms=1400,
+                retrieval_ms=300,
+                llm_ms=3000,
+                ack_ms=1500,
+                tts_ms=5000,
+                total_ms=5000,
+            ),
+            turn(
+                2,
+                intent="question",
+                user_text=f"كم رُسوم {UNIQUE} ؟!",
+                answer_text="ما عندي.",
+                found=False,
+                speaker_label=2,
+                stt_ms=1200,
+                tts_ms=6000,
+            ),
+            turn(
+                3, intent="question", user_text=f"سؤال قديم {UNIQUE}", answer_text="جواب"
+            ),  # found unknown
+            turn(4, intent="done", user_text="شكرا", answer_text="مع السلامة"),
+        ]
+    )
     await db_session.commit()
     return {"session": s.id, "empty": empty.id, "chunk": chunk.id, "source": src.id}
 
@@ -128,8 +164,12 @@ async def test_conversations_list_and_detail(admin_client, db_session) -> None:
     assert [t["intent"] for t in turns] == ["question"] * 4 + ["done"]
     first = turns[0]
     assert first["found"] is True and first["speaker_label"] == 1
-    assert first["sources"][0] == {"chunk_id": ids["chunk"], "category": "zz-test",
-                                   "title": "Analytics test", "url": "test-doc://analytics"}  # fmt: skip
+    assert first["sources"][0] == {
+        "chunk_id": ids["chunk"],
+        "category": "zz-test",
+        "title": "Analytics test",
+        "url": "test-doc://analytics",
+    }
     assert first["sources"][1]["title"] is None  # a chunk that no longer exists
     assert first["timings_ms"] == {"stt": 1000, "retrieval": 200, "llm_first": 1100, "llm": 2000,
                                    "ack": 1300, "answer_audio": 4000}  # fmt: skip
@@ -149,7 +189,9 @@ async def test_ask_the_robot_returns_answer_and_passages(admin_client, db_sessio
         assert d["found"] and "162" in d["answer"] and d["error"] is None
         top = d["passages"][0]
         assert top["chunk_id"] == ids["chunk"] and top["used"] and top["in_fts"]
-        assert top["source_title"] == "Analytics test" and top["source_url"] == "test-doc://analytics"
+        assert (
+            top["source_title"] == "Analytics test" and top["source_url"] == "test-doc://analytics"
+        )
         assert top["score"] > 0 and "162" in top["text"]
         assert "retrieval_ms" in d["timings_ms"]
         after = (await admin_client.get("/api/admin/conversations")).json()["total"]
@@ -172,7 +214,9 @@ async def test_evaluation_runs(admin_client, tmp_path) -> None:
         ],
     }  # fmt: skip
     (tmp_path / "20261113-100000.json").write_text(json.dumps(run), encoding="utf-8")
-    (tmp_path / "20261112-100000.json").write_text(json.dumps({**run, "passed": 2}), encoding="utf-8")
+    (tmp_path / "20261112-100000.json").write_text(
+        json.dumps({**run, "passed": 2}), encoding="utf-8"
+    )
     (tmp_path / "broken.json").write_text("{not json", encoding="utf-8")
     (tmp_path / "20261113-100000.md").write_text("# report", encoding="utf-8")
     app.dependency_overrides[get_results_dir] = lambda: tmp_path
@@ -182,10 +226,21 @@ async def test_evaluation_runs(admin_client, tmp_path) -> None:
         app.dependency_overrides.pop(get_results_dir, None)
     assert r.status_code == 200, r.text
     runs = r.json()["runs"]
-    assert [x["file"] for x in runs] == ["20261113-100000.json", "20261112-100000.json"]  # newest first
+    assert [x["file"] for x in runs] == [
+        "20261113-100000.json",
+        "20261112-100000.json",
+    ]  # newest first
     assert runs[0]["passed"] == 1 and runs[0]["total"] == 2 and runs[0]["accuracy"] == 0.5
-    assert runs[0]["failed"] == [{"id": "bad", "lang": "ar", "kind": "answerable", "question": "q2",
-                                  "answer": "a2", "reasons": ["missing one of ['162']"]}]  # fmt: skip
+    assert runs[0]["failed"] == [
+        {
+            "id": "bad",
+            "lang": "ar",
+            "kind": "answerable",
+            "question": "q2",
+            "answer": "a2",
+            "reasons": ["missing one of ['162']"],
+        }
+    ]
     assert read_evaluation_runs(tmp_path / "missing") == []
 
 

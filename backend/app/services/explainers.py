@@ -32,7 +32,16 @@ PAUSE_AFTER = 3  # "بدك أكمل ولا عندك سؤال؟" after this many 
 # University-wide handbook passages that also describe every program of the faculty.
 GENERAL_CATEGORIES = ("study_system", "graduation")
 # The robot never promises an outcome (sprint 2 S3; also applied to explainers).
-GUARANTEE_WORDS = ("guarantee", "guaranteed", "بضمن", "بنضمن", "مضمون", "مضمونة", "ضمان", "أكيد بتشتغل")
+GUARANTEE_WORDS = (
+    "guarantee",
+    "guaranteed",
+    "بضمن",
+    "بنضمن",
+    "مضمون",
+    "مضمونة",
+    "ضمان",
+    "أكيد بتشتغل",
+)
 
 _ALEF = str.maketrans({"أ": "ا", "إ": "ا", "آ": "ا", "ة": "ه", "ى": "ي", "ـ": None})
 
@@ -50,26 +59,62 @@ def norm(text: str) -> str:
 # are only the ways people say them.
 PROGRAM_ALIASES: dict[str, tuple[str, ...]] = {
     "intelligent-systems-engineering": (
-        "الانظمه الذكيه", "انظمه ذكيه", "الانظمه الذكيه", "انظمه الذكيه", "intelligent systems",
-        "smart systems", "intelligent system",
+        "الانظمه الذكيه",
+        "انظمه ذكيه",
+        "الانظمه الذكيه",
+        "انظمه الذكيه",
+        "intelligent systems",
+        "smart systems",
+        "intelligent system",
     ),
     "renewable-energy-engineering": (
-        "الطاقه المتجدده", "طاقه متجدده", "طاقه المتجدده", "renewable energy", "renewable",
+        "الطاقه المتجدده",
+        "طاقه متجدده",
+        "طاقه المتجدده",
+        "renewable energy",
+        "renewable",
     ),
     "architectural-engineering": (
-        "هندسه العماره", "العماره", "عماره", "المعماريه", "معماري", "architectural engineering",
-        "architecture", "architectural",
+        "هندسه العماره",
+        "العماره",
+        "عماره",
+        "المعماريه",
+        "معماري",
+        "architectural engineering",
+        "architecture",
+        "architectural",
     ),
-    "interior-design": ("التصميم الداخلي", "تصميم داخلي", "تصميم الداخلي", "الديكور", "ديكور", "interior design", "interior"),
+    "interior-design": (
+        "التصميم الداخلي",
+        "تصميم داخلي",
+        "تصميم الداخلي",
+        "الديكور",
+        "ديكور",
+        "interior design",
+        "interior",
+    ),
     "graphic-design": (
-        "التصميم الجرافيكي", "تصميم جرافيكي", "الجرافيكي", "جرافيك", "الغرافيكي", "غرافيك",
-        "جرافيكس", "graphic design", "graphics", "graphic",
+        "التصميم الجرافيكي",
+        "تصميم جرافيكي",
+        "الجرافيكي",
+        "جرافيك",
+        "الغرافيكي",
+        "غرافيك",
+        "جرافيكس",
+        "graphic design",
+        "graphics",
+        "graphic",
     ),
     "biomedical-engineering": (
-        "الطبيه الحيويه", "طبيه حيويه", "الهندسه الطبيه", "هندسه طبيه", "biomedical engineering",
-        "biomedical", "bio medical",
+        "الطبيه الحيويه",
+        "طبيه حيويه",
+        "الهندسه الطبيه",
+        "هندسه طبيه",
+        "biomedical engineering",
+        "biomedical",
+        "bio medical",
     ),
-}  # fmt: skip
+}
 
 # "Tell me about X": the request is for a presentation, not for one fact.
 _TRIGGERS = (
@@ -83,12 +128,63 @@ _TRIGGERS = (
 )  # fmt: skip
 # Words that carry no question of their own once the trigger and the program name are removed.
 _FILLER_WORDS = {
-    "تخصص", "التخصص", "هندسه", "الهندسه", "برنامج", "البرنامج", "قسم", "القسم", "عن", "على", "في",
-    "ب", "بالجامعه", "الجامعه", "عندكم", "عندكو", "لو", "سمحت", "ممكن", "شوي", "اكثر", "كمان", "يعني",
-    "بالضبط", "هاد", "هذا", "هاي", "هذه", "و", "يا", "روبوت", "مرحبا", "بكالوريوس", "دراسه", "ادرس",
-    "the", "a", "an", "program", "programme", "major", "engineering", "department", "degree",
-    "please", "me", "more", "about", "of", "in", "at", "meu", "your", "to", "study", "bachelor",
-}  # fmt: skip
+    "تخصص",
+    "التخصص",
+    "هندسه",
+    "الهندسه",
+    "برنامج",
+    "البرنامج",
+    "قسم",
+    "القسم",
+    "عن",
+    "على",
+    "في",
+    "ب",
+    "بالجامعه",
+    "الجامعه",
+    "عندكم",
+    "عندكو",
+    "لو",
+    "سمحت",
+    "ممكن",
+    "شوي",
+    "اكثر",
+    "كمان",
+    "يعني",
+    "بالضبط",
+    "هاد",
+    "هذا",
+    "هاي",
+    "هذه",
+    "و",
+    "يا",
+    "روبوت",
+    "مرحبا",
+    "بكالوريوس",
+    "دراسه",
+    "ادرس",
+    "the",
+    "a",
+    "an",
+    "program",
+    "programme",
+    "major",
+    "engineering",
+    "department",
+    "degree",
+    "please",
+    "me",
+    "more",
+    "about",
+    "of",
+    "in",
+    "at",
+    "meu",
+    "your",
+    "to",
+    "study",
+    "bachelor",
+}
 
 
 _PREFIX = r"(?:و|ب|ل|ف|لل|بال|وال|فال|ال)?"
@@ -117,13 +213,22 @@ def explainer_request(text: str) -> str | None:
     if slug is None:
         return None
     rest = f" {normalized} "
-    trigger = next((t for t in sorted(_TRIGGERS, key=len, reverse=True) if f" {t} " in rest or rest.startswith(f" {t}")), None)
+    trigger = next(
+        (
+            t
+            for t in sorted(_TRIGGERS, key=len, reverse=True)
+            if f" {t} " in rest or rest.startswith(f" {t}")
+        ),
+        None,
+    )
     if trigger is None:
         return None
     rest = rest.replace(f" {trigger}", " ", 1)
     for alias in sorted(PROGRAM_ALIASES[slug], key=len, reverse=True):
         rest = rest.replace(f" {alias} ", " ")
-    left = [w for w in rest.split() if w not in _FILLER_WORDS and w.lstrip("وبال") not in _FILLER_WORDS]
+    left = [
+        w for w in rest.split() if w not in _FILLER_WORDS and w.lstrip("وبال") not in _FILLER_WORDS
+    ]
     return slug if len(left) <= 1 else None
 
 
@@ -220,7 +325,13 @@ async def program_context(session: AsyncSession, program: Program) -> ProgramCon
             (Chunk.program_id == program.id)
             | (Chunk.program_id.is_(None) & Chunk.category.in_(GENERAL_CATEGORIES)),
         )
-        .order_by(Chunk.program_id.is_(None), Chunk.category == "courses", Chunk.source_id, Chunk.position, Chunk.id)
+        .order_by(
+            Chunk.program_id.is_(None),
+            Chunk.category == "courses",
+            Chunk.source_id,
+            Chunk.position,
+            Chunk.id,
+        )
     )
     ctx = ProgramContext(program)
     for text_, category, title in rows:
@@ -239,7 +350,11 @@ def find_issues(segments: list[tuple[str, dict[str, Any]]], source_texts: list[s
     """Why an explainer may not be approved. `segments` = (spoken text, scene) in order."""
     issues: list[Issue] = []
     if not MIN_SEGMENTS <= len(segments) <= MAX_SEGMENTS:
-        issues.append(Issue(0, "structure", f"{len(segments)} segments (expected {MIN_SEGMENTS}-{MAX_SEGMENTS})"))
+        issues.append(
+            Issue(
+                0, "structure", f"{len(segments)} segments (expected {MIN_SEGMENTS}-{MAX_SEGMENTS})"
+            )
+        )
     known: set[str] = set()
     for t in source_texts:
         known |= numbers_in(t)
@@ -252,7 +367,9 @@ def find_issues(segments: list[tuple[str, dict[str, Any]]], source_texts: list[s
             issues.append(Issue(i, "number", f"{n} is not in the program's approved sources"))
         for course in scene_course_names(scene):
             if norm(course) and norm(course) not in haystack:
-                issues.append(Issue(i, "course", f"'{course}' is not written in the approved sources"))
+                issues.append(
+                    Issue(i, "course", f"'{course}' is not written in the approved sources")
+                )
         low = f" {norm(shown)} "
         for word in GUARANTEE_WORDS:
             if f" {norm(word)} " in low:
@@ -319,8 +436,8 @@ the robot questions, or visit the Admission and Registration Department (scene "
 
 SCENES (the "scene" object of each segment; all texts short, in the presentation language)
 - {"type": "title", "tagline": "<one short line, at most 8 words>"}
-- {"type": "stat", "value": "<digits from the CONTEXT>", "unit": "<e.g. ساعة معتمدة / credit hours>", \
-"caption": "<short line>"}
+- {"type": "stat", "value": "<digits from the CONTEXT>", \
+"unit": "<e.g. ساعة معتمدة / credit hours>", "caption": "<short line>"}
 - {"type": "courses", "title": "<short heading>", "courses": ["<4 to 7 exact course names>"]}
 - {"type": "timeline", "title": "<short heading>", "steps": [{"label": "<short>", "items": \
 ["<up to 2 exact course names>"]}]}  (3 to 5 steps)
@@ -377,23 +494,32 @@ async def draft_explainer(
     cleaned: list[tuple[str, dict[str, Any]]] = []
     for raw in raw_segments if isinstance(raw_segments, list) else []:
         if isinstance(raw, dict) and str(raw.get("text") or "").strip():
-            cleaned.append((re.sub(r"\s+", " ", str(raw["text"])).strip(), clean_scene(raw.get("scene"))))
+            cleaned.append(
+                (re.sub(r"\s+", " ", str(raw["text"])).strip(), clean_scene(raw.get("scene")))
+            )
     cleaned = cleaned[:MAX_SEGMENTS]
     if not cleaned:
         return DraftResult(existing, "failed", error="the model returned no segments")
 
     now = datetime.now(UTC)
     if existing is None:
-        explainer, outcome = Explainer(program_id=program.id, lang=lang, status="pending"), "created"
+        explainer, outcome = (
+            Explainer(program_id=program.id, lang=lang, status="pending"),
+            "created",
+        )
         session.add(explainer)
         await session.flush()
     else:
         explainer, outcome = existing, "replaced"
-        await session.execute(delete(ExplainerSegment).where(ExplainerSegment.explainer_id == explainer.id))
+        await session.execute(
+            delete(ExplainerSegment).where(ExplainerSegment.explainer_id == explainer.id)
+        )
         explainer.status = "pending"  # new text is never approved by itself
     explainer.updated_at = now
     for position, (spoken, scene) in enumerate(cleaned, start=1):
-        session.add(ExplainerSegment(explainer_id=explainer.id, position=position, text=spoken, scene=scene))
+        session.add(
+            ExplainerSegment(explainer_id=explainer.id, position=position, text=spoken, scene=scene)
+        )
     await session.commit()
     return DraftResult(explainer, outcome, find_issues(cleaned, ctx.texts), len(cleaned))
 
@@ -407,7 +533,9 @@ async def _has_program_chunks(session: AsyncSession, program_id: int) -> bool:
 
 
 # ---------------- audio ----------------
-async def prepare_audio(session: AsyncSession, tts: CachedTTS, explainer: Explainer) -> tuple[int, int]:
+async def prepare_audio(
+    session: AsyncSession, tts: CachedTTS, explainer: Explainer
+) -> tuple[int, int]:
     """Generate and cache the speech of every segment of an APPROVED explainer, so playback
     starts instantly. Returns (generated, already cached). Raises ProviderError if TTS fails."""
     if explainer.status != "approved":
@@ -481,7 +609,9 @@ async def load_playable(session: AsyncSession, slug: str, lang: str) -> Playable
         return None
     explainer = await session.scalar(
         select(Explainer).where(
-            Explainer.program_id == program.id, Explainer.lang == lang, Explainer.status == "approved"
+            Explainer.program_id == program.id,
+            Explainer.lang == lang,
+            Explainer.status == "approved",
         )
     )
     if explainer is None:
@@ -519,7 +649,12 @@ async def screen_content(session: AsyncSession) -> dict[str, Any]:
             continue  # approved, but no longer backed by its sources: not offered
         entry = programs.setdefault(
             program.slug,
-            {"slug": program.slug, "name_ar": program.name_ar, "name_en": program.name_en, "langs": []},
+            {
+                "slug": program.slug,
+                "name_ar": program.name_ar,
+                "name_en": program.name_en,
+                "langs": [],
+            },
         )
         entry["langs"].append(explainer.lang)
         if explainer.lang != "ar" and "ar" in entry["langs"]:

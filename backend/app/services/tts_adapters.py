@@ -171,9 +171,7 @@ class OpenAIRealtimeTTS:
             raise ProviderError(f"text-to-speech failed ({self.model}): no audio in the response")
         self.last_transcript = transcript or None
         if transcript and not said_as_written(text, transcript):
-            log.warning(
-                "realtime TTS transcript differs from the text: %r -> %r", text, transcript
-            )
+            log.warning("realtime TTS transcript differs from the text: %r -> %r", text, transcript)
 
     async def synthesize(self, text: str, voice: str | None = None) -> bytes:
         """A WAV file (the Realtime API has no mp3 output)."""

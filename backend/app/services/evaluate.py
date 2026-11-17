@@ -102,11 +102,18 @@ async def evaluate(
             reasons.insert(0, f"error: {r.error}")
         results.append(
             QuestionResult(
-                id=item["id"], lang=item["lang"], kind=item["kind"], question=item["question"],
-                answer=r.answer, found=r.found, passed=not reasons, reasons=reasons,
+                id=item["id"],
+                lang=item["lang"],
+                kind=item["kind"],
+                question=item["question"],
+                answer=r.answer,
+                found=r.found,
+                passed=not reasons,
+                reasons=reasons,
                 invented_numbers=r.invented_numbers,
                 sources=[f"[{s.n}] {s.title}" for s in r.sources],
-                total_ms=r.timings.get("total_ms"), error=r.error,
+                total_ms=r.timings.get("total_ms"),
+                error=r.error,
             )  # fmt: skip
         )
     latencies = [x.total_ms for x in results if x.total_ms is not None and not x.error]

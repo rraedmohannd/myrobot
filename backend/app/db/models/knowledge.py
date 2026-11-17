@@ -90,9 +90,7 @@ class Media(Base):
     alt_ar: Mapped[str | None] = mapped_column(Text)
     alt_en: Mapped[str | None] = mapped_column(Text)
     source_id: Mapped[int | None] = mapped_column(ForeignKey("sources.id", ondelete="SET NULL"))
-    program_id: Mapped[int | None] = mapped_column(
-        ForeignKey("programs.id", ondelete="SET NULL")
-    )
+    program_id: Mapped[int | None] = mapped_column(ForeignKey("programs.id", ondelete="SET NULL"))
     title: Mapped[str | None] = mapped_column(Text)
     mime: Mapped[str | None] = mapped_column(String(64))
     size_bytes: Mapped[int | None] = mapped_column(BigInteger)
@@ -131,9 +129,7 @@ class Lab(Base):
     __table_args__ = (review_check(),)
 
     id: Mapped[int] = mapped_column(primary_key=True)
-    program_id: Mapped[int | None] = mapped_column(
-        ForeignKey("programs.id", ondelete="SET NULL")
-    )
+    program_id: Mapped[int | None] = mapped_column(ForeignKey("programs.id", ondelete="SET NULL"))
     name_ar: Mapped[str] = mapped_column(Text)
     name_en: Mapped[str] = mapped_column(Text)
     description_ar: Mapped[str | None] = mapped_column(Text)
@@ -164,7 +160,9 @@ class Place(Base):
     related_office: Mapped[str | None] = mapped_column(Text)
     keywords: Mapped[str | None] = mapped_column(Text)  # other spoken names, comma-separated
     # The approved handbook passage with this office's phone numbers (never retyped here).
-    contact_chunk_id: Mapped[int | None] = mapped_column(ForeignKey("chunks.id", ondelete="SET NULL"))
+    contact_chunk_id: Mapped[int | None] = mapped_column(
+        ForeignKey("chunks.id", ondelete="SET NULL")
+    )
     media_id: Mapped[int | None] = mapped_column(ForeignKey("media.id", ondelete="SET NULL"))
     review_status: Mapped[str] = review_status_column()
     created_at: Mapped[datetime] = created_at_column()
@@ -183,9 +181,7 @@ class Chunk(Base):
 
     id: Mapped[int] = mapped_column(primary_key=True)
     source_id: Mapped[int] = mapped_column(ForeignKey("sources.id", ondelete="CASCADE"))
-    program_id: Mapped[int | None] = mapped_column(
-        ForeignKey("programs.id", ondelete="SET NULL")
-    )
+    program_id: Mapped[int | None] = mapped_column(ForeignKey("programs.id", ondelete="SET NULL"))
     lang: Mapped[str] = mapped_column(String(2))
     category: Mapped[str | None] = mapped_column(String(32))
     position: Mapped[int] = mapped_column(Integer, server_default=text("0"))  # order in page
@@ -216,9 +212,7 @@ class Faq(Base):
     __table_args__ = (review_check(),)
 
     id: Mapped[int] = mapped_column(primary_key=True)
-    program_id: Mapped[int | None] = mapped_column(
-        ForeignKey("programs.id", ondelete="SET NULL")
-    )
+    program_id: Mapped[int | None] = mapped_column(ForeignKey("programs.id", ondelete="SET NULL"))
     question_ar: Mapped[str | None] = mapped_column(Text)
     question_en: Mapped[str | None] = mapped_column(Text)
     answer_ar: Mapped[str | None] = mapped_column(Text)
@@ -244,9 +238,7 @@ class Pitch(Base):
     __table_args__ = (review_check(),)
 
     id: Mapped[int] = mapped_column(primary_key=True)
-    program_id: Mapped[int | None] = mapped_column(
-        ForeignKey("programs.id", ondelete="SET NULL")
-    )
+    program_id: Mapped[int | None] = mapped_column(ForeignKey("programs.id", ondelete="SET NULL"))
     topic: Mapped[str] = mapped_column(Text)
     text_ar: Mapped[str | None] = mapped_column(Text)
     text_en: Mapped[str | None] = mapped_column(Text)

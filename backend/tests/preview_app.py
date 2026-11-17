@@ -1,6 +1,7 @@
 """Development preview of the pages with FAKE AI providers (no OpenAI call, no cost).
 
-    docker compose run --rm -p 8001:8000 backend uvicorn tests.preview_app:app --host 0.0.0.0 --port 8000
+    docker compose run --rm -p 8001:8000 backend \
+        uvicorn tests.preview_app:app --host 0.0.0.0 --port 8000
 
 It is the real app (same pages, same protocol, same database unless DATABASE_URL points to a
 scratch one), but the language model, speech-to-text and text-to-speech are stand-ins: answers

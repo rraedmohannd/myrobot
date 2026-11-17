@@ -30,14 +30,25 @@ async def test_idle_screen_content_is_approved_only(admin_client, db_session) ->
 
 async def test_robot_page_has_explainer_scenes_and_local_qr(client) -> None:
     robot = (await client.get("/robot")).text
-    for needle in ("/static/explainer-scenes.js", "/static/vendor/qrcode/qrcode.js", "ساعدني أختار", "قرّب واحكي معي"):
+    for needle in (
+        "/static/explainer-scenes.js",
+        "/static/vendor/qrcode/qrcode.js",
+        "ساعدني أختار",
+        "قرّب واحكي معي",
+    ):
         assert needle in robot, needle
     assert "https://" not in robot and "http://" not in robot.replace("http://www.w3.org", "")
     scenes = (await client.get("/static/explainer-scenes.js")).text
     for kind in ("title", "keypoints", "stat", "timeline", "courses", "diagram", "media", "qr"):
         assert f"    {kind}(scene" in scenes, kind
-    for slug in ("intelligent-systems-engineering", "renewable-energy-engineering", "architectural-engineering",
-                 "interior-design", "graphic-design", "biomedical-engineering"):  # fmt: skip
+    for slug in (
+        "intelligent-systems-engineering",
+        "renewable-energy-engineering",
+        "architectural-engineering",
+        "interior-design",
+        "graphic-design",
+        "biomedical-engineering",
+    ):
         assert slug in scenes, slug
     assert "https://" not in scenes and "http://" not in scenes.replace("http://www.w3.org", "")
     assert (await client.get("/static/vendor/qrcode/qrcode.js")).status_code == 200
@@ -49,8 +60,13 @@ async def test_robot_page_has_explainer_scenes_and_local_qr(client) -> None:
 async def test_attract_mode_stops_when_a_conversation_starts(client) -> None:
     robot = (await client.get("/robot")).text
     # the session.started handler and both ways of starting (start button, touch buttons) stop it
-    assert 'case "session.started": inSession = true; setCard(null); $("heard").textContent = ""; stopAttract(); break;' in robot
+    assert (
+        'case "session.started": inSession = true; setCard(null); $("heard").textContent = ""; '
+        "stopAttract(); break;" in robot
+    )
     assert robot.count("starting = true; stopAttract();") == 2
     assert "/api/robot/screen" in robot and "setInterval(nextAttract, 7000)" in robot
-    assert "if (showAttract) startAttract(); else stopAttract();" in robot  # only on the idle screen
+    assert (
+        "if (showAttract) startAttract(); else stopAttract();" in robot
+    )  # only on the idle screen
     assert 'id="attractName"' in robot  # a number on the idle screen always names its program

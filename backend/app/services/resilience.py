@@ -61,7 +61,9 @@ class ProviderGuard:
         self.failures += 1
         self.failed_calls += 1
         self.last_error = error
-        self.errors.appendleft({"at": datetime.now(UTC).isoformat(timespec="seconds"), "error": error[:300]})
+        self.errors.appendleft(
+            {"at": datetime.now(UTC).isoformat(timespec="seconds"), "error": error[:300]}
+        )
         if self.failures >= get_settings().breaker_failures or self.opened_at is not None:
             self.opened_at = time.monotonic()  # open, or re-open after a failed trial call
 
@@ -89,10 +91,15 @@ class ProviderGuard:
 
     def status(self) -> dict[str, Any]:
         return {
-            "state": self.state, "ok": self.state == "closed" and self.failures == 0,
-            "failures_in_a_row": self.failures, "calls": self.calls, "failed_calls": self.failed_calls,
-            "last_ok": self.last_ok, "last_error": self.last_error, "recent_errors": list(self.errors),
-        }  # fmt: skip
+            "state": self.state,
+            "ok": self.state == "closed" and self.failures == 0,
+            "failures_in_a_row": self.failures,
+            "calls": self.calls,
+            "failed_calls": self.failed_calls,
+            "last_ok": self.last_ok,
+            "last_error": self.last_error,
+            "recent_errors": list(self.errors),
+        }
 
 
 _guards: dict[str, ProviderGuard] = {}
@@ -161,10 +168,13 @@ class ResilientLLM:
 
     async def complete_json(self, instructions: str, user_input: str) -> LLMResult:
         return await guard("llm").call(
-            lambda: self.inner.complete_json(instructions, user_input), get_settings().provider_timeout_llm_s
+            lambda: self.inner.complete_json(instructions, user_input),
+            get_settings().provider_timeout_llm_s,
         )
 
-    async def _stream_json(self, instructions: str, user_input: str) -> AsyncIterator[str | LLMResult]:
+    async def _stream_json(
+        self, instructions: str, user_input: str
+    ) -> AsyncIterator[str | LLMResult]:
         """Streamed answer with two limits: the first text within PROVIDER_TIMEOUT_LLM_FIRST_S,
         the whole answer within PROVIDER_TIMEOUT_LLM_S. It is retried only while nothing has
         been passed on yet (spoken words cannot be taken back)."""
@@ -180,7 +190,9 @@ class ResilientLLM:
             try:
                 while True:
                     try:
-                        item = await asyncio.wait_for(stream.__anext__(), max(0.01, min(limit, deadline - time.monotonic())))
+                        item = await asyncio.wait_for(
+                            stream.__anext__(), max(0.01, min(limit, deadline - time.monotonic()))
+                        )
                     except StopAsyncIteration:
                         break
                     passed = True
@@ -191,7 +203,7 @@ class ResilientLLM:
             except TimeoutError:
                 error = ProviderError(
                     f"llm did not {'finish' if passed else 'start answering'} within "
-                    f"{settings.provider_timeout_llm_s if passed else settings.provider_timeout_llm_first_s:g} s"
+                    f"{settings.provider_timeout_llm_s if passed else settings.provider_timeout_llm_first_s:g} s"  # noqa: E501
                 )
             except ProviderError as e:
                 error = e

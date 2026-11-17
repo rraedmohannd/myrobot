@@ -58,7 +58,9 @@ async def prepare_speech(tts: CachedTTS, *texts: str | None) -> str | None:
 
 def _refuse(issues: list[str]) -> None:
     if issues:
-        raise HTTPException(status.HTTP_409_CONFLICT, {"message": "Fix these before approving", "issues": issues})
+        raise HTTPException(
+            status.HTTP_409_CONFLICT, {"message": "Fix these before approving", "issues": issues}
+        )
 
 
 # ====================================================================================
@@ -106,7 +108,10 @@ async def list_faqs(session: SessionDep) -> dict[str, Any]:
     programs = (await session.scalars(select(Program).order_by(Program.id))).all()
     return {
         "items": [await _faq(session, f) for f in rows],
-        "programs": [{"id": p.id, "slug": p.slug, "name_en": p.name_en, "name_ar": p.name_ar} for p in programs],
+        "programs": [
+            {"id": p.id, "slug": p.slug, "name_en": p.name_en, "name_ar": p.name_ar}
+            for p in programs
+        ],
         "match_threshold": cur.get_settings().faq_match_threshold,
     }
 
@@ -115,10 +120,14 @@ async def list_faqs(session: SessionDep) -> dict[str, Any]:
 async def add_faq(body: FaqIn, session: SessionDep) -> dict[str, Any]:
     await _check_program(session, body.program_id)
     faq = Faq(
-        program_id=body.program_id, question_ar=_text(body.question_ar), question_en=_text(body.question_en),
-        answer_ar=_text(body.answer_ar), answer_en=_text(body.answer_en), priority=body.priority,
+        program_id=body.program_id,
+        question_ar=_text(body.question_ar),
+        question_en=_text(body.question_en),
+        answer_ar=_text(body.answer_ar),
+        answer_en=_text(body.answer_en),
+        priority=body.priority,
         review_status="pending",
-    )  # fmt: skip
+    )
     session.add(faq)
     await session.commit()
     return await _faq(session, faq)
@@ -131,15 +140,26 @@ async def patch_faq(faq_id: int, body: FaqPatch, session: SessionDep) -> dict[st
     if "program_id" in changes:
         await _check_program(session, changes["program_id"])
     for key, value in changes.items():
-        setattr(faq, key, _text(value) if isinstance(value, str) or (value is None and key != "program_id") else value)
+        setattr(
+            faq,
+            key,
+            _text(value)
+            if isinstance(value, str) or (value is None and key != "program_id")
+            else value,
+        )
     if faq.priority is None:
         faq.priority = 0
     if faq.review_status == "approved":
         faq.review_status = "pending"  # edited content is reviewed again
     await session.commit()
-    if {"question_ar", "question_en"} & set(changes):  # the old vectors no longer match the questions
+    if {"question_ar", "question_en"} & set(
+        changes
+    ):  # the old vectors no longer match the questions
         await session.execute(
-            text("UPDATE faqs SET embedding_ar = NULL, embedding_en = NULL, embedding_model = NULL WHERE id = :id"),
+            text(
+                "UPDATE faqs SET embedding_ar = NULL, embedding_en = NULL, embedding_model = NULL "
+                "WHERE id = :id"
+            ),
             {"id": faq.id},
         )
         await session.commit()
@@ -156,7 +176,9 @@ async def review_faq(faq_id: int, body: Review, session: SessionDep, tts: TTSDep
     _refuse(await cur.faq_issues(session, faq))
     faq.review_status = "approved"
     await session.commit()
-    return await _faq(session, faq, audio_error=await prepare_speech(tts, faq.answer_ar, faq.answer_en))
+    return await _faq(
+        session, faq, audio_error=await prepare_speech(tts, faq.answer_ar, faq.answer_en)
+    )
 
 
 @router.delete("/faqs/{faq_id}", status_code=status.HTTP_204_NO_CONTENT)
@@ -182,10 +204,16 @@ class PitchPatch(BaseModel):
 
 async def _pitch(session, pitch: Pitch, **extra: Any) -> dict[str, Any]:
     return {
-        "id": pitch.id, "kind": pitch.topic, "program": await _program(session, pitch.program_id),
-        "text_ar": pitch.text_ar, "text_en": pitch.text_en, "status": pitch.review_status,
-        "is_promotional": pitch.is_promotional, "issues": await cur.pitch_issues(session, pitch), **extra,
-    }  # fmt: skip
+        "id": pitch.id,
+        "kind": pitch.topic,
+        "program": await _program(session, pitch.program_id),
+        "text_ar": pitch.text_ar,
+        "text_en": pitch.text_en,
+        "status": pitch.review_status,
+        "is_promotional": pitch.is_promotional,
+        "issues": await cur.pitch_issues(session, pitch),
+        **extra,
+    }
 
 
 async def _get_pitch(session, pitch_id: int) -> Pitch:
@@ -198,7 +226,11 @@ async def _get_pitch(session, pitch_id: int) -> Pitch:
 @router.get("/pitches")
 async def list_pitches(session: SessionDep) -> dict[str, Any]:
     rows = (
-        await session.scalars(select(Pitch).where(Pitch.topic.in_(cur.PITCH_KINDS)).order_by(Pitch.program_id, Pitch.topic, Pitch.id))
+        await session.scalars(
+            select(Pitch)
+            .where(Pitch.topic.in_(cur.PITCH_KINDS))
+            .order_by(Pitch.program_id, Pitch.topic, Pitch.id)
+        )
     ).all()
     return {"items": [await _pitch(session, p) for p in rows]}
 
@@ -206,8 +238,14 @@ async def list_pitches(session: SessionDep) -> dict[str, Any]:
 @router.post("/pitches", status_code=status.HTTP_201_CREATED)
 async def add_pitch(body: PitchIn, session: SessionDep) -> dict[str, Any]:
     await _check_program(session, body.program_id)
-    pitch = Pitch(program_id=body.program_id, topic=body.kind, text_ar=_text(body.text_ar),
-                  text_en=_text(body.text_en), is_promotional=True, review_status="pending")  # fmt: skip
+    pitch = Pitch(
+        program_id=body.program_id,
+        topic=body.kind,
+        text_ar=_text(body.text_ar),
+        text_en=_text(body.text_en),
+        is_promotional=True,
+        review_status="pending",
+    )
     session.add(pitch)
     await session.commit()
     return await _pitch(session, pitch)
@@ -225,7 +263,9 @@ async def patch_pitch(pitch_id: int, body: PitchPatch, session: SessionDep) -> d
 
 
 @router.post("/pitches/{pitch_id}/review")
-async def review_pitch(pitch_id: int, body: Review, session: SessionDep, tts: TTSDep) -> dict[str, Any]:
+async def review_pitch(
+    pitch_id: int, body: Review, session: SessionDep, tts: TTSDep
+) -> dict[str, Any]:
     pitch = await _get_pitch(session, pitch_id)
     if body.decision == "reject":
         pitch.review_status = "rejected"
@@ -234,7 +274,9 @@ async def review_pitch(pitch_id: int, body: Review, session: SessionDep, tts: TT
     _refuse(await cur.pitch_issues(session, pitch))
     pitch.review_status = "approved"
     await session.commit()
-    speech = (pitch.text_ar, pitch.text_en) if pitch.topic == "compare" else ()  # `why` goes through the model
+    speech = (
+        (pitch.text_ar, pitch.text_en) if pitch.topic == "compare" else ()
+    )  # `why` goes through the model
     return await _pitch(session, pitch, audio_error=await prepare_speech(tts, *speech))
 
 
@@ -294,23 +336,44 @@ async def _check_links(session, data: dict[str, Any]) -> None:
 
 
 def _place(p: Place) -> dict[str, Any]:
-    issues = [] if (p.directions_ar or p.directions_en or p.building or p.floor) else ["no directions, building or floor yet"]
+    issues = (
+        []
+        if (p.directions_ar or p.directions_en or p.building or p.floor)
+        else ["no directions, building or floor yet"]
+    )
     return {
-        "id": p.id, "name_ar": p.name_ar, "name_en": p.name_en, "building": p.building, "floor": p.floor,
-        "directions_ar": p.directions_ar, "directions_en": p.directions_en, "related_office": p.related_office,
-        "keywords": p.keywords, "contact_chunk_id": p.contact_chunk_id, "media_id": p.media_id,
-        "status": p.review_status, "issues": issues,
-    }  # fmt: skip
+        "id": p.id,
+        "name_ar": p.name_ar,
+        "name_en": p.name_en,
+        "building": p.building,
+        "floor": p.floor,
+        "directions_ar": p.directions_ar,
+        "directions_en": p.directions_en,
+        "related_office": p.related_office,
+        "keywords": p.keywords,
+        "contact_chunk_id": p.contact_chunk_id,
+        "media_id": p.media_id,
+        "status": p.review_status,
+        "issues": issues,
+    }
 
 
 async def _lab(session, lab: Lab) -> dict[str, Any]:
     return {
-        "id": lab.id, "name_ar": lab.name_ar, "name_en": lab.name_en, "program": await _program(session, lab.program_id),
-        "description_ar": lab.description_ar, "description_en": lab.description_en,
-        "location_hint": lab.location_hint, "keywords": lab.keywords, "media_id": lab.media_id,
+        "id": lab.id,
+        "name_ar": lab.name_ar,
+        "name_en": lab.name_en,
+        "program": await _program(session, lab.program_id),
+        "description_ar": lab.description_ar,
+        "description_en": lab.description_en,
+        "location_hint": lab.location_hint,
+        "keywords": lab.keywords,
+        "media_id": lab.media_id,
         "status": lab.review_status,
-        "issues": [] if lab.location_hint else ["no location yet: the robot cannot answer 'where' for this lab"],
-    }  # fmt: skip
+        "issues": []
+        if lab.location_hint
+        else ["no location yet: the robot cannot answer 'where' for this lab"],
+    }
 
 
 @router.get("/places")
@@ -320,7 +383,11 @@ async def list_places(session: SessionDep) -> dict[str, Any]:
     places = (await session.scalars(select(Place).order_by(Place.id))).all()
     labs = (await session.scalars(select(Lab).order_by(Lab.id))).all()
     programs = (await session.scalars(select(Program).order_by(Program.id))).all()
-    media = (await session.scalars(select(Media).where(Media.review_status == "approved").order_by(Media.id))).all()
+    media = (
+        await session.scalars(
+            select(Media).where(Media.review_status == "approved").order_by(Media.id)
+        )
+    ).all()
     contacts = (
         await session.execute(
             select(Chunk.id, Chunk.text, Source.title)
@@ -334,7 +401,9 @@ async def list_places(session: SessionDep) -> dict[str, Any]:
         "labs": [await _lab(session, lab) for lab in labs],
         "programs": [{"id": p.id, "name_en": p.name_en, "name_ar": p.name_ar} for p in programs],
         "media": [{"id": m.id, "title": m.title, "kind": m.kind} for m in media],
-        "contact_passages": [{"id": c.id, "source": c.title, "text": c.text[:400]} for c in contacts],
+        "contact_passages": [
+            {"id": c.id, "source": c.title, "text": c.text[:400]} for c in contacts
+        ],
     }
 
 
@@ -358,7 +427,10 @@ async def _get(session, model: type, row_id: int) -> Any:
 @router.patch("/places/{place_id}")
 async def patch_place(place_id: int, body: PlacePatch, session: SessionDep) -> dict[str, Any]:
     place = await _get(session, Place, place_id)
-    data = {k: (_text(v) if isinstance(v, str) else v) for k, v in body.model_dump(exclude_unset=True).items()}
+    data = {
+        k: (_text(v) if isinstance(v, str) else v)
+        for k, v in body.model_dump(exclude_unset=True).items()
+    }
     await _check_links(session, data)
     for key, value in data.items():
         if key in ("name_ar", "name_en") and not value:
@@ -400,7 +472,10 @@ async def add_lab(body: LabIn, session: SessionDep) -> dict[str, Any]:
 @router.patch("/labs/{lab_id}")
 async def patch_lab(lab_id: int, body: LabPatch, session: SessionDep) -> dict[str, Any]:
     lab = await _get(session, Lab, lab_id)
-    data = {k: (_text(v) if isinstance(v, str) else v) for k, v in body.model_dump(exclude_unset=True).items()}
+    data = {
+        k: (_text(v) if isinstance(v, str) else v)
+        for k, v in body.model_dump(exclude_unset=True).items()
+    }
     await _check_links(session, data)
     for key, value in data.items():
         if key in ("name_ar", "name_en") and not value:

@@ -85,7 +85,9 @@ class FakeSTT:
         from app.services.speech import STTResult
 
         self.received.append(audio)
-        return STTResult(text=self.transcripts.pop(0) if self.transcripts else "", ms=5, model=self.model)
+        return STTResult(
+            text=self.transcripts.pop(0) if self.transcripts else "", ms=5, model=self.model
+        )
 
 
 class FakeTTS:

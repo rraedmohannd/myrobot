@@ -41,11 +41,13 @@ CATEGORY_HINTS: dict[str, str] = {
     "علامة النجاح | grades, letter grades, grade points, GPA, cumulative average, classification, "
     "passing grade",
     "academic_standing": "الإنذار الأكاديمي، الفصل من التخصص، معدلي أقل من 2، إعادة المادة، رفع "
-    "المعدل، امتحان الإكمال، متوقع تخرجه | academic warning, probation, dismissal, repeat a course, "
+    "المعدل، امتحان الإكمال، متوقع تخرجه | academic warning, probation, dismissal, repeat a "
+    "course, "
     "raise GPA, completion exam",
     "registration_changes": "السحب والإضافة، الانسحاب من مادة، تأجيل الدراسة، تأجيل الفصل، فقدان "
     "المقعد | add and drop, withdraw from a course, postpone or defer studies, losing the seat",
-    "transfer": "الانتقال من جامعة ثانية، التحويل، معادلة المواد، تغيير التخصص، التجسير، دبلوم كلية "
+    "transfer": "الانتقال من جامعة ثانية، التحويل، معادلة المواد، تغيير التخصص، التجسير، "
+    "دبلوم كلية "
     "مجتمع | transfer from another university, course equivalence, change of major, bridging, "
     "community college diploma",
     "graduation": "متطلبات التخرج، شروط التخرج، التدريب الميداني، تدريب عملي، مشروع التخرج، براءة "
@@ -54,7 +56,8 @@ CATEGORY_HINTS: dict[str, str] = {
     "تفوق رياضي، الأنشطة | scholarships, grants, discounts, outstanding students, sports "
     "scholarship, extracurricular activities",
     "student_support": "صندوق دعم الطالب، مساعدة مالية، ظروف مادية، تشغيل الطلبة، شغل بالجامعة، "
-    "عمل جزئي | student support fund, financial aid, hardship, student jobs on campus, part-time work",
+    "عمل جزئي | student support fund, financial aid, hardship, student jobs on campus, part-time "
+    "work",
     "student_services": "خدمات الطلبة، سكن الطلبة، سكن داخلي، عيادة، طبيب، تأمين صحي، لوحة الشرف | "
     "student services, housing, dormitory, clinic, doctor, health insurance, honor board",
     "contacts": "أرقام التواصل، رقم الجامعة، رقم التلفون، كيف أتواصل، رقم القبول والتسجيل، رقم "

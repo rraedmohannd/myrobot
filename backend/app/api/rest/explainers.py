@@ -119,7 +119,9 @@ async def list_explainers(session: SessionDep) -> dict[str, Any]:
     counts = dict(
         (
             await session.execute(
-                select(ExplainerSegment.explainer_id, func.count()).group_by(ExplainerSegment.explainer_id)
+                select(ExplainerSegment.explainer_id, func.count()).group_by(
+                    ExplainerSegment.explainer_id
+                )
             )
         ).all()
     )
@@ -136,7 +138,10 @@ async def list_explainers(session: SessionDep) -> dict[str, Any]:
     programs = (await session.scalars(select(Program).order_by(Program.id))).all()
     return {
         "items": items,
-        "programs": [{"id": p.id, "slug": p.slug, "name_en": p.name_en, "name_ar": p.name_ar} for p in programs],
+        "programs": [
+            {"id": p.id, "slug": p.slug, "name_en": p.name_en, "name_ar": p.name_ar}
+            for p in programs
+        ],
     }
 
 
@@ -154,7 +159,9 @@ async def _touched(session, explainer: Explainer) -> None:
 
 
 @router.patch("/explainers/segments/{segment_id}")
-async def patch_segment(segment_id: int, body: SegmentPatch, session: SessionDep, tts: TTSDep) -> dict[str, Any]:
+async def patch_segment(
+    segment_id: int, body: SegmentPatch, session: SessionDep, tts: TTSDep
+) -> dict[str, Any]:
     seg = await session.get(ExplainerSegment, segment_id)
     if seg is None:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Segment not found")
@@ -169,7 +176,9 @@ async def patch_segment(segment_id: int, body: SegmentPatch, session: SessionDep
 
 
 @router.post("/explainers/{explainer_id}/segments", status_code=status.HTTP_201_CREATED)
-async def add_segment(explainer_id: int, body: SegmentCreate, session: SessionDep, tts: TTSDep) -> dict[str, Any]:
+async def add_segment(
+    explainer_id: int, body: SegmentCreate, session: SessionDep, tts: TTSDep
+) -> dict[str, Any]:
     explainer = await _get(session, explainer_id)
     segments = await load_segments(session, explainer.id)
     if len(segments) >= MAX_SEGMENTS:
@@ -194,7 +203,9 @@ async def delete_segment(segment_id: int, session: SessionDep, tts: TTSDep) -> d
 
 
 @router.post("/explainers/{explainer_id}/review")
-async def review_explainer(explainer_id: int, body: Review, session: SessionDep, tts: TTSDep) -> dict[str, Any]:
+async def review_explainer(
+    explainer_id: int, body: Review, session: SessionDep, tts: TTSDep
+) -> dict[str, Any]:
     """approve: refused (409) while a number or course name is not in the program's approved
     sources; otherwise the explainer becomes playable and its speech is generated and cached.
     reject: the robot never plays it."""
@@ -227,13 +238,24 @@ async def _mapping(session, pitch: Pitch) -> dict[str, Any]:
     key = pitch.topic.removeprefix(interests.TOPIC_PREFIX)
     info = interests.INTERESTS.get(key, {})
     return {
-        "id": pitch.id, "interest": key, "interest_ar": info.get("ar"), "interest_en": info.get("en"),
-        "program": {"id": program.id, "slug": program.slug, "name_en": program.name_en,
-                    "name_ar": program.name_ar} if program else None,
-        "text_ar": pitch.text_ar, "text_en": pitch.text_en, "status": pitch.review_status,
+        "id": pitch.id,
+        "interest": key,
+        "interest_ar": info.get("ar"),
+        "interest_en": info.get("en"),
+        "program": {
+            "id": program.id,
+            "slug": program.slug,
+            "name_en": program.name_en,
+            "name_ar": program.name_ar,
+        }
+        if program
+        else None,
+        "text_ar": pitch.text_ar,
+        "text_en": pitch.text_en,
+        "status": pitch.review_status,
         "is_promotional": pitch.is_promotional,
         "issues": await interests.mapping_issues(session, pitch),
-    }  # fmt: skip
+    }
 
 
 async def _get_mapping(session, pitch_id: int) -> Pitch:
@@ -247,11 +269,15 @@ async def _get_mapping(session, pitch_id: int) -> Pitch:
 async def list_interests(session: SessionDep) -> dict[str, Any]:
     rows = (
         await session.scalars(
-            select(Pitch).where(Pitch.topic.like(f"{interests.TOPIC_PREFIX}%")).order_by(Pitch.topic, Pitch.id)
+            select(Pitch)
+            .where(Pitch.topic.like(f"{interests.TOPIC_PREFIX}%"))
+            .order_by(Pitch.topic, Pitch.id)
         )
     ).all()
     return {
-        "interests": [{"key": k, "ar": v["ar"], "en": v["en"]} for k, v in interests.INTERESTS.items()],
+        "interests": [
+            {"key": k, "ar": v["ar"], "en": v["en"]} for k, v in interests.INTERESTS.items()
+        ],
         "items": [await _mapping(session, p) for p in rows],
     }
 
@@ -265,7 +291,9 @@ async def seed_interests(session: SessionDep) -> dict[str, Any]:
 @router.post("/interests", status_code=status.HTTP_201_CREATED)
 async def add_interest(body: MappingCreate, session: SessionDep) -> dict[str, Any]:
     if body.interest not in interests.INTERESTS:
-        raise HTTPException(422, f"Unknown interest; choose one of {', '.join(interests.INTERESTS)}")
+        raise HTTPException(
+            422, f"Unknown interest; choose one of {', '.join(interests.INTERESTS)}"
+        )
     if await session.get(Program, body.program_id) is None:
         raise HTTPException(422, "Unknown program_id")
     pitch = Pitch(
@@ -295,7 +323,10 @@ async def review_interest(pitch_id: int, body: Review, session: SessionDep) -> d
     if body.decision == "approve":
         issues = await interests.mapping_issues(session, pitch)
         if issues:
-            raise HTTPException(status.HTTP_409_CONFLICT, {"message": "Fix these before approving", "issues": issues})
+            raise HTTPException(
+                status.HTTP_409_CONFLICT,
+                {"message": "Fix these before approving", "issues": issues},
+            )
         pitch.review_status = "approved"
     else:
         pitch.review_status = "rejected"

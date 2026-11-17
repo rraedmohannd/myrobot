@@ -74,13 +74,16 @@ def course_chunks(courses: list[dict[str, Any]], program: dict[str, Any]) -> lis
         hours = g.get("group_credit_hours")
         header = (
             f"{name}{f' ({name_ar})' if name_ar else ''} — study plan {year} — "
-            f"{g['group_title']}" + (f" ({hours} credit hours, {g['group_rule']})" if hours else
-                                     f" ({g['group_rule']})")
+            f"{g['group_title']}"
+            + (f" ({hours} credit hours, {g['group_rule']})" if hours else f" ({g['group_rule']})")
         )
         lines = [
             f"{c['code']} {c['title_en']} ({c['title_ar']}): "
-            + (f"{c['credit_hours']} credit hours " if c["credit_hours"] is not None
-               else "credit hours not stated in the plan ")
+            + (
+                f"{c['credit_hours']} credit hours "
+                if c["credit_hours"] is not None
+                else "credit hours not stated in the plan "
+            )
             + f"({c['theory_hours']} theory, {c['practical_hours']} practical); prerequisites: "
             f"{_prereq_text(c.get('prerequisites', []), titles)}; {c['learning']}; "
             f"JNQF level {c['jnqf_level']}." + (f" Note: {c['note']}." if c.get("note") else "")
@@ -168,12 +171,18 @@ async def _upsert_program(
 
 def _digest(doc: dict[str, Any]) -> str:
     relevant = {k: doc.get(k) for k in ("program", "chunks", "courses")}
-    return hashlib.sha256(json.dumps(relevant, sort_keys=True, ensure_ascii=False).encode()).hexdigest()
+    return hashlib.sha256(
+        json.dumps(relevant, sort_keys=True, ensure_ascii=False).encode()
+    ).hexdigest()
 
 
 async def import_doc(session: AsyncSession, doc: dict[str, Any], file: str) -> str:
     faculty = await _upsert_faculty(session, doc["faculty"]) if doc.get("faculty") else None
-    program = await _upsert_program(session, doc["program"], faculty, file) if doc.get("program") else None
+    program = (
+        await _upsert_program(session, doc["program"], faculty, file)
+        if doc.get("program")
+        else None
+    )
 
     meta = doc["source"]
     src = await session.scalar(select(Source).where(Source.url == meta["url"]))
@@ -220,7 +229,8 @@ async def import_doc(session: AsyncSession, doc: dict[str, Any], file: str) -> s
 
 
 async def import_dir(session: AsyncSession, directory: Path = DEFAULT_DIR) -> ImportReport:
-    """Files that define a faculty go first, so programs exist before files that only add to them."""
+    """Files that define a faculty go first, so programs exist before files that only add to
+    them."""
     paths = sorted(directory.glob("*.json"))
     docs = [(p.name, load_file(p)) for p in paths]  # validate everything before writing anything
     docs.sort(key=lambda item: (0 if item[1].get("faculty") else 1, item[0]))

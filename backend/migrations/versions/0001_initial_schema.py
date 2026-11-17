@@ -169,9 +169,7 @@ def upgrade() -> None:
         sa.Column("topic", sa.Text(), nullable=False),
         sa.Column("text_ar", sa.Text(), nullable=True),
         sa.Column("text_en", sa.Text(), nullable=True),
-        sa.Column(
-            "is_promotional", sa.Boolean(), server_default=sa.text("true"), nullable=False
-        ),
+        sa.Column("is_promotional", sa.Boolean(), server_default=sa.text("true"), nullable=False),
         _review_col(),
         sa.CheckConstraint(REVIEW, name="ck_pitches_review_status"),
         _fk("pitches", "program_id", "programs", "SET NULL"),

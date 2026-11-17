@@ -59,10 +59,15 @@ def reset_failures() -> None:
     _failures.clear()
 
 
-async def create_admin(session: AsyncSession, username: str, password: str) -> tuple[AdminUser, bool]:
+async def create_admin(
+    session: AsyncSession, username: str, password: str
+) -> tuple[AdminUser, bool]:
     """Create the user, or set a new password if the name exists. Returns (user, created)."""
     username = username.strip().lower()
-    if not (3 <= len(username) <= 64) or not username.replace("_", "").replace(".", "").replace("-", "").isalnum():
+    if (
+        not (3 <= len(username) <= 64)
+        or not username.replace("_", "").replace(".", "").replace("-", "").isalnum()
+    ):
         raise AuthError("the username needs 3-64 letters, digits, '.', '-' or '_'")
     password_hash = hash_password(password)
     user = await session.scalar(select(AdminUser).where(AdminUser.username == username))
@@ -72,7 +77,9 @@ async def create_admin(session: AsyncSession, username: str, password: str) -> t
         session.add(user)
     else:
         user.password_hash = password_hash
-        await session.execute(delete(AdminSession).where(AdminSession.user_id == user.id))  # old logins end
+        await session.execute(
+            delete(AdminSession).where(AdminSession.user_id == user.id)
+        )  # old logins end
     await session.commit()
     return user, created
 
@@ -101,7 +108,9 @@ async def session_user(session: AsyncSession, token: str | None) -> AdminUser | 
     if not token:
         return None
     row = await session.scalar(
-        select(AdminSession).where(AdminSession.token_hash == _digest(token), AdminSession.expires_at > datetime.now(UTC))
+        select(AdminSession).where(
+            AdminSession.token_hash == _digest(token), AdminSession.expires_at > datetime.now(UTC)
+        )
     )
     return await session.get(AdminUser, row.user_id) if row else None
 
@@ -113,15 +122,25 @@ async def logout(session: AsyncSession, token: str | None) -> None:
 
 
 # ---------------- retention ----------------
-async def purge_conversations(session: AsyncSession, days: int | None = None, dry_run: bool = False) -> dict[str, int]:
+async def purge_conversations(
+    session: AsyncSession, days: int | None = None, dry_run: bool = False
+) -> dict[str, int]:
     """Delete conversations (sessions and their turns) that started more than `days` ago
     (default CONVERSATION_RETENTION_DAYS). Only text and timings exist to delete: audio, face
     images and voiceprints are never stored (docs/PRIVACY.md)."""
     days = get_settings().conversation_retention_days if days is None else days
     cutoff = datetime.now(UTC) - timedelta(days=days)
     old = select(Session.id).where(Session.started_at < cutoff)
-    sessions = await session.scalar(select(func.count()).select_from(Session).where(Session.started_at < cutoff)) or 0
-    turns = await session.scalar(select(func.count()).select_from(Turn).where(Turn.session_id.in_(old))) or 0
+    sessions = (
+        await session.scalar(
+            select(func.count()).select_from(Session).where(Session.started_at < cutoff)
+        )
+        or 0
+    )
+    turns = (
+        await session.scalar(select(func.count()).select_from(Turn).where(Turn.session_id.in_(old)))
+        or 0
+    )
     if not dry_run and sessions:
         await session.execute(delete(Session).where(Session.started_at < cutoff))  # turns cascade
         await session.commit()

@@ -51,7 +51,10 @@ class FakeRobot:
 
 async def _events(db_session) -> list[Event]:
     rows = await db_session.scalars(
-        select(Event).where(Event.kind.in_(("command", "command_ack"))).order_by(Event.id.desc()).limit(2)
+        select(Event)
+        .where(Event.kind.in_(("command", "command_ack")))
+        .order_by(Event.id.desc())
+        .limit(2)
     )
     return list(reversed(rows.all()))
 
@@ -61,15 +64,27 @@ async def test_accepted_command_is_sent_acked_and_stored(db_session) -> None:
     robot = FakeRobot(hub)
     robot.report()
     record = await hub.send_command(OneSession(db_session), "start_roaming")
-    assert record["accepted"] is True and record["timed_out"] is False and record["is_simulated"] is True
+    assert (
+        record["accepted"] is True
+        and record["timed_out"] is False
+        and record["is_simulated"] is True
+    )
     sent = robot.received[0]
     assert sent == {"type": "robot.command", "id": record["id"], "cmd": "start_roaming"}
     command, ack = await _events(db_session)
-    assert (command.kind, command.data["cmd"], command.data["id"]) == ("command", "start_roaming", record["id"])
+    assert (command.kind, command.data["cmd"], command.data["id"]) == (
+        "command",
+        "start_roaming",
+        record["id"],
+    )
     assert (ack.kind, ack.data["accepted"], ack.data["id"]) == ("command_ack", True, record["id"])
     assert command.run_id is None  # no run is open: the event stands alone
     snap = hub.snapshot()
-    assert snap["online"] and snap["robot"]["label"] == SIMULATED_LABEL and snap["robot"]["is_simulated"]
+    assert (
+        snap["online"]
+        and snap["robot"]["label"] == SIMULATED_LABEL
+        and snap["robot"]["is_simulated"]
+    )
     assert snap["robot"]["status"]["battery_v"] == 7.9 and snap["robot"]["trail"] == [(0.5, -0.25)]
     assert snap["commands"][0]["id"] == record["id"] and not hub.pending
 
@@ -82,7 +97,11 @@ async def test_robot_may_refuse_and_set_mode_carries_args(db_session) -> None:
     assert record["accepted"] is False and record["reason"] == "a conversation is in progress"
     assert record["return_trial_id"] is None
     ack = (await _events(db_session))[1]
-    assert ack.data == {"id": record["id"], "accepted": False, "reason": "a conversation is in progress"}
+    assert ack.data == {
+        "id": record["id"],
+        "accepted": False,
+        "reason": "a conversation is in progress",
+    }
 
     robot.accept = True
     record = await hub.send_command(OneSession(db_session), "set_mode", {"mode": "quiet"})
@@ -98,7 +117,11 @@ async def test_missing_ack_is_reported_as_a_timeout(db_session) -> None:
     started = time.monotonic()
     record = await hub.send_command(OneSession(db_session), "pause", timeout_s=0.1)
     assert time.monotonic() - started < 1.0
-    assert record["timed_out"] is True and record["accepted"] is None and "no answer" in record["reason"]
+    assert (
+        record["timed_out"] is True
+        and record["accepted"] is None
+        and "no answer" in record["reason"]
+    )
     ack = (await _events(db_session))[1]
     assert ack.data == {"id": record["id"], "timed_out": True}
     assert not hub.pending
@@ -132,7 +155,9 @@ async def test_nothing_is_sent_when_no_robot_is_connected(db_session, monkeypatc
     assert hub.snapshot()["online"] is False and hub.snapshot()["robot"] is None
 
 
-async def test_return_to_start_opens_a_pending_trial_only_on_real_runs(admin_client, db_session) -> None:
+async def test_return_to_start_opens_a_pending_trial_only_on_real_runs(
+    admin_client, db_session
+) -> None:
     maker = OneSession(db_session)
     real, simulated = RobotRun(is_simulated=False), RobotRun(is_simulated=True)
     db_session.add_all([real, simulated])
@@ -143,7 +168,9 @@ async def test_return_to_start_opens_a_pending_trial_only_on_real_runs(admin_cli
     sim.link.run_id = simulated.id
     sim.report()
     record = await hub.send_command(maker, "return_to_start")
-    assert record["accepted"] and record["return_trial_id"] is None  # rule 5: never for a simulation
+    assert (
+        record["accepted"] and record["return_trial_id"] is None
+    )  # rule 5: never for a simulation
     command = (await _events(db_session))[0]
     assert command.run_id == simulated.id and command.t_ms >= 0
     hub.unregister(sim.link)
@@ -164,7 +191,9 @@ async def test_return_to_start_opens_a_pending_trial_only_on_real_runs(admin_cli
     assert measured.status_code == 200 and measured.json()["status"] == "measured"
     assert (await admin_client.get("/api/admin/return-trials/stats")).json()["trials"] == before + 1
     again = await admin_client.delete(f"/api/admin/return-trials/{trial.id}")
-    assert again.status_code == 409  # a measured trial is a result; only pending ones can be discarded
+    assert (
+        again.status_code == 409
+    )  # a measured trial is a result; only pending ones can be discarded
 
 
 async def test_robot_api_offline_state_and_auth(admin_client, client, db_session) -> None:
@@ -173,13 +202,19 @@ async def test_robot_api_offline_state_and_auth(admin_client, client, db_session
     app.dependency_overrides[get_sessionmaker] = lambda: OneSession(db_session)
     try:
         assert (await client.get("/api/admin/robot")).status_code == 401
-        assert (await client.post("/api/admin/robot/command", json={"cmd": "pause"})).status_code == 401
+        assert (
+            await client.post("/api/admin/robot/command", json={"cmd": "pause"})
+        ).status_code == 401
         state = (await admin_client.get("/api/admin/robot")).json()
         assert state["online"] is False and state["robot"] is None and "requests" in state["note"]
         offline = await admin_client.post("/api/admin/robot/command", json={"cmd": "start_roaming"})
         assert offline.status_code == 503 and "nothing was sent" in offline.json()["detail"]
-        assert (await admin_client.post("/api/admin/robot/command", json={"cmd": "dance"})).status_code == 422
-        assert (await admin_client.post("/api/admin/robot/command", json={"cmd": "set_mode"})).status_code == 422
+        assert (
+            await admin_client.post("/api/admin/robot/command", json={"cmd": "dance"})
+        ).status_code == 422
+        assert (
+            await admin_client.post("/api/admin/robot/command", json={"cmd": "set_mode"})
+        ).status_code == 422
 
         robot = FakeRobot(hub, accept=False, reason="fault active: estop")
         robot.report(state="FAULT", faults=["estop"])
@@ -221,7 +256,9 @@ def test_simulated_robot_decides_locally() -> None:
     accepted, _, effects = robot.command("start_roaming")
     assert accepted and effects[0]["type"] == "run.start" and effects[0]["is_simulated"] is True
     out = robot.tick()
-    assert out[0]["type"] == "telemetry" and len(out[0]["samples"]) == 10 and robot.state == "ROAMING"
+    assert (
+        out[0]["type"] == "telemetry" and len(out[0]["samples"]) == 10 and robot.state == "ROAMING"
+    )
     assert robot.command("start_roaming")[0] is False  # already roaming
     assert robot.command("pause")[0] and robot.state == "PAUSED" and robot.tick() == []
     assert robot.command("resume")[0] and robot.state == "ROAMING"
@@ -285,18 +322,25 @@ def test_command_flow_over_the_websocket_with_a_fake_robot_client() -> None:
             result: dict = {}
 
             def press_button() -> None:
-                r = tc.post("/api/admin/robot/command", json={"cmd": "pause"}, headers=ADMIN_HEADERS)
+                r = tc.post(
+                    "/api/admin/robot/command", json={"cmd": "pause"}, headers=ADMIN_HEADERS
+                )
                 result.update(status=r.status_code, body=r.json())
 
             thread = threading.Thread(target=press_button)
             thread.start()
             command = ws.receive_json()
-            assert command["type"] == "robot.command" and command["cmd"] == "pause" and command["ts"]
+            assert (
+                command["type"] == "robot.command" and command["cmd"] == "pause" and command["ts"]
+            )
             ws.send_json({"type": "robot.command.ack", "id": command["id"], "accepted": False,
                           "reason": "nothing to pause (state IDLE)"})  # fmt: skip
             thread.join(timeout=10)
             assert result["status"] == 200 and result["body"]["id"] == command["id"]
-            assert result["body"]["accepted"] is False and "nothing to pause" in result["body"]["reason"]
+            assert (
+                result["body"]["accepted"] is False
+                and "nothing to pause" in result["body"]["reason"]
+            )
             assert [e.kind for e in null.added] == ["command", "command_ack"]
         assert hub.links == {}  # the connection is forgotten when the socket closes
         assert hub.snapshot()["online"] is False

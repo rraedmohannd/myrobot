@@ -96,24 +96,57 @@ def realtime_events(transcript: str = TEXT, status: str = "completed") -> list[d
     """Server events of one audio response, in the documented shapes and order."""
     ids = {"response_id": "resp_1", "item_id": "item_1", "output_index": 0, "content_index": 0}
     return [
-        {"type": "session.created", "event_id": "e1", "session": {"id": "sess_1", "type": "realtime"}},
-        {"type": "session.updated", "event_id": "e2", "session": {"id": "sess_1", "type": "realtime"}},
-        {"type": "response.created", "event_id": "e3", "response": {"id": "resp_1", "status": "in_progress"}},
+        {
+            "type": "session.created",
+            "event_id": "e1",
+            "session": {"id": "sess_1", "type": "realtime"},
+        },
+        {
+            "type": "session.updated",
+            "event_id": "e2",
+            "session": {"id": "sess_1", "type": "realtime"},
+        },
+        {
+            "type": "response.created",
+            "event_id": "e3",
+            "response": {"id": "resp_1", "status": "in_progress"},
+        },
         {"type": "response.output_item.added", "event_id": "e4", "response_id": "resp_1"},
-        {"type": "response.output_audio_transcript.delta", "event_id": "e5", **ids, "delta": "أهلاً"},
+        {
+            "type": "response.output_audio_transcript.delta",
+            "event_id": "e5",
+            **ids,
+            "delta": "أهلاً",
+        },
         *[
-            {"type": "response.output_audio.delta", "event_id": f"a{i}", **ids, "delta": _b64(chunk)}
+            {
+                "type": "response.output_audio.delta",
+                "event_id": f"a{i}",
+                **ids,
+                "delta": _b64(chunk),
+            }
             for i, chunk in enumerate(PCM)
         ],
         {"type": "response.output_audio.done", "event_id": "e6", **ids},
-        {"type": "response.output_audio_transcript.done", "event_id": "e7", **ids, "transcript": transcript},
         {
-            "type": "response.done", "event_id": "e8",
-            "response": {"id": "resp_1", "status": status,
-                         "status_details": None if status == "completed" else {"type": status, "reason": "x"}},
+            "type": "response.output_audio_transcript.done",
+            "event_id": "e7",
+            **ids,
+            "transcript": transcript,
+        },
+        {
+            "type": "response.done",
+            "event_id": "e8",
+            "response": {
+                "id": "resp_1",
+                "status": status,
+                "status_details": None
+                if status == "completed"
+                else {"type": status, "reason": "x"},
+            },
         },
         {"type": "never.read", "event_id": "e9"},  # the adapter stops at response.done
-    ]  # fmt: skip
+    ]
 
 
 class FakeRealtimeSocket:

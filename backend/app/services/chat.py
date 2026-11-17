@@ -53,18 +53,23 @@ written in the CONTEXT (for example "requires 162 credit hours in total"); never
 - The CONTEXT is often in English even when the question is Arabic: use it and answer in Arabic.
 - If the CONTEXT answers the question, even partly, answer it and set "found" to true.
 - If the CONTEXT does not contain the answer, say briefly that you do not have this information \
-and suggest the Admission and Registration Department (دائرة القبول والتسجيل), and set "found" to false.
+and suggest the Admission and Registration Department (دائرة القبول والتسجيل), and set \
+"found" to false.
 - Speak naturally: never mention "context", "passages", "documents" or "sources".
 - You only cover the Faculty of Engineering & Design. For other faculties or universities, say so \
 politely and set "found" to false.
 - Claims about quality or accreditation must come from the CONTEXT.
 
 OUTPUT: a JSON object exactly like
-{"answer": "<what the robot says>", "found": true or false, "used": [numbers of the passages you relied on]}
+{"answer": "<what the robot says>", "found": true or false, \
+"used": [numbers of the passages you relied on]}
 """
 
 NOT_FOUND = {
-    "ar": "للأسف ما عندي هاي المعلومة هلأ. بنصحك تراجع دائرة القبول والتسجيل بالجامعة، وهم بفيدوك أكثر.",
+    "ar": (
+        "للأسف ما عندي هاي المعلومة هلأ. بنصحك تراجع دائرة القبول والتسجيل بالجامعة، وهم بفيدوك "
+        "أكثر."
+    ),
     "en": "Sorry, I don't have that information right now. Please check with the Admission and "
     "Registration Department, they will be happy to help.",
 }
@@ -79,6 +84,7 @@ NUMBER_SAFE = {
     "en": "I don't have that exact information; please ask the Admission and Registration "
     "Department.",
 }
+
 
 @dataclass
 class ChatResult:
@@ -130,8 +136,7 @@ def build_input(question: str, passages: list[Passage], history: list[tuple[str,
             parts.append(f"Visitor: {q}\nRobot: {a}")
     language = "English" if detect_lang(question) == "en" else "Arabic (Jordanian dialect)"
     parts.append(
-        f"\nQUESTION: {question}\n\nANSWER LANGUAGE: {language}\n\n"
-        "Reply with the JSON object only."
+        f"\nQUESTION: {question}\n\nANSWER LANGUAGE: {language}\n\nReply with the JSON object only."
     )
     return "\n\n".join(parts)
 
@@ -214,9 +219,14 @@ async def answer_events(
             await session.flush()
 
     result = ChatResult(
-        session_id=chat_session.id if chat_session else session_id, answer="", lang=lang, found=False,
-        sources=[], model=None, timings=timings,
-    )  # fmt: skip
+        session_id=chat_session.id if chat_session else session_id,
+        answer="",
+        lang=lang,
+        found=False,
+        sources=[],
+        model=None,
+        timings=timings,
+    )
     spoken_filter = _SpokenFilter([], lang)
     location_question = cur.is_location_question(question)
     try:
@@ -239,7 +249,11 @@ async def answer_events(
         if curated is not None:
             timings["retrieval_ms"] = int((time.perf_counter() - start) * 1000)
             result.kind, result.answer, result.found = curated.kind, curated.text, True
-            result.sources, result.faq_id, result.pitch_ids = curated.sources, curated.faq_id, curated.pitch_ids
+            result.sources, result.faq_id, result.pitch_ids = (
+                curated.sources,
+                curated.faq_id,
+                curated.pitch_ids,
+            )
             result.promotional, result.title = curated.promotional, curated.title
             result.lines, result.media = curated.lines, curated.media
             for piece in speech_pieces(curated.text):
@@ -301,9 +315,14 @@ async def answer_events(
                 if 1 <= n <= len(retrieval.passages):
                     p = retrieval.passages[n - 1]
                     result.sources.append(
-                        ChatSource(n=n, chunk_id=p.chunk_id, title=p.source_title,
-                                   url=p.source_url, category=p.category,
-                                   program_id=p.program_id)  # fmt: skip
+                        ChatSource(
+                            n=n,
+                            chunk_id=p.chunk_id,
+                            title=p.source_title,
+                            url=p.source_url,
+                            category=p.category,
+                            program_id=p.program_id,
+                        )  # fmt: skip
                     )
             result.pitch_ids = [int(s.url.removeprefix("pitch://")) for s in result.sources
                                 if s.url.startswith("pitch://")]  # fmt: skip

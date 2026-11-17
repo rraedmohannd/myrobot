@@ -51,7 +51,9 @@ async def robot_state(hub: HubDep, session: SessionDep) -> dict[str, Any]:
 
 
 @router.post("/robot/command")
-async def robot_command(body: CommandRequest, hub: HubDep, sessionmaker: MakerDep) -> dict[str, Any]:
+async def robot_command(
+    body: CommandRequest, hub: HubDep, sessionmaker: MakerDep
+) -> dict[str, Any]:
     """Ask the robot to do something and wait for its ack (a few seconds at most). The answer
     says whether the robot accepted, refused (with its reason) or did not answer in time."""
     if body.cmd == "set_mode" and not (body.args and isinstance(body.args.get("mode"), str)):
@@ -75,21 +77,31 @@ async def command_history(session: SessionDep, limit: int = 50) -> dict[str, Any
     ).all()
     return {
         "items": [
-            {"id": e.id, "run_id": e.run_id, "kind": e.kind, "data": e.data, "created_at": e.created_at}
+            {
+                "id": e.id,
+                "run_id": e.run_id,
+                "kind": e.kind,
+                "data": e.data,
+                "created_at": e.created_at,
+            }
             for e in rows
         ]
     }
 
 
 @router.put("/return-trials/{trial_id}")
-async def measure_return_trial(trial_id: int, body: ReturnTrialIn, session: SessionDep) -> dict[str, Any]:
+async def measure_return_trial(
+    trial_id: int, body: ReturnTrialIn, session: SessionDep
+) -> dict[str, Any]:
     """Type in the tape measurement of a pending return trial (real runs only)."""
     trial = await session.get(ReturnTrial, trial_id)
     if trial is None:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Return trial not found")
     run = await session.get(RobotRun, trial.run_id)
     if run is None or run.is_simulated:  # cannot happen through the hub; kept as a hard rule
-        raise HTTPException(status.HTTP_409_CONFLICT, "Return trials are physical measurements of real runs.")
+        raise HTTPException(
+            status.HTTP_409_CONFLICT, "Return trials are physical measurements of real runs."
+        )
     for key, value in body.model_dump().items():
         setattr(trial, key, value)
     trial.status = "measured"

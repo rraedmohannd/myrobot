@@ -125,8 +125,15 @@ async def test_voiceprints_are_forgotten_when_the_session_ends(db_session) -> No
     async def send(m: dict) -> None:
         return None
 
-    dm = DialogueManager(send, OneSession(db_session), FakeEmbedder(), FakeLLM(), FakeSTT(["لا شكرا"]),
-                         FakeTTS(), speaker_embedder=FakeSpeakerEmbedder([sample("A")]))  # fmt: skip
+    dm = DialogueManager(
+        send,
+        OneSession(db_session),
+        FakeEmbedder(),
+        FakeLLM(),
+        FakeSTT(["لا شكرا"]),
+        FakeTTS(),
+        speaker_embedder=FakeSpeakerEmbedder([sample("A")]),
+    )
     await dm.handle({"type": "session.start"})
     assert dm.tracker is not None
     await dm.handle({"type": "session.end", "reason": "lost_face"})
@@ -134,7 +141,8 @@ async def test_voiceprints_are_forgotten_when_the_session_ends(db_session) -> No
 
 
 def test_weak_sample_of_same_person_does_not_create_new_speaker() -> None:
-    """Hysteresis: in-between similarity goes to the closest visitor; only clearly different = new."""
+    """Hysteresis: in-between similarity goes to the closest visitor; only clearly different =
+    new."""
     t = SpeakerTracker(threshold=0.45, new_threshold=0.3)
     assert t.assign(sample("A")).label == 1
     weak_a = [0.4 * a + 0.92 * c for a, c in zip(VOICE["A"], VOICE["C"], strict=True)]  # cos ≈ 0.37

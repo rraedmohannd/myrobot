@@ -150,18 +150,28 @@ class RobotHub:
                 await link.send(message)
             except Exception as e:  # noqa: BLE001 - the socket died between the check and the send
                 record.update(timed_out=True, reason="connection lost")
-                await self._event(sessionmaker, link, "command_ack", {"id": command_id, "lost": True})
-                raise RobotOffline("The robot disconnected before the command could be sent.") from e
+                await self._event(
+                    sessionmaker, link, "command_ack", {"id": command_id, "lost": True}
+                )
+                raise RobotOffline(
+                    "The robot disconnected before the command could be sent."
+                ) from e
             try:
                 ack = await asyncio.wait_for(future, timeout_s)
             except TimeoutError:
-                record.update(timed_out=True, reason=f"no answer from the robot within {timeout_s:g} s")
-                await self._event(sessionmaker, link, "command_ack", {"id": command_id, "timed_out": True})
+                record.update(
+                    timed_out=True, reason=f"no answer from the robot within {timeout_s:g} s"
+                )
+                await self._event(
+                    sessionmaker, link, "command_ack", {"id": command_id, "timed_out": True}
+                )
                 return record
             record.update(accepted=ack["accepted"], reason=ack["reason"])
             await self._event(sessionmaker, link, "command_ack", {"id": command_id, **ack})
             if ack["accepted"] and cmd == "return_to_start":
-                record["return_trial_id"] = await self._pending_trial(sessionmaker, link, command_id)
+                record["return_trial_id"] = await self._pending_trial(
+                    sessionmaker, link, command_id
+                )
             return record
         finally:
             self.pending.pop(command_id, None)

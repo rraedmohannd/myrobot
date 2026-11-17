@@ -33,10 +33,16 @@ SPEECH = "AQAB" * 8000  # about 1.5 s of PCM16 at 16 kHz (base64)
 def fast_limits(monkeypatch):
     """Short time limits and a fresh breaker for every test."""
     for key, value in {
-        "PROVIDER_TIMEOUT_EMBEDDING_S": "0.2", "PROVIDER_TIMEOUT_STT_S": "0.2", "PROVIDER_TIMEOUT_TTS_S": "0.2",
-        "PROVIDER_TIMEOUT_LLM_FIRST_S": "0.2", "PROVIDER_TIMEOUT_LLM_S": "0.4", "PROVIDER_RETRIES": "1",
-        "PROVIDER_RETRY_BACKOFF_S": "0.01", "BREAKER_FAILURES": "3", "BREAKER_OPEN_S": "0.3",
-    }.items():  # fmt: skip
+        "PROVIDER_TIMEOUT_EMBEDDING_S": "0.2",
+        "PROVIDER_TIMEOUT_STT_S": "0.2",
+        "PROVIDER_TIMEOUT_TTS_S": "0.2",
+        "PROVIDER_TIMEOUT_LLM_FIRST_S": "0.2",
+        "PROVIDER_TIMEOUT_LLM_S": "0.4",
+        "PROVIDER_RETRIES": "1",
+        "PROVIDER_RETRY_BACKOFF_S": "0.01",
+        "BREAKER_FAILURES": "3",
+        "BREAKER_OPEN_S": "0.3",
+    }.items():
         monkeypatch.setenv(key, value)
     get_settings.cache_clear()
     resilience.reset_guards()
@@ -92,7 +98,9 @@ async def test_timeout_retry_and_breaker() -> None:
     started = time.monotonic()
     with pytest.raises(ProviderError, match="circuit open"):
         await g.call(slow._hang, 0.2)
-    assert slow.calls == 3 and time.monotonic() - started < 0.05  # fails at once, the provider is not called
+    assert (
+        slow.calls == 3 and time.monotonic() - started < 0.05
+    )  # fails at once, the provider is not called
 
     await asyncio.sleep(0.35)
     assert g.state == "half-open"
@@ -131,20 +139,36 @@ async def test_wrappers_keep_the_interfaces() -> None:
             return b"ID3" + text.encode()
 
     plain, wrapped = CachedTTS(Voice()), CachedTTS(ResilientTTS(Voice()))
-    assert plain.cache_key("مرحبا") == wrapped.cache_key("مرحبا")  # the wrapper never changes the cache
+    assert plain.cache_key("مرحبا") == wrapped.cache_key(
+        "مرحبا"
+    )  # the wrapper never changes the cache
     assert await wrapped.synthesize("مرحبا") == b"ID3" + "مرحبا".encode()
 
     llm = ResilientLLM(FakeLLM({"answer": "x", "found": True, "used": []}))
-    assert (await llm.complete_json("i", "u")).data["answer"] == "x" and not hasattr(llm, "stream_json")
-    streaming = ResilientLLM(FakeStreamingLLM({"answer": "Hello there.", "found": True, "used": []}))
+    assert (await llm.complete_json("i", "u")).data["answer"] == "x" and not hasattr(
+        llm, "stream_json"
+    )
+    streaming = ResilientLLM(
+        FakeStreamingLLM({"answer": "Hello there.", "found": True, "used": []})
+    )
     items = [item async for item in streaming.stream_json("i", "u")]
-    assert isinstance(items[-1], LLMResult) and "".join(i for i in items[:-1]) .startswith('{"answer"')
-    assert all(s["ok"] for s in provider_status().values()) and set(provider_status()) == {"stt", "llm", "tts", "embeddings"}
+    assert isinstance(items[-1], LLMResult) and "".join(i for i in items[:-1]).startswith(
+        '{"answer"'
+    )
+    assert all(s["ok"] for s in provider_status().values()) and set(provider_status()) == {
+        "stt",
+        "llm",
+        "tts",
+        "embeddings",
+    }
 
     with pytest.raises(ProviderError, match="did not start answering within 0.2 s"):
         async for _ in ResilientLLM(Slow()).stream_json("i", "u"):
             pass
-    assert provider_status()["llm"]["failures_in_a_row"] == 2 and provider_status()["llm"]["last_error"]
+    assert (
+        provider_status()["llm"]["failures_in_a_row"] == 2
+        and provider_status()["llm"]["last_error"]
+    )
 
 
 # ---------------- the conversation ----------------
@@ -172,25 +196,40 @@ def _manager(db_session, embedder=None, llm=None, stt=None, tts=None):  # noqa: 
 
 
 def _offline_reply(sent: list[dict], tts: FakeTTS) -> dict:
-    assert PHRASES["offline"]["ar"] in " ".join(tts.spoken) or PHRASES["offline"]["en"] in " ".join(tts.spoken)
-    display = next(m for m in reversed(sent) if m["type"] == "display.update" and m.get("offline") is not None)
-    assert display["mode"] == "unavailable" and "programs" in display["offline"] and "qr_url" in display["offline"]
+    assert PHRASES["offline"]["ar"] in " ".join(tts.spoken) or PHRASES["offline"]["en"] in " ".join(
+        tts.spoken
+    )
+    display = next(
+        m for m in reversed(sent) if m["type"] == "display.update" and m.get("offline") is not None
+    )
+    assert (
+        display["mode"] == "unavailable"
+        and "programs" in display["offline"]
+        and "qr_url" in display["offline"]
+    )
     assert [m["state"] for m in sent if m["type"] == "dialogue.state"][-1] == "LISTENING"
     return display["offline"]
 
 
-@pytest.mark.parametrize("broken", ["slow_llm", "failing_llm", "slow_embeddings", "failing_embeddings"])
+@pytest.mark.parametrize(
+    "broken", ["slow_llm", "failing_llm", "slow_embeddings", "failing_embeddings"]
+)
 async def test_provider_down_gives_the_cached_fallback_in_time(db_session, broken) -> None:
     await _seed(db_session)
     kind, what = broken.split("_")
     provider = Slow() if kind == "slow" else Failing()
-    dm, sent, tts = _manager(db_session, **({"llm": provider} if what == "llm" else {"embedder": provider}))
+    dm, sent, tts = _manager(
+        db_session, **({"llm": provider} if what == "llm" else {"embedder": provider})
+    )
     started = time.monotonic()
     await dm.handle({"type": "text.input", "text": f"{UNIQUE}?"})
     assert time.monotonic() - started < 2.5, "the fallback must come within the time limit"
     _offline_reply(sent, tts)
     assert dm.state == "LISTENING" and dm.session_id  # no crash, the conversation goes on
-    assert PHRASES["follow_up"]["ar"] not in tts.spoken and PHRASES["follow_up"]["en"] not in tts.spoken
+    assert (
+        PHRASES["follow_up"]["ar"] not in tts.spoken
+        and PHRASES["follow_up"]["en"] not in tts.spoken
+    )
     answer = next(m for m in sent if m["type"] == "answer.text")
     assert answer["kind"] == "offline" and not answer["found"]
     turn = await db_session.scalar(select(Turn).where(Turn.session_id == dm.session_id))
@@ -231,18 +270,37 @@ async def test_cached_content_still_works_offline(db_session, tmp_path) -> None:
     """With every provider down: an identical approved FAQ still answers, an approved explainer
     still plays from the speech cache, and the offline screen offers it."""
     faculty = await db_session.scalar(select(Faculty).limit(1))
-    program = Program(faculty_id=faculty.id, slug="offline-program", name_ar="برنامج الأوفلاين", name_en="Offline Program")
-    source = Source(url="https://example.test/offline", title="Offline source", review_status="approved")
+    program = Program(
+        faculty_id=faculty.id,
+        slug="offline-program",
+        name_ar="برنامج الأوفلاين",
+        name_en="Offline Program",
+    )
+    source = Source(
+        url="https://example.test/offline", title="Offline source", review_status="approved"
+    )
     db_session.add_all([program, source])
     await db_session.flush()
-    db_session.add(Chunk(source_id=source.id, program_id=program.id, lang="en", category="study_plan",
-                         review_status="approved", text="Offline Program requires 162 credit hours."))  # fmt: skip
+    db_session.add(
+        Chunk(
+            source_id=source.id,
+            program_id=program.id,
+            lang="en",
+            category="study_plan",
+            review_status="approved",
+            text="Offline Program requires 162 credit hours.",
+        )
+    )
     explainer = Explainer(program_id=program.id, lang="ar", status="approved")
     db_session.add(explainer)
     await db_session.flush()
     texts = ["تعريف بالبرنامج.", "الخطة 162 ساعة.", "وهيك خلصنا."]
     for i, body in enumerate(texts, start=1):
-        db_session.add(ExplainerSegment(explainer_id=explainer.id, position=i, text=body, scene={"type": "title"}))
+        db_session.add(
+            ExplainerSegment(
+                explainer_id=explainer.id, position=i, text=body, scene={"type": "title"}
+            )
+        )
     question, answer = "شو ساعات دوام مكتبة الزرنيخ؟", "اسأل موظف المكتبة."
     db_session.add(Faq(question_ar=question, answer_ar=answer, review_status="approved"))
     await db_session.commit()
@@ -252,21 +310,36 @@ async def test_cached_content_still_works_offline(db_session, tmp_path) -> None:
     for piece in [*texts, answer, *fixed_phrase_pieces()]:
         await online.synthesize(piece, cache=True)
     down, voice_down, llm_down = Failing(), Failing(), Failing()
-    voice_down.model, voice_down.voice = online.model, online.voice  # the same voice: the same cache keys
+    voice_down.model, voice_down.voice = (
+        online.model,
+        online.voice,
+    )  # the same voice: the same cache keys
     dm, sent, _ = _manager(db_session, embedder=down, llm=llm_down, stt=Failing(),
                            tts=CachedTTS(ResilientTTS(voice_down), tmp_path))  # fmt: skip
 
     await dm.handle({"type": "text.input", "text": question})
     reply = next(m for m in sent if m["type"] == "answer.text")
-    assert reply["kind"] == "faq" and reply["text"] == answer and llm_down.calls == 0  # no model was needed
+    assert (
+        reply["kind"] == "faq" and reply["text"] == answer and llm_down.calls == 0
+    )  # no model was needed
     assert any(m["type"] == "answer.audio" and m["text"] == answer for m in sent)
 
-    await dm.handle({"type": "text.input", "text": f"{UNIQUE} سؤال ثاني؟"})  # needs the embeddings: offline
-    offline = next(m["offline"] for m in reversed(sent) if m["type"] == "display.update" and m.get("offline"))
-    assert {"slug": "offline-program", "name": "برنامج الأوفلاين", "lang": "ar"} in offline["programs"]
-    assert any(m["type"] == "answer.audio" and PHRASES["offline"]["ar"].startswith(m["text"]) for m in sent)
+    await dm.handle(
+        {"type": "text.input", "text": f"{UNIQUE} سؤال ثاني؟"}
+    )  # needs the embeddings: offline
+    offline = next(
+        m["offline"] for m in reversed(sent) if m["type"] == "display.update" and m.get("offline")
+    )
+    assert {"slug": "offline-program", "name": "برنامج الأوفلاين", "lang": "ar"} in offline[
+        "programs"
+    ]
+    assert any(
+        m["type"] == "answer.audio" and PHRASES["offline"]["ar"].startswith(m["text"]) for m in sent
+    )
 
-    await dm.handle({"type": "explainer.start", "program": "offline-program", "lang": "ar"})  # the touch button
+    await dm.handle(
+        {"type": "explainer.start", "program": "offline-program", "lang": "ar"}
+    )  # the touch button
     segments = [m for m in sent if m["type"] == "answer.audio" and m.get("segment")]
     assert [m["text"] for m in segments] == texts
     assert voice_down.calls == 0 and llm_down.calls == 0  # every word came from the speech cache
@@ -279,5 +352,8 @@ async def test_health_reports_provider_status(client) -> None:
     body = (await client.get("/health")).json()
     assert body["status"] == "ok"  # no internet does not make the backend unhealthy
     assert set(body["providers"]) == {"stt", "llm", "tts", "embeddings"}
-    assert body["providers"]["llm"]["ok"] is False and body["providers"]["llm"]["recent_errors"][0]["error"] == "network unreachable"
+    assert (
+        body["providers"]["llm"]["ok"] is False
+        and body["providers"]["llm"]["recent_errors"][0]["error"] == "network unreachable"
+    )
     assert body["providers"]["stt"]["ok"] is True

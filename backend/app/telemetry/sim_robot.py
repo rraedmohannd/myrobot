@@ -42,7 +42,9 @@ class SimulatedRobot:
     def __post_init__(self) -> None:
         result = simulate_run(SimConfig(seed=self.seed))
         self._odom_config = result.odom_config()
-        self._roam = [s for s in result.samples if not str(s.get("state") or "").startswith("return")]
+        self._roam = [
+            s for s in result.samples if not str(s.get("state") or "").startswith("return")
+        ]
         self._back = [s for s in result.samples if str(s.get("state") or "").startswith("return")]
         self._events = sorted(result.events, key=lambda e: e["t_ms"])
         self._path: list[dict[str, Any]] = []
@@ -51,17 +53,29 @@ class SimulatedRobot:
     # ---------- what the robot reports ----------
     def status(self) -> dict[str, Any]:
         return {
-            "type": "robot.status", "state": self.state, "is_simulated": True,
+            "type": "robot.status",
+            "state": self.state,
+            "is_simulated": True,
             "battery_v": round(self.battery_v, 2),
-            "battery_pct": round(max(0.0, min(100.0, (self.battery_v - 6.4) / (8.4 - 6.4) * 100)), 0),
+            "battery_pct": round(
+                max(0.0, min(100.0, (self.battery_v - 6.4) / (8.4 - 6.4) * 100)), 0
+            ),
             "faults": list(self.faults),
-            "sensors": {"encoders": "ok", "imu": "ok", "ultrasonic": "ok", "camera": "absent",
-                        "microphone": "absent"},
-            "pose": dict(self._pose), "mode": self.mode,
-        }  # fmt: skip
+            "sensors": {
+                "encoders": "ok",
+                "imu": "ok",
+                "ultrasonic": "ok",
+                "camera": "absent",
+                "microphone": "absent",
+            },
+            "pose": dict(self._pose),
+            "mode": self.mode,
+        }
 
     # ---------- command requests: the robot decides ----------
-    def command(self, cmd: str, args: dict[str, Any] | None = None) -> tuple[bool, str | None, list[dict[str, Any]]]:
+    def command(
+        self, cmd: str, args: dict[str, Any] | None = None
+    ) -> tuple[bool, str | None, list[dict[str, Any]]]:
         """(accepted, reason, messages to send). Refusals are part of normal behaviour."""
         if self.faults and cmd in ("start_roaming", "resume"):
             return False, f"fault active: {self.faults[0]}", []
@@ -103,7 +117,14 @@ class SimulatedRobot:
 
     def _start_return(self) -> list[dict[str, Any]]:
         self.state, self._i, self._path = "RETURNING", 0, self._back
-        return [{"type": "event", "t_ms": self._t0_ms, "kind": "return_start", "data": {"simulated": True}}]
+        return [
+            {
+                "type": "event",
+                "t_ms": self._t0_ms,
+                "kind": "return_start",
+                "data": {"simulated": True},
+            }
+        ]
 
     def begin_conversation(self) -> None:
         if self.state != "CONVERSATION":
@@ -168,6 +189,7 @@ async def run_sim_robot(
     asked_at = 0.0
 
     async with websockets.connect(full_url, max_size=None) as ws:
+
         async def send(msg: dict[str, Any]) -> None:
             await ws.send(json.dumps(msg))
 
@@ -184,7 +206,9 @@ async def run_sim_robot(
                     if reason:
                         ack["reason"] = reason
                     await send(ack)
-                    report.commands.append({"cmd": msg.get("cmd"), "accepted": accepted, "reason": reason})
+                    report.commands.append(
+                        {"cmd": msg.get("cmd"), "accepted": accepted, "reason": reason}
+                    )
                     for effect in effects:
                         await send(effect)
                 elif kind == "run.started":

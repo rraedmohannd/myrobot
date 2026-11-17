@@ -77,9 +77,21 @@ def question_key(text_: str) -> str:
 async def _faq_source(session: AsyncSession, faq: Faq) -> list[ChatSource]:
     src = await session.get(Source, faq.source_id) if faq.source_id else None
     if src is None:
-        return [ChatSource(n=1, chunk_id=0, title="FAQ (approved)", url=f"faq://{faq.id}", category="faq",
-                           program_id=faq.program_id)]  # fmt: skip
-    return [ChatSource(n=1, chunk_id=0, title=src.title, url=src.url, category="faq", program_id=faq.program_id)]
+        return [
+            ChatSource(
+                n=1,
+                chunk_id=0,
+                title="FAQ (approved)",
+                url=f"faq://{faq.id}",
+                category="faq",
+                program_id=faq.program_id,
+            )
+        ]
+    return [
+        ChatSource(
+            n=1, chunk_id=0, title=src.title, url=src.url, category="faq", program_id=faq.program_id
+        )
+    ]
 
 
 def _faq_answer(faq: Faq, lang: str) -> str | None:
@@ -102,7 +114,9 @@ async def faq_exact(session: AsyncSession, question: str, lang: str) -> Curated 
                 continue  # "how many hours is the plan?" does not say which program
             answer = _faq_answer(faq, lang)
             if answer:
-                return Curated("faq", answer, await _faq_source(session, faq), faq_id=faq.id, similarity=1.0)
+                return Curated(
+                    "faq", answer, await _faq_source(session, faq), faq_id=faq.id, similarity=1.0
+                )
     return None
 
 
@@ -118,15 +132,24 @@ async def embed_missing_faqs(session: AsyncSession, embedder: Embedder) -> int:
             )
         )
     ).all()
-    todo = [(r.id, col, q) for r in rows
-            for col, q, missing in (("embedding_ar", r.question_ar, r.no_ar), ("embedding_en", r.question_en, r.no_en))
-            if q and missing]  # fmt: skip
+    todo = [
+        (r.id, col, q)
+        for r in rows
+        for col, q, missing in (
+            ("embedding_ar", r.question_ar, r.no_ar),
+            ("embedding_en", r.question_en, r.no_en),
+        )
+        if q and missing
+    ]
     if not todo:
         return 0
     vectors = await embedder.embed([q for _, _, q in todo])
     for (faq_id, column, _), vec in zip(todo, vectors, strict=True):
         await session.execute(
-            text(f"UPDATE faqs SET {column} = CAST(:e AS vector), embedding_model = :m WHERE id = :id"),  # noqa: S608 - column is one of two constants
+            text(
+                f"UPDATE faqs SET {column} = CAST(:e AS vector), embedding_model = :m WHERE id = "
+                ":id"
+            ),  # noqa: S608 - column is one of two constants
             {"e": to_pgvector(vec), "m": embedder.model, "id": faq_id},
         )
     await session.commit()
@@ -144,7 +167,11 @@ _FAQ_NEAR_SQL = text("""
 
 
 async def faq_near(
-    session: AsyncSession, question: str, lang: str, query_vec: list[float], threshold: float | None = None
+    session: AsyncSession,
+    question: str,
+    lang: str,
+    query_vec: list[float],
+    threshold: float | None = None,
 ) -> Curated | None:
     """An approved FAQ that asks nearly the same thing. Guards against confident mistakes:
     - a FAQ about one program only answers a question that names that program, and a general
@@ -162,7 +189,10 @@ async def faq_near(
         program = await session.get(Program, faq.program_id) if faq.program_id else None
         if (program.slug if program else None) != asked_program:
             continue
-        if asked_numbers not in (numbers_in(faq.question_ar or ""), numbers_in(faq.question_en or "")):
+        if asked_numbers not in (
+            numbers_in(faq.question_ar or ""),
+            numbers_in(faq.question_en or ""),
+        ):
             continue
         answer = _faq_answer(faq, lang)
         if answer:
@@ -179,16 +209,42 @@ _COMPARE_WORDS = (
     "vs", "versus", "difference between", "better", "compare", "comparison", "which is best",
 )  # fmt: skip
 _WHY_WORDS = (
-    "ليش ادرس", "ليش اختار", "ليش بدي ادرس", "ليش لازم ادرس", "شو بميز", "شو مميزات", "مميزات", "ليش هذا التخصص",
-    "why study", "why choose", "why should i study", "what is special", "advantages of", "what makes",
-)  # fmt: skip
+    "ليش ادرس",
+    "ليش اختار",
+    "ليش بدي ادرس",
+    "ليش لازم ادرس",
+    "شو بميز",
+    "شو مميزات",
+    "مميزات",
+    "ليش هذا التخصص",
+    "why study",
+    "why choose",
+    "why should i study",
+    "what is special",
+    "advantages of",
+    "what makes",
+)
 # Wording that judges somebody else or ranks the program (rule 3). The polite disclaimer "I cannot
 # speak about other faculties" is allowed, so naming them is not flagged by itself: whether a pitch
 # makes a claim about others is finally the reviewer's call.
 OTHER_CLAIMS = (
-    "افضل من", "احسن من", "اقوى من", "اسهل من", "اضعف من", "better than", "superior to", "easier than",
-    "worse than", "unlike other", "بعكس", "الاولى في", "الافضل في", "the best in", "number one", "ranked",
-)  # fmt: skip
+    "افضل من",
+    "احسن من",
+    "اقوى من",
+    "اسهل من",
+    "اضعف من",
+    "better than",
+    "superior to",
+    "easier than",
+    "worse than",
+    "unlike other",
+    "بعكس",
+    "الاولى في",
+    "الافضل في",
+    "the best in",
+    "number one",
+    "ranked",
+)
 
 
 def _has(text_: str, phrases: tuple[str, ...]) -> bool:
@@ -201,7 +257,10 @@ def programs_in(text_: str) -> list[str]:
     normalized = norm(text_)
     found = []
     for slug, aliases in PROGRAM_ALIASES.items():
-        if any(re.search(rf"(?:^| )(?:و|ب|ل|ف|لل|بال|وال|فال|ال)?{re.escape(a)}(?: |$)", normalized) for a in aliases):
+        if any(
+            re.search(rf"(?:^| )(?:و|ب|ل|ف|لل|بال|وال|فال|ال)?{re.escape(a)}(?: |$)", normalized)
+            for a in aliases
+        ):
             found.append(slug)
     return found
 
@@ -214,7 +273,9 @@ def is_why(question: str) -> bool:
     return _has(question, _WHY_WORDS) and bool(programs_in(question))
 
 
-async def _approved_pitches(session: AsyncSession, slugs: list[str], kind: str) -> list[tuple[Pitch, Program]]:
+async def _approved_pitches(
+    session: AsyncSession, slugs: list[str], kind: str
+) -> list[tuple[Pitch, Program]]:
     if not slugs:
         return []
     rows = await session.execute(
@@ -231,7 +292,7 @@ def _pitch_text(pitch: Pitch, lang: str) -> str | None:
 
 
 async def comparison_answer(session: AsyncSession, question: str, lang: str) -> Curated | None:
-    """"X ولا Y؟" where exactly one side is a program of this faculty: the approved `compare`
+    """ "X ولا Y؟" where exactly one side is a program of this faculty: the approved `compare`
     pitch of X, which talks about X only. Two programs of the faculty are compared from the
     sources instead (retrieval), so this returns None for them."""
     if not is_comparison(question):
@@ -251,7 +312,9 @@ async def comparison_answer(session: AsyncSession, question: str, lang: str) -> 
     return None
 
 
-async def pitches_for_context(session: AsyncSession, question: str, lang: str) -> list[tuple[int, int, str]]:
+async def pitches_for_context(
+    session: AsyncSession, question: str, lang: str
+) -> list[tuple[int, int, str]]:
     """Approved `why` pitches to add to the retrieved passages, for "why this program" questions
     and for comparisons between two programs of the faculty: (pitch id, program id, text)."""
     if not (is_why(question) or is_comparison(question)):
@@ -268,9 +331,25 @@ async def pitches_for_context(session: AsyncSession, question: str, lang: str) -
 # Places and labs
 # ====================================================================================
 _WHERE_WORDS = (
-    "وين", "فين", "اين", "مكان", "كيف اوصل", "كيف بوصل", "كيف اروح", "كيف بروح", "دلني", "دلني على",
-    "where", "wheres", "where s", "how do i get", "how can i get", "how do i find", "directions to", "location of",
-)  # fmt: skip
+    "وين",
+    "فين",
+    "اين",
+    "مكان",
+    "كيف اوصل",
+    "كيف بوصل",
+    "كيف اروح",
+    "كيف بروح",
+    "دلني",
+    "دلني على",
+    "where",
+    "wheres",
+    "where s",
+    "how do i get",
+    "how can i get",
+    "how do i find",
+    "directions to",
+    "location of",
+)
 _NOT_A_PLACE = (
     "بشتغل", "بشتغلوا", "بيشتغل", "بيشتغلوا", "يشتغل", "يشتغلوا", "اشتغل", "شغل", "وظيفه", "وظايف",
     "work", "works", "working", "job", "jobs", "employed", "career", "careers",
@@ -278,7 +357,7 @@ _NOT_A_PLACE = (
 
 
 def is_location_question(question: str) -> bool:
-    """"وين ...؟" about a place, not "وين بيشتغلوا الخريجين؟"."""
+    """ "وين ...؟" about a place, not "وين بيشتغلوا الخريجين؟"."""
     words = set(norm(question).split())
     return _has(question, _WHERE_WORDS) and not (words & {norm(w) for w in _NOT_A_PLACE})
 
@@ -298,7 +377,11 @@ def _names(*values: str | None) -> list[str]:
 def _best_name(question: str, names: list[str]) -> int:
     """Length of the longest name contained in the question as whole words (0 = no match)."""
     padded = f" {norm(question)} "
-    stripped = " " + " ".join(w[2:] if w.startswith("ال") and len(w) > 4 else w for w in padded.split()) + " "
+    stripped = (
+        " "
+        + " ".join(w[2:] if w.startswith("ال") and len(w) > 4 else w for w in padded.split())
+        + " "
+    )
     return max((len(n) for n in names if f" {n} " in padded or f" {n} " in stripped), default=0)
 
 
@@ -326,11 +409,15 @@ async def place_answer(session: AsyncSession, question: str, lang: str) -> Curat
     if not is_location_question(question):
         return None
     best: tuple[int, Any] | None = None
-    for place in await session.scalars(select(Place).where(Place.review_status == "approved").order_by(Place.id)):
+    for place in await session.scalars(
+        select(Place).where(Place.review_status == "approved").order_by(Place.id)
+    ):
         score = _best_name(question, _names(place.name_ar, place.name_en, place.keywords))
         if score and (best is None or score > best[0]):
             best = (score, place)
-    for lab in await session.scalars(select(Lab).where(Lab.review_status == "approved").order_by(Lab.id)):
+    for lab in await session.scalars(
+        select(Lab).where(Lab.review_status == "approved").order_by(Lab.id)
+    ):
         if not (lab.location_hint or "").strip():
             continue  # a lab without a typed location cannot answer "where"
         score = _best_name(question, _names(lab.name_ar, lab.name_en, lab.keywords))
@@ -340,12 +427,31 @@ async def place_answer(session: AsyncSession, question: str, lang: str) -> Curat
         return None
     item = best[1]
     name = (item.name_ar if lang == "ar" else item.name_en) or item.name_ar or item.name_en
-    sources = [ChatSource(n=1, chunk_id=0, title=PLACES_LABEL[lang], url=f"place://{type(item).__name__.lower()}/{item.id}",
-                          category="place", program_id=getattr(item, "program_id", None))]  # fmt: skip
+    sources = [
+        ChatSource(
+            n=1,
+            chunk_id=0,
+            title=PLACES_LABEL[lang],
+            url=f"place://{type(item).__name__.lower()}/{item.id}",
+            category="place",
+            program_id=getattr(item, "program_id", None),
+        )
+    ]
     lines: list[str] = []
     if isinstance(item, Place):
-        directions = (item.directions_ar if lang == "ar" else item.directions_en) or item.directions_ar or item.directions_en
-        where = [p for p in (item.building, (("الطابق " if lang == "ar" else "floor ") + item.floor) if item.floor else None) if p]
+        directions = (
+            (item.directions_ar if lang == "ar" else item.directions_en)
+            or item.directions_ar
+            or item.directions_en
+        )
+        where = [
+            p
+            for p in (
+                item.building,
+                (("الطابق " if lang == "ar" else "floor ") + item.floor) if item.floor else None,
+            )
+            if p
+        ]
         if where:
             lines.append("، ".join(where) if lang == "ar" else ", ".join(where))
         body = directions or ("، ".join(where) if lang == "ar" else ", ".join(where))
@@ -355,15 +461,31 @@ async def place_answer(session: AsyncSession, question: str, lang: str) -> Curat
         src = await session.get(Source, chunk.source_id) if chunk is not None else None
         usable = chunk is not None and chunk.review_status == "approved"
         if usable and src is not None and src.review_status == "approved":
-            found = contact_lines(chunk.text, _names(item.name_ar, item.name_en, item.keywords, item.related_office))
+            found = contact_lines(
+                chunk.text, _names(item.name_ar, item.name_en, item.keywords, item.related_office)
+            )
             if found:
                 lines += found
-                sources.append(ChatSource(n=2, chunk_id=chunk.id, title=src.title if src else None,
-                                          url=src.url if src else "", category=chunk.category))  # fmt: skip
+                sources.append(
+                    ChatSource(
+                        n=2,
+                        chunk_id=chunk.id,
+                        title=src.title if src else None,
+                        url=src.url if src else "",
+                        category=chunk.category,
+                    )
+                )
     else:
         body = item.location_hint.strip()
     answer = f"{name}: {body}" if not body.startswith(name) else body
-    return Curated("place", answer, sources, title=name, lines=lines, media=await _media(session, item.media_id, lang))
+    return Curated(
+        "place",
+        answer,
+        sources,
+        title=name,
+        lines=lines,
+        media=await _media(session, item.media_id, lang),
+    )
 
 
 # ====================================================================================
@@ -385,7 +507,9 @@ async def known_numbers(session: AsyncSession, program_id: int | None) -> set[st
 
 def claim_issues(text_: str) -> list[str]:
     issues = [f"promises an outcome ('{w}')" for w in GUARANTEE_WORDS if _has(text_, (w,))]
-    issues += [f"speaks about others or ranks itself ('{w}')" for w in OTHER_CLAIMS if _has(text_, (w,))]
+    issues += [
+        f"speaks about others or ranks itself ('{w}')" for w in OTHER_CLAIMS if _has(text_, (w,))
+    ]
     return issues
 
 
@@ -411,7 +535,10 @@ async def faq_issues(session: AsyncSession, faq: Faq) -> list[str]:
                 "the robot could not tell which program the visitor means"
             )
         if program is None and named is not None:
-            issues.append(f"the {lang} question names a program, but the FAQ is marked general: choose the program")
+            issues.append(
+                f"the {lang} question names a program, but the FAQ is marked general: choose the "
+                "program"
+            )
     known = await known_numbers(session, faq.program_id)
     answers = f"{faq.answer_ar or ''} \n {faq.answer_en or ''}"
     issues += [f"{n} is not in the approved sources" for n in sorted(numbers_in(answers) - known)]
@@ -433,7 +560,9 @@ async def pitch_issues(session: AsyncSession, pitch: Pitch) -> list[str]:
     if program is not None:
         for t in (await program_context(session, program)).texts:
             known |= numbers_in(t)
-    issues += [f"{n} is not in the program's approved sources" for n in sorted(numbers_in(body) - known)]
+    issues += [
+        f"{n} is not in the program's approved sources" for n in sorted(numbers_in(body) - known)
+    ]
     return issues + claim_issues(body)
 
 
@@ -456,8 +585,8 @@ answer (1-2 sentences, at most 35 words, the direct answer first). Write every q
 answer in BOTH languages: friendly Jordanian Arabic (عامية أردنية مهذبة) and simple English. \
 The two versions must say the same thing. When the SUBJECT is a program, EVERY question must \
 name that program (for example "... بهندسة العمارة؟" / "... in Architectural Engineering?"), \
-because the robot matches questions without knowing the context. "passage" is the number of the CONTEXT passage that \
-contains the answer.
+because the robot matches questions without knowing the context. "passage" is the number of \
+the CONTEXT passage that contains the answer.
 
 PITCHES (only when asked for below): promotional talking points about THIS program only.
 - "why": 2-3 sentences on why a student may like this program, built only from the CONTEXT.
@@ -470,7 +599,8 @@ and must not use words like "better than".
 
 OUTPUT: a JSON object exactly like
 {"faqs": [{"question_ar": "...", "question_en": "...", "answer_ar": "...", "answer_en": "...", \
-"passage": 1}], "pitches": {"why_ar": "...", "why_en": "...", "compare_ar": "...", "compare_en": "..."}}
+"passage": 1}], "pitches": {"why_ar": "...", "why_en": "...", "compare_ar": "...", \
+"compare_en": "..."}}
 Leave "pitches" as {} when no pitches are asked for.
 """
 
@@ -507,9 +637,18 @@ async def _program_passages(session: AsyncSession, program: Program) -> list[tup
             (Chunk.program_id == program.id)
             | (Chunk.program_id.is_(None) & Chunk.category.in_(GENERAL_CATEGORIES)),
         )
-        .order_by(Chunk.program_id.is_(None), Chunk.category == "courses", Chunk.source_id, Chunk.position, Chunk.id)
+        .order_by(
+            Chunk.program_id.is_(None),
+            Chunk.category == "courses",
+            Chunk.source_id,
+            Chunk.position,
+            Chunk.id,
+        )
     )
-    return [(r.source_id, f"{r.title}" + (f"; {r.category}" if r.category else ""), r.text) for r in rows.all()]
+    return [
+        (r.source_id, f"{r.title}" + (f"; {r.category}" if r.category else ""), r.text)
+        for r in rows.all()
+    ]
 
 
 async def draft_curated(
@@ -519,21 +658,32 @@ async def draft_curated(
     as PENDING. `program=None` drafts FAQs about the university-wide handbook rules. Existing
     questions are not duplicated, and an existing pitch is kept unless `force`."""
     target = program.slug if program else "handbook"
-    passages = await (_program_passages(session, program) if program else _general_passages(session))
+    passages = await (
+        _program_passages(session, program) if program else _general_passages(session)
+    )
     if not passages:
         return DraftReport(target, "no-sources")
     existing_pitches = set()
     if program is not None:
         existing_pitches = set(
-            (await session.scalars(select(Pitch.topic).where(Pitch.program_id == program.id, Pitch.topic.in_(PITCH_KINDS)))).all()
+            (
+                await session.scalars(
+                    select(Pitch.topic).where(
+                        Pitch.program_id == program.id, Pitch.topic.in_(PITCH_KINDS)
+                    )
+                )
+            ).all()
         )
     want_pitches = program is not None and (force or existing_pitches != set(PITCH_KINDS))
     parts = [
-        f"SUBJECT: {program.name_en} ({program.name_ar})" if program else
-        "SUBJECT: university-wide bachelor rules and student services (Student Handbook) that apply to the faculty's students",
-        f"WRITE: {n_faqs} FAQs" + (" and the two pitches (why, compare)" if want_pitches else "; no pitches"),
+        f"SUBJECT: {program.name_en} ({program.name_ar})"
+        if program
+        else "SUBJECT: university-wide bachelor rules and student services (Student Handbook) that "
+        "apply to the faculty's students",
+        f"WRITE: {n_faqs} FAQs"
+        + (" and the two pitches (why, compare)" if want_pitches else "; no pitches"),
         "CONTEXT:",
-    ]  # fmt: skip
+    ]
     parts += [f"[{i}] ({label})\n{body}" for i, (_, label, body) in enumerate(passages, start=1)]
     parts.append("Reply with the JSON object only.")
     try:
@@ -545,7 +695,12 @@ async def draft_curated(
     known: set[str] = set()
     for _, _, body in passages:
         known |= numbers_in(body)
-    have = {question_key(q) for row in (await session.execute(select(Faq.question_ar, Faq.question_en))).all() for q in row if q}
+    have = {
+        question_key(q)
+        for row in (await session.execute(select(Faq.question_ar, Faq.question_en))).all()
+        for q in row
+        if q
+    }
     for raw in (result.data.get("faqs") or [])[: n_faqs + 2]:
         if not isinstance(raw, dict):
             continue
@@ -558,8 +713,17 @@ async def draft_curated(
             continue
         n = raw.get("passage")
         source_id = passages[n - 1][0] if isinstance(n, int) and 1 <= n <= len(passages) else None
-        session.add(Faq(program_id=program.id if program else None, question_ar=q_ar or None, question_en=q_en or None,
-                        answer_ar=a_ar or None, answer_en=a_en or None, source_id=source_id, review_status="pending"))  # fmt: skip
+        session.add(
+            Faq(
+                program_id=program.id if program else None,
+                question_ar=q_ar or None,
+                question_en=q_en or None,
+                answer_ar=a_ar or None,
+                answer_en=a_en or None,
+                source_id=source_id,
+                review_status="pending",
+            )
+        )
         have |= {question_key(q_ar), question_key(q_en)}
         report.faqs_created += 1
         for number in sorted(numbers_in(f"{a_ar} {a_en}") - known):
@@ -571,10 +735,20 @@ async def draft_curated(
             if not (t_ar or t_en) or (kind in existing_pitches and not force):
                 continue
             if kind in existing_pitches:  # force: the old row is replaced and reviewed again
-                for old in await session.scalars(select(Pitch).where(Pitch.program_id == program.id, Pitch.topic == kind)):
+                for old in await session.scalars(
+                    select(Pitch).where(Pitch.program_id == program.id, Pitch.topic == kind)
+                ):
                     await session.delete(old)
-            session.add(Pitch(program_id=program.id, topic=kind, text_ar=t_ar or None, text_en=t_en or None,
-                              is_promotional=True, review_status="pending"))  # fmt: skip
+            session.add(
+                Pitch(
+                    program_id=program.id,
+                    topic=kind,
+                    text_ar=t_ar or None,
+                    text_en=t_en or None,
+                    is_promotional=True,
+                    review_status="pending",
+                )
+            )
             report.pitches_created.append(kind)
             for number in sorted(numbers_in(f"{t_ar} {t_en}") - known):
                 report.issues.append(f"pitch '{kind}': {number} is not in the sources")

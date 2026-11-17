@@ -25,11 +25,15 @@ def upgrade() -> None:
     op.add_column("media", sa.Column("source_note", sa.Text(), nullable=True))
     op.add_column(
         "media",
-        sa.Column("review_status", sa.String(16), server_default=sa.text("'pending'"), nullable=False),
+        sa.Column(
+            "review_status", sa.String(16), server_default=sa.text("'pending'"), nullable=False
+        ),
     )
     op.add_column(
         "media",
-        sa.Column("created_at", sa.DateTime(timezone=True), server_default=sa.func.now(), nullable=False),
+        sa.Column(
+            "created_at", sa.DateTime(timezone=True), server_default=sa.func.now(), nullable=False
+        ),
     )
     op.create_check_constraint(
         "ck_media_review_status", "media", "review_status IN ('pending', 'approved', 'rejected')"

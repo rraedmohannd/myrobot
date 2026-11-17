@@ -522,7 +522,8 @@ async def _return_trials(
 _DESCRIPTIONS: dict[str, str] = {
     "latency_stages.csv": "Per-stage latency (n, median, p90 nearest-rank, min, max, in ms). "
     "Source: turns table, question turns without error.",
-    "latency_stages.png": "Box plot of the same per-stage latency distribution. Source: turns table.",
+    "latency_stages.png": "Box plot of the same per-stage latency distribution. "
+    "Source: turns table.",
     "latency_runs.csv": "One row per latency measurement run and stage (median, p90, n). "
     "Source: backend/data/latency/*.json.",
     "latency_runs.png": "Median time from question text to first answer audio per measurement run. "
@@ -531,15 +532,18 @@ _DESCRIPTIONS: dict[str, str] = {
     "invented numbers, latency). Source: backend/data/golden/results/*.json.",
     "evaluation_pass_rate.png": "Pass rate per evaluation run in time order with the 90 % target. "
     "Source: backend/data/golden/results/*.json.",
-    "found_rate.csv": "Counts of question turns answered from the knowledge base, not answered, and "
+    "found_rate.csv": "Counts of question turns answered from the knowledge base, not answered, "
+    "and "
     "unknown (flag not recorded), with the found rate. Source: turns.found.",
     "found_rate.png": "Bar chart of the same counts. Source: turns.found.",
     "speakers.csv": "Speaker assignment confidence per speaker_source (n, median, min, max). "
     "Source: turns table. Not a labelled validation, see docs/SPEAKERS.md.",
     "speaker_confidence.png": "Histogram of speaker assignment confidence. Source: turns table. "
     "Not a labelled validation, see docs/SPEAKERS.md.",
-    "trajectories.csv": f"One row per robot run (most recent {MAX_TRAJECTORY_RUNS}): samples, duration, "
-    "path length and end distance from (0, 0), all from odometry. Source: robot_runs, pose_samples. "
+    "trajectories.csv": f"One row per robot run (most recent {MAX_TRAJECTORY_RUNS}): samples, "
+    "duration, "
+    "path length and end distance from (0, 0), all from odometry. Source: robot_runs, "
+    "pose_samples. "
     "Rows with is_simulated = True are simulations, not physical results.",
     "return_trials.csv": "One row per tape-measured return trial of a physical run. "
     "Source: return_trials joined to robot_runs (is_simulated = false, status = measured).",
@@ -555,7 +559,10 @@ def _describe(name: str) -> str:
         if name.endswith("_SIMULATED.png"):
             return ("SIMULATED run, not a physical result: x/y path from the simulator's odometry. "
                     "Source: pose_samples.")  # fmt: skip
-        return "Physical run: x/y path estimated by odometry (outbound and return). Source: pose_samples."
+        return (
+            "Physical run: x/y path estimated by odometry (outbound and return). Source: "
+            "pose_samples."
+        )
     return _DESCRIPTIONS.get(name, "")
 
 
@@ -566,7 +573,8 @@ def _write_readme(out_dir: Path, files: list[Path]) -> Path:
         f"Generated {datetime.now().astimezone().isoformat(timespec='seconds')} by "
         "`app.services.report.export_report`.",
         "",
-        "Every value comes from recorded data; nothing is estimated or filled in. A chart that says",
+        "Every value comes from recorded data; nothing is estimated or filled in. A chart that "
+        "says",
         '"No data yet" means the system has not recorded that kind of data. Files with `SIMULATED`',
         "in the name come from the simulator and are not physical test results.",
         "",

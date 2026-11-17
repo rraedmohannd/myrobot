@@ -32,10 +32,15 @@ from app.telemetry.sim_robot import SimRobotReport, SimulatedRobot, run_sim_robo
 
 RESULTS_DIR = Path(__file__).resolve().parents[1] / "data" / "soak"
 QUESTIONS = [
-    "كم ساعة معتمدة بدها هندسة الأنظمة الذكية؟", "وين بيشتغلوا خريجين هندسة الأنظمة الذكية؟",
-    "هندسة الطاقة المتجددة كم ساعة؟", "احكيلي عن تخصص هندسة العمارة", "How many credit hours is Interior Design?",
-    "شو الحد الأعلى للساعات بالفصل؟", "في تدريب ميداني بالتصميم الجرافيكي؟", "وين مكتب العميد؟",
-]  # fmt: skip
+    "كم ساعة معتمدة بدها هندسة الأنظمة الذكية؟",
+    "وين بيشتغلوا خريجين هندسة الأنظمة الذكية؟",
+    "هندسة الطاقة المتجددة كم ساعة؟",
+    "احكيلي عن تخصص هندسة العمارة",
+    "How many credit hours is Interior Design?",
+    "شو الحد الأعلى للساعات بالفصل؟",
+    "في تدريب ميداني بالتصميم الجرافيكي؟",
+    "وين مكتب العميد؟",
+]
 COMMAND_CYCLE = ("start_roaming", "pause", "resume", "return_to_start", "pause", "set_mode")
 
 
@@ -59,43 +64,76 @@ def summarize(report: SimRobotReport, memory: list[tuple[float, float]], health_
     timed_out = sum(1 for c in commands if c.get("timed_out"))
     return {
         "simulated": True,
-        "note": "SIMULATED session with fake AI providers: backend behaviour only, not a physical or provider result",
-        "planned_minutes": minutes, "seconds": report.seconds,
-        "conversations": report.conversations, "turns_timed": len(turns),
-        "status_messages": report.status_sent, "telemetry_samples": report.telemetry_samples,
+        "note": (
+            "SIMULATED session with fake AI providers: backend behaviour only, not a physical or "
+            "provider result"
+        ),
+        "planned_minutes": minutes,
+        "seconds": report.seconds,
+        "conversations": report.conversations,
+        "turns_timed": len(turns),
+        "status_messages": report.status_sent,
+        "telemetry_samples": report.telemetry_samples,
         "robot_runs": len(report.runs),
-        "commands": {"sent": len(commands), "accepted": accepted, "refused": refused, "timed_out": timed_out,
-                     "http_errors": sum(1 for c in commands if c.get("http_error"))},
+        "commands": {
+            "sent": len(commands),
+            "accepted": accepted,
+            "refused": refused,
+            "timed_out": timed_out,
+            "http_errors": sum(1 for c in commands if c.get("http_error")),
+        },
         "answer_wall_ms": {
             "median_all": _median([t["wall_ms"] for t in turns]),
-            "median_first_third": _median(first), "median_last_third": _median(last),
-            "drift_ms": round(statistics.median(last) - statistics.median(first), 1) if first and last else None,
+            "median_first_third": _median(first),
+            "median_last_third": _median(last),
+            "drift_ms": round(statistics.median(last) - statistics.median(first), 1)
+            if first and last
+            else None,
             "max": max((t["wall_ms"] for t in turns), default=None),
         },
-        "health_ms": {"median": _median(health_ms), "max": round(max(health_ms), 1) if health_ms else None},
+        "health_ms": {
+            "median": _median(health_ms),
+            "max": round(max(health_ms), 1) if health_ms else None,
+        },
         "memory_mb": {
-            "start": mem[0] if mem else None, "end": mem[-1] if mem else None, "max": max(mem) if mem else None,
-            "settled_median": _median(settled), "final_median": _median(final),
-            "growth_after_warmup": round(statistics.median(final) - statistics.median(settled), 1) if mem else None,
+            "start": mem[0] if mem else None,
+            "end": mem[-1] if mem else None,
+            "max": max(mem) if mem else None,
+            "settled_median": _median(settled),
+            "final_median": _median(final),
+            "growth_after_warmup": round(statistics.median(final) - statistics.median(settled), 1)
+            if mem
+            else None,
             "samples": len(mem),
         },
-        "errors": report.errors[:50], "error_count": len(report.errors),
-    }  # fmt: skip
+        "errors": report.errors[:50],
+        "error_count": len(report.errors),
+    }
 
 
 def format_summary(s: dict[str, Any]) -> str:
     m, a, c = s["memory_mb"], s["answer_wall_ms"], s["commands"]
-    return "\n".join([
-        "*** SIMULATED soak run (simulated robot, fake AI providers): not a physical result ***",
-        f"duration            {s['seconds'] / 60:.1f} min (planned {s['planned_minutes']:g})",
-        f"conversations       {s['conversations']} ({s['turns_timed']} timed turns)",
-        f"robot               {s['status_messages']} status messages, {s['telemetry_samples']} pose samples, {s['robot_runs']} simulated run(s)",
-        f"commands            {c['sent']} sent: {c['accepted']} accepted, {c['refused']} refused, {c['timed_out']} without answer, {c['http_errors']} HTTP errors",
-        f"answer time (ms)    median {a['median_all']}, first third {a['median_first_third']}, last third {a['median_last_third']}, drift {a['drift_ms']}, max {a['max']}",
-        f"/health (ms)        median {s['health_ms']['median']}, max {s['health_ms']['max']}",
-        f"backend memory (MB) start {m['start']}, end {m['end']}, max {m['max']}; after warm-up {m['settled_median']} -> {m['final_median']} (growth {m['growth_after_warmup']})",
-        f"errors              {s['error_count']}" + (": " + "; ".join(s["errors"][:5]) if s["errors"] else ""),
-    ])  # fmt: skip
+    return "\n".join(
+        [
+            "*** SIMULATED soak run (simulated robot, fake AI providers): not a physical result "
+            "***",
+            f"duration            {s['seconds'] / 60:.1f} min (planned {s['planned_minutes']:g})",
+            f"conversations       {s['conversations']} ({s['turns_timed']} timed turns)",
+            f"robot               {s['status_messages']} status messages, {s['telemetry_samples']} "
+            f"pose samples, {s['robot_runs']} simulated run(s)",
+            f"commands            {c['sent']} sent: {c['accepted']} accepted, {c['refused']} "
+            "refused, "
+            f"{c['timed_out']} without answer, {c['http_errors']} HTTP errors",
+            f"answer time (ms)    median {a['median_all']}, first third {a['median_first_third']}, "
+            f"last third {a['median_last_third']}, drift {a['drift_ms']}, max {a['max']}",
+            f"/health (ms)        median {s['health_ms']['median']}, max {s['health_ms']['max']}",
+            f"backend memory (MB) start {m['start']}, end {m['end']}, max {m['max']}; after "
+            "warm-up "
+            f"{m['settled_median']} -> {m['final_median']} (growth {m['growth_after_warmup']})",
+            f"errors              {s['error_count']}"
+            + (": " + "; ".join(s["errors"][:5]) if s["errors"] else ""),
+        ]
+    )
 
 
 async def main(minutes: float, url: str, admin_url: str, out: str | None = None,
@@ -110,12 +148,19 @@ async def main(minutes: float, url: str, admin_url: str, out: str | None = None,
             print(f"Cannot reach {admin_url}: {e}")
             return None
         if info.status_code != 200 and not allow_real_providers:
-            print("This backend is not the preview app (fake providers). The soak test asks hundreds of\n"
-                  "questions: against the real backend it would cost money and fill the real database.\n"
-                  "Start the preview backend first (docs/HOW_TO_START.md, \"Soak test\").")  # fmt: skip
+            print(
+                "This backend is not the preview app (fake providers). The soak test asks hundreds "
+                "of\n"
+                "questions: against the real backend it would cost money and fill the real "
+                "database.\n"
+                'Start the preview backend first (docs/HOW_TO_START.md, "Soak test").'
+            )
             return None
         if (await http.get("/api/admin/system")).status_code != 200:
-            print("The admin token is not accepted (set SOAK_ADMIN_TOKEN to the preview backend's ADMIN_TOKEN).")
+            print(
+                "The admin token is not accepted (set SOAK_ADMIN_TOKEN to the preview backend's "
+                "ADMIN_TOKEN)."
+            )
             return None
         print(f"*** SIMULATED soak test: {minutes:g} min against {admin_url} (fake providers) ***")
         robot = SimulatedRobot(seed=7)
@@ -146,7 +191,11 @@ async def main(minutes: float, url: str, admin_url: str, out: str | None = None,
                     body["args"] = {"mode": f"demo-{n}"}
                 try:
                     r = await http.post("/api/admin/robot/command", json=body)
-                    commands.append(r.json() if r.status_code == 200 else {"cmd": cmd, "http_error": r.status_code})
+                    commands.append(
+                        r.json()
+                        if r.status_code == 200
+                        else {"cmd": cmd, "http_error": r.status_code}
+                    )
                 except httpx.HTTPError as e:
                     commands.append({"cmd": cmd, "http_error": str(e)})
                 n += 1
@@ -154,7 +203,9 @@ async def main(minutes: float, url: str, admin_url: str, out: str | None = None,
 
         extra = [asyncio.create_task(monitor()), asyncio.create_task(operator())]
         try:
-            report = await run_sim_robot(url, seconds, robot=robot, questions=QUESTIONS, converse_every_s=20)
+            report = await run_sim_robot(
+                url, seconds, robot=robot, questions=QUESTIONS, converse_every_s=20
+            )
         finally:
             for task in extra:
                 task.cancel()
@@ -166,7 +217,13 @@ async def main(minutes: float, url: str, admin_url: str, out: str | None = None,
     out_dir = Path(out) if out else RESULTS_DIR
     out_dir.mkdir(parents=True, exist_ok=True)
     path = out_dir / f"{datetime.now().strftime('%Y%m%d-%H%M%S')}.json"
-    path.write_text(json.dumps({**summary, "memory_series": memory, "turns": report.turns}, ensure_ascii=False, indent=1),
-                    encoding="utf-8")  # fmt: skip
+    path.write_text(
+        json.dumps(
+            {**summary, "memory_series": memory, "turns": report.turns},
+            ensure_ascii=False,
+            indent=1,
+        ),
+        encoding="utf-8",
+    )
     print(f"Saved: {path}")
     return summary

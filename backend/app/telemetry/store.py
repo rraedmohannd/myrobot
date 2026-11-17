@@ -65,7 +65,9 @@ async def start_run(
 
 async def add_samples(session: AsyncSession, run_id: int, samples: list[dict[str, Any]]) -> int:
     if len(samples) > MAX_SAMPLES_PER_MESSAGE:
-        raise TelemetryError("bad_message", f"at most {MAX_SAMPLES_PER_MESSAGE} samples per message")
+        raise TelemetryError(
+            "bad_message", f"at most {MAX_SAMPLES_PER_MESSAGE} samples per message"
+        )
     try:
         parsed = [SampleIn.model_validate(s) for s in samples]
     except ValidationError as e:
@@ -135,7 +137,9 @@ class TelemetryRecorder:
             async with self.sessionmaker() as db:
                 if kind == "run.start":
                     if not isinstance(msg.get("is_simulated"), bool):
-                        raise TelemetryError("bad_message", "run.start needs is_simulated: true or false")
+                        raise TelemetryError(
+                            "bad_message", "run.start needs is_simulated: true or false"
+                        )
                     if self.run_id is not None:
                         await end_run(db, self.run_id)
                     config = msg.get("odom_config")
@@ -155,7 +159,9 @@ class TelemetryRecorder:
                         raise TelemetryError("bad_message", "telemetry needs samples: [...]")
                     await add_samples(db, self.run_id, samples)
                 elif kind == "event":
-                    await add_event(db, self.run_id, {k: msg.get(k) for k in ("t_ms", "kind", "data")})
+                    await add_event(
+                        db, self.run_id, {k: msg.get(k) for k in ("t_ms", "kind", "data")}
+                    )
                 elif kind == "run.end":
                     counts = await end_run(db, self.run_id)
                     await self.send({"type": "run.ended", "run_id": self.run_id, **counts})

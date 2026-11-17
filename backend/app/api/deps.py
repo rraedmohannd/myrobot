@@ -33,4 +33,6 @@ async def require_admin(
             status.HTTP_503_SERVICE_UNAVAILABLE,
             "Admin API disabled: set ADMIN_TOKEN in .env or create a user with create-admin",
         )
-    raise HTTPException(status.HTTP_401_UNAUTHORIZED, "Missing or wrong X-Admin-Token, or not logged in")
+    raise HTTPException(
+        status.HTTP_401_UNAUTHORIZED, "Missing or wrong X-Admin-Token, or not logged in"
+    )

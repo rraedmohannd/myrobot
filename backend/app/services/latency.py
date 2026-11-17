@@ -107,7 +107,9 @@ async def measure_one(
         return None
 
     streams: list[asyncio.Task[int | None]] = []
-    async for event in answer_events(session, embedder, llm, item["question"], log=False, stream=stream):
+    async for event in answer_events(
+        session, embedder, llm, item["question"], log=False, stream=stream
+    ):
         if event.kind == "piece":
             row.pieces += 1
             if first_audio is None:
@@ -115,7 +117,9 @@ async def measure_one(
                 # as a task: the LLM stream is not held back while the audio is being made
                 first_audio = asyncio.create_task(synthesize_first(event.text))
                 if hasattr(tts, "stream"):
-                    streams = [asyncio.create_task(first_chunk(event.text, f)) for f in ("mp3", "pcm")]
+                    streams = [
+                        asyncio.create_task(first_chunk(event.text, f)) for f in ("mp3", "pcm")
+                    ]
         elif event.kind == "result" and event.result is not None:
             r = event.result
             row.found, row.error = r.found, r.error
@@ -168,8 +172,11 @@ async def measure_dialogue(
         answer = next((m for m in sent if m["type"] == "answer.text"), {})
         spoken = str(answer.get("text") or "")
         pieces = [  # the answer's own pieces, streamed or whole (not the filler or the follow-up)
-            m for m in sent
-            if m["type"] in ("answer.audio.start", "answer.audio") and m.get("text") and m["text"] in spoken
+            m
+            for m in sent
+            if m["type"] in ("answer.audio.start", "answer.audio")
+            and m.get("text")
+            and m["text"] in spoken
         ]
         row.pieces = len(pieces)
         row.first_piece = pieces[0]["text"] if pieces else ""
@@ -186,9 +193,14 @@ async def measure_dialogue(
 def format_report(rows: list[LatencyRow], label: str) -> str:
     summary = summarize(rows)
     lines = [f"Latency — {label} — {len(rows)} question(s)", ""]
-    lines.append(f"{'id':24s} {'retr':>6} {'llm1':>6} {'llm':>6} {'tts1':>6} {'audio':>6} {'s.mp3':>6} {'s.pcm':>6}  first piece")
+    lines.append(
+        f"{'id':24s} {'retr':>6} {'llm1':>6} {'llm':>6} {'tts1':>6} {'audio':>6} {'s.mp3':>6} "
+        f"{'s.pcm':>6}  first piece"
+    )
     for r in rows:
-        cells = " ".join(f"{(getattr(r, s) if getattr(r, s) is not None else '-'):>6}" for s in STAGES)
+        cells = " ".join(
+            f"{(getattr(r, s) if getattr(r, s) is not None else '-'):>6}" for s in STAGES
+        )
         lines.append(f"{r.id:24s} {cells}  {r.error or r.first_piece[:50]}")
     lines.append("")
     lines.append(f"{'stage':44s} {'median':>8} {'p90':>8}   (ms)")
@@ -201,7 +213,9 @@ def format_report(rows: list[LatencyRow], label: str) -> str:
     return "\n".join(lines)
 
 
-def write_results(rows: list[LatencyRow], meta: dict[str, Any], out_dir: Path = RESULTS_DIR) -> Path:
+def write_results(
+    rows: list[LatencyRow], meta: dict[str, Any], out_dir: Path = RESULTS_DIR
+) -> Path:
     out_dir.mkdir(parents=True, exist_ok=True)
     path = out_dir / f"{datetime.now().strftime('%Y%m%d-%H%M%S')}.json"
     data = {**meta, "summary": summarize(rows), "rows": [asdict(r) for r in rows]}

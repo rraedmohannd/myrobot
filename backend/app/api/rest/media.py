@@ -120,7 +120,9 @@ async def upload(request: Request, session: SessionDep, media_dir: MediaDir) -> 
         raise HTTPException(code, str(e)) from e
     source_note = (fields.get("source_note") or "").strip()
     if len(source_note) < 3:
-        raise HTTPException(422, "source_note is required: where the file came from and the permission")
+        raise HTTPException(
+            422, "source_note is required: where the file came from and the permission"
+        )
     program_id = await _program_id(session, fields.get("program_id"))
     m = Media(
         kind=kind, path=store(upload_file.data, ext, media_dir), mime=mime,

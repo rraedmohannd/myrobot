@@ -43,7 +43,11 @@ class SimConfig:
     return_timeout_s: float = 180.0
     # room in the world frame (start pose = origin): 6 m x 5 m
     room: Box = (-1.0, -1.5, 5.0, 3.5)
-    obstacles: tuple[Box, ...] = ((1.6, 0.9, 2.2, 1.5), (3.3, -0.9, 3.9, -0.3), (0.6, 2.3, 1.2, 2.9))
+    obstacles: tuple[Box, ...] = (
+        (1.6, 0.9, 2.2, 1.5),
+        (3.3, -0.9, 3.9, -0.3),
+        (0.6, 2.3, 1.2, 2.9),
+    )
     track_width_m: float = 0.19  # placeholder until measured on the Rover 5
     speed_mps: float = 0.25
     turn_rate_rps: float = 1.0

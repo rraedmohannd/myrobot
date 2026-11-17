@@ -29,7 +29,9 @@ def _extract(raw: str, chunk: int) -> tuple[str, list[str]]:
 def test_answer_extractor_any_chunking() -> None:
     answer = 'قال: "أهلاً" \\ 162 ساعة.\nNew line, tab\t, emoji 😀 and é.'
     for ensure_ascii in (False, True):  # raw UTF-8 and \\uXXXX escapes (incl. surrogate pairs)
-        raw = json.dumps({"answer": answer, "found": True, "used": [1, 2]}, ensure_ascii=ensure_ascii)
+        raw = json.dumps(
+            {"answer": answer, "found": True, "used": [1, 2]}, ensure_ascii=ensure_ascii
+        )
         for chunk in (1, 2, 3, 5, 7, 11, 1000):
             text, _ = _extract(raw, chunk)
             assert text == answer, (ensure_ascii, chunk)
@@ -68,7 +70,10 @@ def test_speech_pieces_release_sentences_as_they_complete() -> None:
 
 
 def test_speech_pieces_first_piece_matches_split_for_speech() -> None:
-    long = "خريجين هندسة الأنظمة الذكية بشتغلوا بمجالات زي تكنولوجيا المعلومات والاتصالات، والبنوك والرقابة المالية."
+    long = (
+        "خريجين هندسة الأنظمة الذكية بشتغلوا بمجالات زي تكنولوجيا المعلومات والاتصالات، والبنوك "
+        "والرقابة المالية."
+    )
     expected_first = split_for_speech(long)[0]
     for chunk in (1, 4, 9, 500):
         pieces = _pieces(long + " جملة ثانية.", chunk)
@@ -133,15 +138,21 @@ async def test_piece_with_invented_number_is_replaced_by_the_safe_line(db_sessio
 
 async def test_only_invented_numbers_means_not_found(db_session) -> None:
     await _seed(db_session)
-    pieces, r = await _events(db_session, FakeStreamingLLM({"answer": BAD, "found": True, "used": [1]}))
+    pieces, r = await _events(
+        db_session, FakeStreamingLLM({"answer": BAD, "found": True, "used": [1]})
+    )
     assert pieces == [NUMBER_SAFE["en"]] and not r.found
 
 
 async def test_not_found_and_empty_answers_still_speak(db_session) -> None:
     await _seed(db_session)
-    pieces, r = await _events(db_session, FakeStreamingLLM({"answer": "", "found": False, "used": []}))
+    pieces, r = await _events(
+        db_session, FakeStreamingLLM({"answer": "", "found": False, "used": []})
+    )
     assert not r.found and pieces and "Admission and Registration" in " ".join(pieces)
-    r2 = await answer_question(db_session, FakeEmbedder(), FakeStreamingLLM(), f"{UNIQUE}?", log=False)
+    r2 = await answer_question(
+        db_session, FakeEmbedder(), FakeStreamingLLM(), f"{UNIQUE}?", log=False
+    )
     assert r2.found and "162" in r2.answer
 
 
@@ -155,7 +166,11 @@ def _manager(db_session, llm, log: list):  # noqa: ANN202
             log.append(f"audio:{msg['text']}")
 
     tts = FakeTTS(log)
-    return DialogueManager(send, OneSession(db_session), FakeEmbedder(), llm, FakeSTT([]), tts), sent, tts
+    return (
+        DialogueManager(send, OneSession(db_session), FakeEmbedder(), llm, FakeSTT([]), tts),
+        sent,
+        tts,
+    )
 
 
 async def test_first_sentence_is_spoken_while_the_llm_is_still_writing(db_session) -> None:
@@ -199,7 +214,9 @@ async def test_latency_measure_and_summary(db_session) -> None:
     await _seed(db_session)
     questions = [{"id": f"q{i}", "question": f"{UNIQUE}?"} for i in range(3)]
     reply = {"answer": f"{GOOD} {LAST}", "found": True, "used": [1]}
-    rows = await measure(db_session, FakeEmbedder(), FakeStreamingLLM(reply), FakeTTS(), questions, True)
+    rows = await measure(
+        db_session, FakeEmbedder(), FakeStreamingLLM(reply), FakeTTS(), questions, True
+    )
     assert len(rows) == 3 and all(r.first_piece == GOOD and r.pieces == 2 and r.found for r in rows)
     assert all(r.first_audio_ms is not None and r.tts_first_ms is not None for r in rows)
     summary = summarize(rows)
@@ -208,7 +225,9 @@ async def test_latency_measure_and_summary(db_session) -> None:
 
 
 def test_latency_statistics() -> None:
-    rows = [LatencyRow(id=str(v), question="", first_audio_ms=v) for v in (100, 200, 300, 400, 1000)]
+    rows = [
+        LatencyRow(id=str(v), question="", first_audio_ms=v) for v in (100, 200, 300, 400, 1000)
+    ]
     rows.append(LatencyRow(id="failed", question="", first_audio_ms=9, error="boom"))  # not counted
     s = summarize(rows)["first_audio_ms"]
     assert s == {"median": 300, "p90": 1000.0, "n": 5}

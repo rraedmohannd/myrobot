@@ -1,6 +1,7 @@
 """Conversation manager for one robot connection (B4).
 
-States: IDLE -> GREETING -> LISTENING -> ANSWERING -> FOLLOW_UP ("عندك سؤال ثاني؟") -> CLOSING -> IDLE
+States: IDLE -> GREETING -> LISTENING -> ANSWERING -> FOLLOW_UP ("عندك سؤال ثاني؟") -> CLOSING
+-> IDLE
 EXPLAINING: the robot presents a program (approved explainer, sprint 2), then FOLLOW_UP.
 Intents (rule-based, instant): question, done/thanks, greeting, repeat, unclear.
 Guided turns (sprint 2): "tell me about X" plays the approved explainer of X when there is one,
@@ -95,12 +96,18 @@ PHRASES: dict[str, dict[str, str]] = {
     },
     "interest_none": {
         "ar": "لسا ما عندي اقتراح جاهز لهالاهتمام. اسألني عن أي تخصص بالكلية وبحكيلك عنه.",
-        "en": "I don't have a suggestion ready for that yet. Ask me about any program of the faculty.",
+        "en": (
+            "I don't have a suggestion ready for that yet. Ask me about any program of the faculty."
+        ),
     },
     # Said from the cache when a provider cannot be reached (sprint 3 S5).
     "offline": {
-        "ar": "الإنترنت ضعيف هسا وما قدرت أجيب الجواب. صوّر الكود لصفحة الكلية، أو اكبس على تخصص لأحكيلك عنه.",
-        "en": "The internet is weak right now and I could not get the answer. Scan the code for the "
+        "ar": (
+            "الإنترنت ضعيف هسا وما قدرت أجيب الجواب. صوّر الكود لصفحة الكلية، أو اكبس على تخصص "
+            "لأحكيلك عنه."
+        ),
+        "en": "The internet is weak right now and I could not get the answer. Scan the code for "
+        "the "
         "faculty page, or tap a program and I will present it.",
     },
     "one_at_a_time": {
@@ -108,7 +115,6 @@ PHRASES: dict[str, dict[str, str]] = {
         "en": "One at a time please, so I can hear you well. Go ahead.",
     },
 }
-
 
 
 def fixed_phrase_pieces() -> list[str]:
@@ -135,7 +141,11 @@ async def faculty_page_url(session: AsyncSession) -> str | None:
         return configured
     rows = await session.scalars(
         select(Source.url)
-        .where(Source.review_status == "approved", Source.url.like("http%"), Source.url.ilike("%/faculties/%"))
+        .where(
+            Source.review_status == "approved",
+            Source.url.like("http%"),
+            Source.url.ilike("%/faculties/%"),
+        )
         .order_by(Source.id)
     )
     return next(iter(rows), None)
@@ -180,7 +190,11 @@ def _norm(text: str) -> str:
 
 def asks(text: str) -> bool:
     """A question mark or a question word: the visitor is asking something."""
-    return "?" in text or "؟" in text or any(w.lstrip("و") in QUESTION_WORDS for w in _norm(text).split())
+    return (
+        "?" in text
+        or "؟" in text
+        or any(w.lstrip("و") in QUESTION_WORDS for w in _norm(text).split())
+    )
 
 
 def classify(text: str, state: str) -> str:
@@ -194,7 +208,9 @@ def classify(text: str, state: str) -> str:
         return "question"
     if set(words) & REPEAT or any(p in norm for p in REPEAT if " " in p):
         return "repeat"
-    if norm in DONE or (state == "FOLLOW_UP" and words[0] in {"لا", "no", "nope"} and len(words) <= 3):
+    if norm in DONE or (
+        state == "FOLLOW_UP" and words[0] in {"لا", "no", "nope"} and len(words) <= 3
+    ):
         return "done"
     if len(words) <= 4 and norm.startswith(DONE_PREFIXES):
         return "done"
@@ -228,7 +244,7 @@ class ExplainerRun:
 
 @dataclass
 class InterestFlow:
-    """"What do you like?": steps 1 and 2 are the questions, 3 = programs suggested and an
+    """ "What do you like?": steps 1 and 2 are the questions, 3 = programs suggested and an
     explainer offered."""
 
     step: int = 1
@@ -276,7 +292,9 @@ class DialogueManager:
     async def _display(self, mode: str, subtitle: str | None = None, **extra: Any) -> None:
         await self.send({"type": "display.update", "mode": mode, "subtitle": subtitle, **extra})
 
-    async def _speak(self, text: str, cache: bool = False, started: float | None = None) -> int | None:
+    async def _speak(
+        self, text: str, cache: bool = False, started: float | None = None
+    ) -> int | None:
         """Send `text` as mp3 chunks (first sentence first). Returns ms until first chunk."""
         pieces = split_for_speech(text, get_settings().tts_first_piece_words) or [text]
         tasks = [asyncio.create_task(self.tts.synthesize(p, cache=cache)) for p in pieces]
@@ -380,10 +398,16 @@ class DialogueManager:
             if self.interest is not None and self.session_id is not None and self.interest.step < 3:
                 await self._interest_answer(str(msg.get("key") or ""), "", TurnTimings())
         elif kind == "session.end":
-            reason = msg.get("reason") if msg.get("reason") in ("user_done", "lost_face", "timeout") else "user_done"
+            reason = (
+                msg.get("reason")
+                if msg.get("reason") in ("user_done", "lost_face", "timeout")
+                else "user_done"
+            )
             await self.close_session(reason, None)
         else:
-            await self.send({"type": "error", "code": "unknown_type", "message": f"unknown type {kind!r}"})
+            await self.send(
+                {"type": "error", "code": "unknown_type", "message": f"unknown type {kind!r}"}
+            )
 
     # ---------- session ----------
     async def start_session(self, lang: str, greet: bool = True) -> None:
@@ -476,8 +500,17 @@ class DialogueManager:
             voice_task.cancel()
             await self.send({"type": "error", "code": "stt_failed", "message": str(e)})
             await self._offline()
-            await self._log_turn("", self.lang, "question", PHRASES["offline"][self.lang], TurnTimings(),
-                                 None, str(e), None, kind="offline")  # fmt: skip
+            await self._log_turn(
+                "",
+                self.lang,
+                "question",
+                PHRASES["offline"][self.lang],
+                TurnTimings(),
+                None,
+                str(e),
+                None,
+                kind="offline",
+            )
             return
         try:
             emb = await voice_task
@@ -508,13 +541,19 @@ class DialogueManager:
             return
 
         if intent == "done":
-            await self._log_turn(text, lang, intent, PHRASES["goodbye"][self.lang], timings, None, None)
+            await self._log_turn(
+                text, lang, intent, PHRASES["goodbye"][self.lang], timings, None, None
+            )
             await self.close_session("user_done", "goodbye")
             return
         if intent == "unclear":
             await self._say("unclear", "listening")
-            await self._log_turn(text, lang, intent, PHRASES["unclear"][self.lang], timings, None, None)
-            await self._set_state(state_before if state_before in ("LISTENING", "FOLLOW_UP") else "LISTENING")
+            await self._log_turn(
+                text, lang, intent, PHRASES["unclear"][self.lang], timings, None, None
+            )
+            await self._set_state(
+                state_before if state_before in ("LISTENING", "FOLLOW_UP") else "LISTENING"
+            )
             return
         if intent == "greeting":
             await self._say("greeting_reply")
@@ -554,12 +593,16 @@ class DialogueManager:
         await self.send({"type": "turn.timings", **vars(timings)})
         await self._log_turn(text, lang, intent, answer_text, timings, used_ids, error, found=found,
                              pitch_ids=pitch_ids, faq_id=faq_id, kind=answer_kind)  # fmt: skip
-        if error:  # a provider is unreachable: the "weak internet" reply was given; just listen again
+        if (
+            error
+        ):  # a provider is unreachable: the "weak internet" reply was given; just listen again
             return
         await self._say("follow_up", "listening")
         await self._set_state("FOLLOW_UP")
 
-    async def _answer(self, text: str, label: int | None, started: float) -> tuple[ChatResult, int | None]:
+    async def _answer(
+        self, text: str, label: int | None, started: float
+    ) -> tuple[ChatResult, int | None]:
         """Answer a question and speak it piece by piece while the LLM is still writing.
 
         Each piece was already checked for invented numbers (services/chat.py) and goes to
@@ -567,7 +610,9 @@ class DialogueManager:
         the end of speech to the first audio of the answer.
         """
         Chunks = asyncio.Queue[bytes | ProviderError | None]
-        queue: asyncio.Queue[tuple[str, asyncio.Task[bytes], Chunks | None] | None] = asyncio.Queue()
+        queue: asyncio.Queue[tuple[str, asyncio.Task[bytes], Chunks | None] | None] = (
+            asyncio.Queue()
+        )
         tasks: list[asyncio.Task[bytes]] = []
         first_ms: list[int] = []
         streaming = self._streaming()
@@ -600,9 +645,13 @@ class DialogueManager:
                     failed = await send_stream(seq, piece, chunks)
                     following = None if failed else await queue.get()
                     # a started piece is always ended, so the client never waits for more audio
-                    await self.send({"type": "answer.audio.end", "seq": seq, "last": following is None})
+                    await self.send(
+                        {"type": "answer.audio.end", "seq": seq, "last": following is None}
+                    )
                     if failed:
-                        await self.send({"type": "error", "code": "tts_failed", "message": str(failed)})
+                        await self.send(
+                            {"type": "error", "code": "tts_failed", "message": str(failed)}
+                        )
                         return
                     seq, item = seq + 1, following
                     continue
@@ -630,25 +679,38 @@ class DialogueManager:
                     if event.kind == "piece":
                         if not tasks:
                             await self._display("answering", speaker_label=label)
-                        if streaming and not (event.replacement or event.cached):  # cached speech stays mp3
+                        if streaming and not (
+                            event.replacement or event.cached
+                        ):  # cached speech stays mp3
                             chunks: Chunks = asyncio.Queue()
                             tasks.append(asyncio.create_task(self._pump(event.text, chunks)))
                             queue.put_nowait((event.text, tasks[-1], chunks))
                         else:
-                            tasks.append(asyncio.create_task(
-                                self.tts.synthesize(event.text, cache=event.replacement or event.cached)
-                            ))  # fmt: skip
+                            tasks.append(
+                                asyncio.create_task(
+                                    self.tts.synthesize(
+                                        event.text, cache=event.replacement or event.cached
+                                    )
+                                )
+                            )
                             queue.put_nowait((event.text, tasks[-1], None))
                     elif event.kind == "result":
                         result = event.result
             assert result is not None  # answer_events always ends with the result
             answer_text = result.spoken or result.answer
-            await self.send({
-                "type": "answer.text", "text": answer_text, "lang": result.lang, "found": result.found,
-                "sources": [{"n": s.n, "title": s.title, "url": s.url} for s in result.sources],
-                "timings": result.timings, "invented_numbers": result.invented_numbers,
-                "kind": result.kind, "promotional": result.promotional,
-            })  # fmt: skip
+            await self.send(
+                {
+                    "type": "answer.text",
+                    "text": answer_text,
+                    "lang": result.lang,
+                    "found": result.found,
+                    "sources": [{"n": s.n, "title": s.title, "url": s.url} for s in result.sources],
+                    "timings": result.timings,
+                    "invented_numbers": result.invented_numbers,
+                    "kind": result.kind,
+                    "promotional": result.promotional,
+                }
+            )
             card = await self._card(result) if result.found and not result.error else None
             await self._display("unavailable" if result.error else "answering", answer_text,
                                 card=card, speaker_label=label)  # fmt: skip
@@ -697,7 +759,9 @@ class DialogueManager:
         async with self.sessionmaker() as db:
             return await ex.load_playable(db, slug, self.lang)
 
-    async def _guided_turn(self, text: str, intent: str, started: float, timings: TurnTimings) -> bool:
+    async def _guided_turn(
+        self, text: str, intent: str, started: float, timings: TurnTimings
+    ) -> bool:
         """The explainer pause, the interest questions and explainer requests. True = handled;
         False = go on with the normal intents (so missing approved content means a RAG answer)."""
         if self.explainer is not None:  # paused: "بدك أكمل ولا عندك سؤال؟"
@@ -737,8 +801,13 @@ class DialogueManager:
                 self.lang = other
         if playable is None:  # the screen only offers approved explainers; this is a stale button
             self.explainer = None
-            await self.send({"type": "error", "code": "no_explainer",
-                             "message": f"no approved explainer for {slug!r} ({self.lang})"})  # fmt: skip
+            await self.send(
+                {
+                    "type": "error",
+                    "code": "no_explainer",
+                    "message": f"no approved explainer for {slug!r} ({self.lang})",
+                }
+            )
             return
         self.explainer = ExplainerRun(playable)
         await self._play_explainer(time.perf_counter(), playable.name, "explainer")
@@ -776,13 +845,24 @@ class DialogueManager:
         try:
             for seg, task in zip(part, tasks, strict=True):
                 mp3 = await task
-                await self.send({
-                    "type": "explainer.segment", "index": seg.index, "total": total, "scene": seg.scene,
-                })  # fmt: skip
-                await self.send({
-                    "type": "answer.audio", "seq": seg.index - 1, "last": seg.index == total,
-                    "text": seg.text, "mp3_b64": base64.b64encode(mp3).decode(), "segment": seg.index,
-                })  # fmt: skip
+                await self.send(
+                    {
+                        "type": "explainer.segment",
+                        "index": seg.index,
+                        "total": total,
+                        "scene": seg.scene,
+                    }
+                )
+                await self.send(
+                    {
+                        "type": "answer.audio",
+                        "seq": seg.index - 1,
+                        "last": seg.index == total,
+                        "text": seg.text,
+                        "mp3_b64": base64.b64encode(mp3).decode(),
+                        "segment": seg.index,
+                    }
+                )
                 if timings.tts_ms is None:
                     timings.tts_ms = int((time.perf_counter() - started) * 1000)
                 spoken.append(seg.text)
@@ -820,16 +900,22 @@ class DialogueManager:
         await self._set_state("ANSWERING")
         choices = [o for o in interests.options(self.lang) if o["key"] not in flow.picked]
         if flow.step == 2:
-            choices.append({"key": "none", "label": "بس هيك" if self.lang == "ar" else "That's all"})
+            choices.append(
+                {"key": "none", "label": "بس هيك" if self.lang == "ar" else "That's all"}
+            )
         await self.send({
             "type": "interest.question", "step": flow.step, "text": PHRASES[key][self.lang],
             "options": choices,
         })  # fmt: skip
         await self._say(key, "listening")
-        await self._log_turn(user_text, self.lang, "interest", PHRASES[key][self.lang], timings, None, None)
+        await self._log_turn(
+            user_text, self.lang, "interest", PHRASES[key][self.lang], timings, None, None
+        )
         await self._set_state("FOLLOW_UP")
 
-    async def _interest_turn(self, text: str, intent: str, started: float, timings: TurnTimings) -> bool:
+    async def _interest_turn(
+        self, text: str, intent: str, started: float, timings: TurnTimings
+    ) -> bool:
         """One spoken reply inside the interest flow. False = leave the flow (a real question,
         a goodbye, or two replies that named no interest)."""
         flow = self.interest
@@ -837,7 +923,9 @@ class DialogueManager:
         if flow.step == 3:  # programs were suggested: "بدك أحكيلك عن X؟"
             self.interest = None
             named = ex.match_program(text)
-            slug = named or (flow.suggested[0] if flow.suggested and interests.is_yes(text) else None)
+            slug = named or (
+                flow.suggested[0] if flow.suggested and interests.is_yes(text) else None
+            )
             playable = await self._playable(slug) if slug else None
             if playable is None or (named and ex.explainer_request(text) is None and asks(text)):
                 return False
@@ -875,7 +963,9 @@ class DialogueManager:
         async with self.sessionmaker() as db:
             suggestions = await interests.suggest(db, flow.picked)
             with_explainer = [
-                s.slug for s in suggestions if await ex.load_playable(db, s.slug, self.lang) is not None
+                s.slug
+                for s in suggestions
+                if await ex.load_playable(db, s.slug, self.lang) is not None
             ]
         await self._set_state("ANSWERING")
         lang = self.lang
@@ -886,7 +976,9 @@ class DialogueManager:
         ]  # fmt: skip
         if not suggestions:
             self.interest = None
-            await self.send({"type": "interest.result", "programs": [], "text": PHRASES["interest_none"][lang]})
+            await self.send(
+                {"type": "interest.result", "programs": [], "text": PHRASES["interest_none"][lang]}
+            )
             await self._say("interest_none")
             await self._log_turn(user_text, lang, "interest_result", PHRASES["interest_none"][lang],
                                  timings, None, None)  # fmt: skip
@@ -927,14 +1019,19 @@ class DialogueManager:
                 program = await db.get(Program, program_id)
                 # a picture or video only when the answer is clearly about ONE program that has
                 # APPROVED media; several files of a program take turns
-                media = await approved_media_for_program(db, program_id, result.lang, self.media_turn)
+                media = await approved_media_for_program(
+                    db, program_id, result.lang, self.media_turn
+                )
             if program is not None:
                 program_name = program.name_ar if result.lang == "ar" else program.name_en
             if media is not None:
                 self.media_turn += 1
         return build_card(
-            result.spoken or result.answer, [s.title for s in result.sources], result.lang,
-            program_name, media,
+            result.spoken or result.answer,
+            [s.title for s in result.sources],
+            result.lang,
+            program_name,
+            media,
         )
 
     async def _log_turn(self, text: str, lang: str, intent: str, answer: str | None,

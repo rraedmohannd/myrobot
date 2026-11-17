@@ -67,7 +67,9 @@ class SherpaSpeakerEmbedder:
 def get_speaker_embedder() -> SpeakerEmbedder:
     s = get_settings()
     if not s.speaker_model_path or not os.path.exists(s.speaker_model_path):
-        log.warning("speaker model not found (%s): voice speaker tracking disabled", s.speaker_model_path)
+        log.warning(
+            "speaker model not found (%s): voice speaker tracking disabled", s.speaker_model_path
+        )
         return NullSpeakerEmbedder()
     try:
         return SherpaSpeakerEmbedder(s.speaker_model_path, s.speaker_min_seconds)
@@ -96,7 +98,9 @@ class Speaker:
         if self.centroid is None:
             self.centroid = unit
         else:  # running mean of unit vectors
-            self.centroid = [(c * self.n + u) / (self.n + 1) for c, u in zip(self.centroid, unit, strict=True)]
+            self.centroid = [
+                (c * self.n + u) / (self.n + 1) for c, u in zip(self.centroid, unit, strict=True)
+            ]
         self.n += 1
 
 
@@ -155,7 +159,11 @@ class SpeakerTracker:
             if face_sp is not None:
                 face_sim = sims.get(face_sp.label)
                 if face_sim is None or face_sim >= self.threshold - self.face_margin:
-                    chosen, source, conf = face_sp, "voice+face" if face_sim is not None else "face", face_sim
+                    chosen, source, conf = (
+                        face_sp,
+                        "voice+face" if face_sim is not None else "face",
+                        face_sim,
+                    )
                 elif best_label is not None and best_sim >= self.threshold + self.voice_override:
                     chosen = next(s for s in self.speakers if s.label == best_label)
                     source, conf = "voice", best_sim

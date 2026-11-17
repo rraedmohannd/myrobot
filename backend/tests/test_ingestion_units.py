@@ -12,7 +12,8 @@ PAGE = """<!doctype html><html lang="ar"><head><title>كلية الهندسة - 
 <script>var x = "should not appear";</script><style>.a{color:red}</style></head>
 <body>
 <header><nav><a href="/faculty-of-engineering-programs/">البرامج</a></nav></header>
-<div class="elementor-location-header"><a href="https://dev.meu.edu.jo/engineering-dean-message/">كلمة العميد</a> Menu text</div>
+<div class="elementor-location-header">\
+<a href="https://dev.meu.edu.jo/engineering-dean-message/">كلمة العميد</a> Menu text</div>
 <main>
   <h1>كلية الهندسة</h1>
   <p>تضم الكلية قسم الهندسة المدنية وقسم هندسة الطاقة المتجددة.</p>

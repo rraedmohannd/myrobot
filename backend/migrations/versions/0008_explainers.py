@@ -24,12 +24,21 @@ def upgrade() -> None:
         sa.Column("program_id", sa.Integer(), nullable=False),
         sa.Column("lang", sa.String(2), nullable=False),
         sa.Column("status", sa.String(16), server_default=sa.text("'pending'"), nullable=False),
-        sa.Column("created_at", sa.DateTime(timezone=True), server_default=sa.func.now(), nullable=False),
-        sa.Column("updated_at", sa.DateTime(timezone=True), server_default=sa.func.now(), nullable=False),
-        sa.CheckConstraint("status IN ('pending', 'approved', 'rejected')", name="ck_explainers_status"),
+        sa.Column(
+            "created_at", sa.DateTime(timezone=True), server_default=sa.func.now(), nullable=False
+        ),
+        sa.Column(
+            "updated_at", sa.DateTime(timezone=True), server_default=sa.func.now(), nullable=False
+        ),
+        sa.CheckConstraint(
+            "status IN ('pending', 'approved', 'rejected')", name="ck_explainers_status"
+        ),
         sa.CheckConstraint("lang IN ('ar', 'en')", name="ck_explainers_lang"),
         sa.ForeignKeyConstraint(
-            ["program_id"], ["programs.id"], name="fk_explainers_program_id_programs", ondelete="CASCADE"
+            ["program_id"],
+            ["programs.id"],
+            name="fk_explainers_program_id_programs",
+            ondelete="CASCADE",
         ),
         sa.PrimaryKeyConstraint("id", name="pk_explainers"),
         sa.UniqueConstraint("program_id", "lang", name="uq_explainers_program_id"),
@@ -43,13 +52,17 @@ def upgrade() -> None:
         sa.Column("scene", postgresql.JSONB(), nullable=False),
         sa.Column("audio_cache_key", sa.String(64), nullable=True),
         sa.ForeignKeyConstraint(
-            ["explainer_id"], ["explainers.id"],
-            name="fk_explainer_segments_explainer_id_explainers", ondelete="CASCADE",
+            ["explainer_id"],
+            ["explainers.id"],
+            name="fk_explainer_segments_explainer_id_explainers",
+            ondelete="CASCADE",
         ),
         sa.PrimaryKeyConstraint("id", name="pk_explainer_segments"),
     )
     op.create_index(
-        "ix_explainer_segments_explainer_position", "explainer_segments", ["explainer_id", "position"]
+        "ix_explainer_segments_explainer_position",
+        "explainer_segments",
+        ["explainer_id", "position"],
     )
 
 

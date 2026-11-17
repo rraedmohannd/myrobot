@@ -23,37 +23,116 @@ MAX_SUGGESTIONS = 2
 # The areas the robot asks about (labels are UI text, not university facts).
 INTERESTS: dict[str, dict[str, Any]] = {
     "computers_ai": {
-        "ar": "الكمبيوتر والذكاء الاصطناعي", "en": "Computers and AI",
-        "keywords": ("كمبيوتر", "كمبيوترات", "حاسوب", "برمجه", "ذكاء", "روبوت", "روبوتات", "تكنولوجيا",
-                     "computer", "computers", "ai", "programming", "coding", "robots", "robotics",
-                     "robot", "technology", "software"),
+        "ar": "الكمبيوتر والذكاء الاصطناعي",
+        "en": "Computers and AI",
+        "keywords": (
+            "كمبيوتر",
+            "كمبيوترات",
+            "حاسوب",
+            "برمجه",
+            "ذكاء",
+            "روبوت",
+            "روبوتات",
+            "تكنولوجيا",
+            "computer",
+            "computers",
+            "ai",
+            "programming",
+            "coding",
+            "robots",
+            "robotics",
+            "robot",
+            "technology",
+            "software",
+        ),
     },
     "energy_environment": {
-        "ar": "الطاقة والبيئة", "en": "Energy and environment",
-        "keywords": ("طاقه", "بيئه", "شمس", "شمسيه", "كهربا", "كهرباء", "رياح", "energy",
-                     "environment", "solar", "wind", "electricity"),
+        "ar": "الطاقة والبيئة",
+        "en": "Energy and environment",
+        "keywords": (
+            "طاقه",
+            "بيئه",
+            "شمس",
+            "شمسيه",
+            "كهربا",
+            "كهرباء",
+            "رياح",
+            "energy",
+            "environment",
+            "solar",
+            "wind",
+            "electricity",
+        ),
     },
     "buildings_drawing": {
-        "ar": "المباني والرسم", "en": "Buildings and drawing",
-        "keywords": ("مباني", "مبنى", "بنايات", "عماره", "عمارات", "بناء", "رسم", "buildings",
-                     "building", "drawing", "architecture", "construction"),
+        "ar": "المباني والرسم",
+        "en": "Buildings and drawing",
+        "keywords": (
+            "مباني",
+            "مبنى",
+            "بنايات",
+            "عماره",
+            "عمارات",
+            "بناء",
+            "رسم",
+            "buildings",
+            "building",
+            "drawing",
+            "architecture",
+            "construction",
+        ),
     },
     "art_design": {
-        "ar": "الفن والتصميم", "en": "Art and design",
-        "keywords": ("فن", "فنون", "تصميم", "الوان", "ابداع", "ديكور", "art", "arts", "design",
-                     "creative", "colors", "colours"),
+        "ar": "الفن والتصميم",
+        "en": "Art and design",
+        "keywords": (
+            "فن",
+            "فنون",
+            "تصميم",
+            "الوان",
+            "ابداع",
+            "ديكور",
+            "art",
+            "arts",
+            "design",
+            "creative",
+            "colors",
+            "colours",
+        ),
     },
     "medicine_biology": {
-        "ar": "الطب والأحياء", "en": "Medicine and biology",
-        "keywords": ("طب", "احياء", "صحه", "مستشفى", "مستشفيات", "طبيه", "medicine", "biology",
-                     "medical", "health", "hospital"),
+        "ar": "الطب والأحياء",
+        "en": "Medicine and biology",
+        "keywords": (
+            "طب",
+            "احياء",
+            "صحه",
+            "مستشفى",
+            "مستشفيات",
+            "طبيه",
+            "medicine",
+            "biology",
+            "medical",
+            "health",
+            "hospital",
+        ),
     },
     "maths_physics": {
-        "ar": "الرياضيات والفيزياء", "en": "Maths and physics",
-        "keywords": ("رياضيات", "فيزياء", "حساب", "ارقام", "math", "maths", "mathematics",
-                     "physics", "numbers"),
+        "ar": "الرياضيات والفيزياء",
+        "en": "Maths and physics",
+        "keywords": (
+            "رياضيات",
+            "فيزياء",
+            "حساب",
+            "ارقام",
+            "math",
+            "maths",
+            "mathematics",
+            "physics",
+            "numbers",
+        ),
     },
-}  # fmt: skip
+}
 
 # First draft of the mapping (a curated, promotional judgement). It is only ever stored as
 # PENDING rows; the student edits and approves them in the admin.
@@ -111,7 +190,9 @@ def match_interest(text: str) -> str | None:
 
 
 def options(lang: str) -> list[dict[str, str]]:
-    return [{"key": k, "label": v[lang if lang in ("ar", "en") else "ar"]} for k, v in INTERESTS.items()]
+    return [
+        {"key": k, "label": v[lang if lang in ("ar", "en") else "ar"]} for k, v in INTERESTS.items()
+    ]
 
 
 # ---------------- approved mapping ----------------
@@ -135,8 +216,11 @@ async def has_approved_mapping(session: AsyncSession) -> bool:
     return (
         await session.scalar(
             select(Pitch.id)
-            .where(Pitch.topic.like(f"{TOPIC_PREFIX}%"), Pitch.review_status == "approved",
-                   Pitch.program_id.is_not(None))
+            .where(
+                Pitch.topic.like(f"{TOPIC_PREFIX}%"),
+                Pitch.review_status == "approved",
+                Pitch.program_id.is_not(None),
+            )
             .limit(1)
         )  # fmt: skip
     ) is not None
@@ -163,7 +247,9 @@ async def suggest(session: AsyncSession, picked: list[str]) -> list[Suggestion]:
         first.setdefault(program.slug, Suggestion(
             program.slug, program.name_ar, program.name_en, pitch.text_ar, pitch.text_en, pitch.id
         ))  # fmt: skip
-    ordered = sorted(first.values(), key=lambda s: (-len(set(score[s.slug])), min(score[s.slug]), s.pitch_id))
+    ordered = sorted(
+        first.values(), key=lambda s: (-len(set(score[s.slug])), min(score[s.slug]), s.pitch_id)
+    )
     return ordered[:MAX_SUGGESTIONS]
 
 
@@ -180,7 +266,9 @@ async def seed_from_explainers(session: AsyncSession) -> dict[str, list[str]]:
                 continue
             label = f"{key} -> {slug}"
             existing = await session.scalar(
-                select(Pitch.id).where(Pitch.topic == f"{TOPIC_PREFIX}{key}", Pitch.program_id == program.id)
+                select(Pitch.id).where(
+                    Pitch.topic == f"{TOPIC_PREFIX}{key}", Pitch.program_id == program.id
+                )
             )
             if existing is not None:
                 report["exists"].append(label)
@@ -199,7 +287,9 @@ async def seed_from_explainers(session: AsyncSession) -> dict[str, list[str]]:
                     .limit(1)
                 )  # fmt: skip
             approved = await session.scalar(
-                select(Explainer.id).where(Explainer.program_id == program.id, Explainer.status == "approved").limit(1)
+                select(Explainer.id)
+                .where(Explainer.program_id == program.id, Explainer.status == "approved")
+                .limit(1)
             )
             if approved is None:
                 report["no_approved_explainer"].append(label)
@@ -227,7 +317,9 @@ async def mapping_issues(session: AsyncSession, pitch: Pitch) -> list[str]:
     known: set[str] = set()
     for t in (await program_context(session, program)).texts:
         known |= numbers_in(t)
-    issues += [f"{n} is not in the program's approved sources" for n in sorted(numbers_in(text) - known)]
+    issues += [
+        f"{n} is not in the program's approved sources" for n in sorted(numbers_in(text) - known)
+    ]
     low = f" {norm(text)} "
     issues += [f"promises an outcome ('{w}')" for w in GUARANTEE_WORDS if f" {norm(w)} " in low]
     return issues

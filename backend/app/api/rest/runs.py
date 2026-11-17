@@ -48,10 +48,10 @@ async def _counts(session, model, run_ids: list[int]) -> dict[int, int]:
 
 
 @router.get("/runs")
-async def list_runs(session: SessionDep, limit: int = Query(default=50, ge=1, le=200)) -> dict[str, Any]:
-    runs = (
-        await session.scalars(select(RobotRun).order_by(RobotRun.id.desc()).limit(limit))
-    ).all()
+async def list_runs(
+    session: SessionDep, limit: int = Query(default=50, ge=1, le=200)
+) -> dict[str, Any]:
+    runs = (await session.scalars(select(RobotRun).order_by(RobotRun.id.desc()).limit(limit))).all()
     ids = [r.id for r in runs]
     samples = await _counts(session, PoseSample, ids)
     events = await _counts(session, Event, ids)
@@ -72,23 +72,35 @@ async def get_run(
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Run not found")
     samples = (
         await session.scalars(
-            select(PoseSample).where(PoseSample.run_id == run_id).order_by(PoseSample.t_ms, PoseSample.id)
+            select(PoseSample)
+            .where(PoseSample.run_id == run_id)
+            .order_by(PoseSample.t_ms, PoseSample.id)
         )
     ).all()
     events = (
-        await session.scalars(select(Event).where(Event.run_id == run_id).order_by(Event.t_ms, Event.id))
+        await session.scalars(
+            select(Event).where(Event.run_id == run_id).order_by(Event.t_ms, Event.id)
+        )
     ).all()
     trials = (
-        await session.scalars(select(ReturnTrial).where(ReturnTrial.run_id == run_id).order_by(ReturnTrial.id))
+        await session.scalars(
+            select(ReturnTrial).where(ReturnTrial.run_id == run_id).order_by(ReturnTrial.id)
+        )
     ).all()
-    stride = max(1, -(-len(samples) // max_points))  # thin long runs for the plot; keep the last point
+    stride = max(
+        1, -(-len(samples) // max_points)
+    )  # thin long runs for the plot; keep the last point
     kept = samples[::stride]
     if samples and kept[-1] is not samples[-1]:
         kept.append(samples[-1])
     points = []
     for s in kept:
         point: dict[str, Any] = {
-            "t_ms": s.t_ms, "x": s.x_m, "y": s.y_m, "theta": s.theta_rad, "state": s.state,
+            "t_ms": s.t_ms,
+            "x": s.x_m,
+            "y": s.y_m,
+            "theta": s.theta_rad,
+            "state": s.state,
             "phase": "return" if (s.state or "").startswith(RETURN_STATES) else "outbound",
         }
         true_pose = (s.imu or {}).get("sim_true_pose") if run.is_simulated else None
@@ -107,7 +119,9 @@ async def get_run(
 
 
 @router.post("/runs/{run_id}/return-trials", status_code=status.HTTP_201_CREATED)
-async def create_return_trial(run_id: int, body: ReturnTrialIn, session: SessionDep) -> dict[str, Any]:
+async def create_return_trial(
+    run_id: int, body: ReturnTrialIn, session: SessionDep
+) -> dict[str, Any]:
     try:
         return _trial(await add_return_trial(session, run_id, body))
     except TelemetryError as e:

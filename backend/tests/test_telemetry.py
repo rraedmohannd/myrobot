@@ -168,7 +168,9 @@ async def test_conversations_during_a_run_are_linked_to_it(db_session) -> None:
     async def send(msg: dict) -> None:
         pass
 
-    dm = DialogueManager(send, OneSession(db_session), FakeEmbedder(), FakeLLM(), FakeSTT([]), FakeTTS())
+    dm = DialogueManager(
+        send, OneSession(db_session), FakeEmbedder(), FakeLLM(), FakeSTT([]), FakeTTS()
+    )
     dm.robot_run_id = run.id
     await dm.handle({"type": "session.start"})
     assert (await db_session.get(Session, dm.session_id)).robot_run_id == run.id
@@ -230,8 +232,13 @@ async def test_runs_api(admin_client, db_session) -> None:
 
     listed = (await admin_client.get("/api/admin/runs")).json()["items"]
     by_id = {r["id"]: r for r in listed}
-    assert by_id[sim_id]["is_simulated"] and by_id[sim_id]["label"] == "SIMULATED — not a physical result"
-    assert by_id[sim_id]["samples"] == len(sim.samples) and by_id[sim_id]["events"] == len(sim.events)
+    assert (
+        by_id[sim_id]["is_simulated"]
+        and by_id[sim_id]["label"] == "SIMULATED — not a physical result"
+    )
+    assert by_id[sim_id]["samples"] == len(sim.samples) and by_id[sim_id]["events"] == len(
+        sim.events
+    )
     assert by_id[real.id]["label"] == "Physical run"
 
     r = await admin_client.get(f"/api/admin/runs/{sim_id}", params={"max_points": 200})
@@ -246,8 +253,12 @@ async def test_runs_api(admin_client, db_session) -> None:
     body = {"measured_err_m": 0.2, "success": True}
     refused = await admin_client.post(f"/api/admin/runs/{sim_id}/return-trials", json=body)
     assert refused.status_code == 409 and "SIMULATED" in refused.json()["detail"]
-    assert (await admin_client.post("/api/admin/runs/999999999/return-trials", json=body)).status_code == 404
-    bad = await admin_client.post(f"/api/admin/runs/{real.id}/return-trials", json={"measured_err_m": -1, "success": True})
+    assert (
+        await admin_client.post("/api/admin/runs/999999999/return-trials", json=body)
+    ).status_code == 404
+    bad = await admin_client.post(
+        f"/api/admin/runs/{real.id}/return-trials", json={"measured_err_m": -1, "success": True}
+    )
     assert bad.status_code == 422
 
     for err, ok in ((0.10, True), (0.30, False)):
@@ -264,6 +275,10 @@ async def test_runs_api(admin_client, db_session) -> None:
     assert stats["trials"] - before["trials"] == 2 and stats["successes"] - before["successes"] == 1
     assert stats["simulated_runs"] - before["simulated_runs"] == 1
     if before["trials"] == 0:
-        assert stats["mean_err_m"] == 0.2 and stats["max_err_m"] == 0.3 and stats["success_rate"] == 0.5
+        assert (
+            stats["mean_err_m"] == 0.2
+            and stats["max_err_m"] == 0.3
+            and stats["success_rate"] == 0.5
+        )
         assert "No physical return trials" in before["note"]
     assert (await admin_client.get("/api/admin/runs/999999999")).status_code == 404

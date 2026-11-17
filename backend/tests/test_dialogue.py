@@ -29,9 +29,15 @@ def test_classify_intents() -> None:
 
 
 def test_split_for_speech_and_wav() -> None:
-    assert split_for_speech("جملة أولى. جملة ثانية؟ وثالثة.") == ["جملة أولى.", "جملة ثانية؟ وثالثة."]
+    assert split_for_speech("جملة أولى. جملة ثانية؟ وثالثة.") == [
+        "جملة أولى.",
+        "جملة ثانية؟ وثالثة.",
+    ]
     assert split_for_speech("one sentence") == ["one sentence"]
-    long = "خريجين هندسة الأنظمة الذكية بشتغلوا بمجالات زي تكنولوجيا المعلومات والاتصالات، والبنوك والرقابة المالية."
+    long = (
+        "خريجين هندسة الأنظمة الذكية بشتغلوا بمجالات زي تكنولوجيا المعلومات والاتصالات، والبنوك "
+        "والرقابة المالية."
+    )
     first, rest = split_for_speech(long)
     assert first.endswith("والاتصالات،") and len(first.split()) <= 12 and rest.startswith("والبنوك")
     wav = pcm16_to_wav(b"\x00\x00" * 160)
@@ -54,7 +60,9 @@ def _manager(db_session, transcripts: list[str]):  # noqa: ANN202
         sent.append(msg)
 
     tts = FakeTTS()
-    dm = DialogueManager(send, OneSession(db_session), FakeEmbedder(), FakeLLM(), FakeSTT(transcripts), tts)
+    dm = DialogueManager(
+        send, OneSession(db_session), FakeEmbedder(), FakeLLM(), FakeSTT(transcripts), tts
+    )
     return dm, sent, tts
 
 
@@ -110,7 +118,11 @@ async def test_full_voice_conversation(db_session) -> None:
     s = await db_session.get(Session, session_id)
     await db_session.refresh(s)
     assert s.end_reason == "user_done" and s.ended_at is not None
-    turns = (await db_session.scalars(select(Turn).where(Turn.session_id == session_id).order_by(Turn.idx))).all()
+    turns = (
+        await db_session.scalars(
+            select(Turn).where(Turn.session_id == session_id).order_by(Turn.idx)
+        )
+    ).all()
     assert [t.intent for t in turns] == ["question", "done"]
     assert turns[0].stt_ms == 5 and turns[0].tts_ms is not None and turns[0].used_chunk_ids
 
@@ -169,7 +181,9 @@ def test_websocket_hello_and_heartbeat() -> None:
 def test_card_uses_only_the_answer_and_its_sources() -> None:
     from app.services.display import build_card, dominant_program
 
-    answer = "التخصص بدّه 162 ساعة معتمدة. فيه مواد عن الروبوتات؟ نعم. وكمان ذكاء اصطناعي. وجملة خامسة."
+    answer = (
+        "التخصص بدّه 162 ساعة معتمدة. فيه مواد عن الروبوتات؟ نعم. وكمان ذكاء اصطناعي. وجملة خامسة."
+    )
     card = build_card(answer, ["Study Plan", "Study Plan", None], "ar", "هندسة الأنظمة الذكية")
     assert card == {
         "title": "هندسة الأنظمة الذكية",
@@ -226,13 +240,17 @@ async def test_camera_prototype_files_are_local(client) -> None:
     assert "https://" not in js and "http://" not in js
     for name in ("vision_bundle.mjs", "vision_wasm_internal.js", "LICENSE", "README.md"):
         assert (await client.get(f"/static/vendor/mediapipe/{name}")).status_code == 200, name
-    for name, minimum in (("vision_wasm_internal.wasm", 1_000_000), ("face_landmarker.task", 1_000_000)):
+    for name, minimum in (
+        ("vision_wasm_internal.wasm", 1_000_000),
+        ("face_landmarker.task", 1_000_000),
+    ):
         r = await client.get(f"/static/vendor/mediapipe/{name}")
         assert r.status_code == 200 and len(r.content) > minimum, name
 
 
 async def test_audio_end_passes_face_track_and_overlap(db_session) -> None:
-    """What the camera sends: a track id links a face to a speaker; overlap asks for one at a time."""
+    """What the camera sends: a track id links a face to a speaker; overlap asks for one at a
+    time."""
     await _seed(db_session)
     dm, sent, tts = _manager(db_session, [f"{UNIQUE}؟"])
     await dm.handle({"type": "session.start"})
@@ -244,4 +262,6 @@ async def test_audio_end_passes_face_track_and_overlap(db_session) -> None:
     await dm.handle({"type": "audio.chunk", "pcm16_b64": SPEECH, "sample_rate": 16000})
     await dm.handle({"type": "audio.end", "face_track_id": 3, "overlap": True})
     assert said(tts).endswith(PHRASES["one_at_a_time"]["ar"])
-    assert len([m for m in sent if m["type"] == "answer.text"]) == 1  # the mixed audio is not answered
+    assert (
+        len([m for m in sent if m["type"] == "answer.text"]) == 1
+    )  # the mixed audio is not answered
