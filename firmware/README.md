@@ -168,15 +168,13 @@ Built on the laptop in Docker (`firmware/tools/build_release.sh`, Git Bash), aft
 `pins_generated.h` exists:
 
 ```
-firmware/tools/build_release.sh            # = the command below
-firmware/tools/test.sh "pio run -e esp32dev && mkdir -p release && \
-  cp \$PLATFORMIO_WORKSPACE_DIR/build/esp32dev/firmware.bin \
-     \$PLATFORMIO_WORKSPACE_DIR/build/esp32dev/bootloader.bin \
-     \$PLATFORMIO_WORKSPACE_DIR/build/esp32dev/partitions.bin release/ && \
-  cp /root/.platformio/packages/framework-arduinoespressif32/tools/partitions/boot_app0.bin release/"
+bash firmware/tools/build_release.sh       # Git Bash, from the repository root
 ```
 
-It writes `firmware/release/` (git-ignored, never committed). Files and flash offsets for
+It runs `pio run -e esp32dev` in the firmware container and writes `firmware/release/`
+(git-ignored, never committed): the four images below, `SHA256SUMS` (checked by
+`robot/deploy/flash_esp32.sh` before it flashes anything) and `VERSION` (from
+`lib/app/scr_version.h`). Files and flash offsets for
 `esptool` (ESP32, Arduino core 2.x, default partition table, flash mode dio, 40 MHz, 4 MB):
 
 | File | Offset |

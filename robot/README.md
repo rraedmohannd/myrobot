@@ -48,7 +48,7 @@ Raspberry Pi OS 64-bit **with desktop** (the release of 2026-10-06 is based on D
    ```
    Without the ESP32, `robotd` runs, reports a fault (`sensors.esp32_link: fault`) and commands nothing. The page and the conversation still work.
 
-The ESP32 firmware, the pins and the first motor test are a separate procedure: `firmware/README.md` and the checklist at the end of `docs/SPRINT_4_LOG.md`. Flashing from the Pi: "Flashing the ESP32" below.
+The ESP32 firmware, the pins and the first motor test are a separate procedure: `firmware/README.md` and the step-by-step bring-up in `docs/BRINGUP.md`. Flashing from the Pi: "Flashing the ESP32 from the Pi" below.
 
 ### The screen (kiosk)
 Raspberry Pi OS runs **Wayland with the labwc compositor** on all models by default (official documentation, "Switch between Wayland and X11"). X11 is still selectable (`sudo raspi-config` -> 6 Advanced Options -> A7 Wayland -> W1 X11, not recommended). `deploy/kiosk-setup.sh` prepares both:
@@ -99,11 +99,11 @@ bash robot/scripts/container_test.sh      # Git Bash on the laptop, Docker Deskt
 It starts `debian:trixie` for `linux/arm64` (QEMU emulation in Docker Desktop) with the repository mounted read-only, copies `robot/`, `shared/`, `firmware/` and `backend/app/static/` inside (some robot tests read the last two), runs `setup.sh --container-test` (apt packages, virtualenv, the lock, the models; no udev, systemd, kiosk, sudo or hardware), then the robot tests, `robotd --sim` for 20 s (`/local/status` must answer and the log must say SIMULATED), visiond on a synthetic video, and `import mediapipe, cv2`, and prints the time of each phase. **An emulated container is not a Raspberry Pi**: it proves that the packages install and import on arm64 trixie; it says nothing about the camera, the serial port, the screen or the speed of a Pi.
 
 ## Flashing the ESP32 from the Pi
-1. **Build on the laptop** (Docker; the real firmware needs the confirmed pins, `firmware/include/pins_generated.h`, see `firmware/README.md`):
+1. **Build on the laptop** (Docker; the real firmware needs the confirmed pins, `firmware/include/pins_generated.h`, see `firmware/README.md`), in Git Bash from the repository root (in PowerShell `bash` would start WSL):
    ```bash
    bash firmware/tools/build_release.sh
    ```
-   It runs `pio run -e esp32dev` in the firmware container and copies `bootloader.bin`, `partitions.bin`, `boot_app0.bin` (from the Arduino framework in the `scr-pio-cache` volume), `firmware.bin` and `SHA256SUMS` into `firmware/release/` (git-ignored). Never flash a build of `esp32-compile-check`: it is not a robot firmware.
+   It runs `pio run -e esp32dev` in the firmware container and copies `bootloader.bin`, `partitions.bin`, `boot_app0.bin` (from the Arduino framework in the `scr-pio-cache` volume), `firmware.bin`, `SHA256SUMS` and `VERSION` (the version of `firmware/lib/app/scr_version.h`) into `firmware/release/` (git-ignored). Never flash a build of `esp32-compile-check`: it is not a robot firmware.
 2. **Copy it to the Pi**: `scp -r firmware/release <user>@<pi address>:firmware-release`
 3. **Flash on the Pi** (robot standing still, tracks off the ground):
    ```bash
