@@ -6,6 +6,9 @@ visiond -> robotd, about 10 Hz:
                "mouth":float,"speaking":bool}],
      "selected_id":int|null,"engaged":bool,"active_speaker_id":int|null,"overlap":bool,
      "servo_target_deg":float}
+    + only with the EXPERIMENTAL AprilTag option (S7, off by default) and a recent sighting:
+     "start_tag":{"id":int,"center_x":float,"bearing_deg":float,"distance_m":float,
+                  "age_ms":int,"experimental":true}
 robotd -> visiond:
     {"type":"vad","speaking":bool}      the page's voice activity
     {"type":"servo","pan_deg":float}    the angle actually commanded
@@ -37,6 +40,9 @@ STATE_KEYS = frozenset(
         "servo_target_deg",
     }
 )
+START_TAG_KEYS = frozenset(
+    {"id", "center_x", "bearing_deg", "distance_m", "age_ms", "experimental"}
+)  # optional, not part of STATE_KEYS
 FACE_KEYS = frozenset({"id", "box", "facing", "yaw_deg", "pitch_deg", "mouth", "speaking"})
 
 
@@ -49,9 +55,13 @@ def _num(value: float, digits: int) -> float:
 
 
 def build_vision_state(
-    state: LogicState, *, camera_ok: bool, servo_target_deg: float
+    state: LogicState,
+    *,
+    camera_ok: bool,
+    servo_target_deg: float,
+    start_tag: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
-    """The `vision.state` message as a JSON-ready dict."""
+    """The `vision.state` message as a JSON-ready dict (`start_tag` only when given)."""
     faces = [
         {
             "id": face.id,
@@ -64,7 +74,7 @@ def build_vision_state(
         }
         for face in state.faces
     ]
-    return {
+    message: dict[str, Any] = {
         "type": VISION_STATE,
         "t_ms": int(state.t_ms),
         "camera_ok": bool(camera_ok),
@@ -75,6 +85,9 @@ def build_vision_state(
         "overlap": bool(state.overlap),
         "servo_target_deg": _num(servo_target_deg, 1),
     }
+    if start_tag is not None:
+        message["start_tag"] = {k: v for k, v in start_tag.items() if k in START_TAG_KEYS}
+    return message
 
 
 @dataclass(frozen=True)

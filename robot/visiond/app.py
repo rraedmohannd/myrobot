@@ -14,6 +14,7 @@ import time
 from dataclasses import dataclass
 from typing import Any, Protocol
 
+from visiond.apriltag import TagSighting, start_tag_field
 from visiond.config import Thresholds, VisionConfig, load_landmark_indices, load_thresholds
 from visiond.link import RobotdLink
 from visiond.logic import EMPTY_STATE, FaceObservation, LogicState, VisionLogic
@@ -49,6 +50,7 @@ class Snapshot:
     servo_sim_deg: float | None = None  # SIMULATED servo angle (None when not simulating)
     fps: float = 0.0
     frames: int = 0
+    tag: TagSighting | None = None  # EXPERIMENTAL start-mark AprilTag (S7), last sighting
 
 
 class VisionApp:
@@ -86,6 +88,8 @@ class VisionApp:
         self._t0 = time.monotonic()
         self.published = 0
         self.landmark_mode = ""
+        self._tag_detector: Any = None  # EXPERIMENTAL (S7): built only with config.apriltag.enabled
+        self._tag: TagSighting | None = None  # worker thread only
 
     # ---- labels for the console ----
     @property
@@ -138,6 +142,10 @@ class VisionApp:
             from visiond.detectors import make_analyzer
 
             analyzer = make_analyzer(self.config, self.th, load_landmark_indices())
+        if self.config.apriltag.enabled and self._tag_detector is None:
+            from visiond.apriltag import TagDetector  # OpenCV is imported only here
+
+            self._tag_detector = TagDetector(self.config.apriltag, self.config.servo.hfov_deg)
         return camera, analyzer
 
     def _worker(self) -> None:
@@ -166,6 +174,7 @@ class VisionApp:
                         fps = instant if fps == 0.0 else 0.9 * fps + 0.1 * instant
                     last_seq, last_run, last_tick = seq, now, now
                     faces = analyzer.analyze(frame)
+                    self._detect_tag(frame)
                     frames += 1
                     self._step(faces, True, fps, frames)
                     if self.config.debug_window:
@@ -184,6 +193,22 @@ class VisionApp:
             camera.stop()
             analyzer.close()
 
+    def _tag_pan_deg(self) -> float:
+        """Where the camera points relative to the body (the simulated servo does not turn it)."""
+        if self.sim_servo is not None:
+            return 0.0
+        with self._lock:
+            actual = self._servo_actual
+        return 0.0 if actual is None else actual
+
+    def _detect_tag(self, frame: Any) -> None:
+        """EXPERIMENTAL: look for the start-mark tag in this frame (numbers only are kept)."""
+        if self._tag_detector is None:
+            return
+        found = self._tag_detector.detect(frame, pan_deg=self._tag_pan_deg(), now_ms=self.now_ms())
+        if found is not None:
+            self._tag = found
+
     def _step(self, faces: list[FaceObservation], camera_ok: bool, fps: float, frames: int) -> None:
         t_ms = self.now_ms()
         with self._lock:
@@ -201,7 +226,7 @@ class VisionApp:
             self.controller.set_actual(actual)
         target = self.controller.update(error, t_ms)
         sim_deg = self.sim_servo.step(target, t_ms) if self.sim_servo is not None else None
-        snap = Snapshot(state, camera_ok, target, sim_deg, fps, frames)
+        snap = Snapshot(state, camera_ok, target, sim_deg, fps, frames, self._tag)
         with self._lock:
             self._snapshot = snap
 
@@ -223,11 +248,19 @@ class VisionApp:
         cv2.waitKey(1)
 
     # ---- asyncio side ----
-    def message(self) -> dict[str, Any]:
-        snap = self.snapshot()
+    def _build(self, snap: Snapshot) -> dict[str, Any]:
+        start_tag = None
+        if self.config.apriltag.enabled:
+            start_tag = start_tag_field(snap.tag, self.now_ms(), self.config.apriltag)
         return build_vision_state(
-            snap.state, camera_ok=snap.camera_ok, servo_target_deg=snap.servo_target_deg
+            snap.state,
+            camera_ok=snap.camera_ok,
+            servo_target_deg=snap.servo_target_deg,
+            start_tag=start_tag,
         )
+
+    def message(self) -> dict[str, Any]:
+        return self._build(self.snapshot())
 
     async def _publish_loop(self) -> None:
         period = 1.0 / self.config.publish_hz
@@ -235,9 +268,7 @@ class VisionApp:
         last_print = 0.0
         while not self._stop.is_set():
             snap = self.snapshot()
-            message = build_vision_state(
-                snap.state, camera_ok=snap.camera_ok, servo_target_deg=snap.servo_target_deg
-            )
+            message = self._build(snap)
             message["t_ms"] = int(self.now_ms())
             if await self.link.send(message):
                 self.published += 1
@@ -251,6 +282,7 @@ class VisionApp:
                     message["overlap"],
                     round(message["servo_target_deg"] / 2),
                     snap.state.vad_speaking,
+                    "start_tag" in message,
                 )
                 now = time.monotonic()
                 if key != last_key or now - last_print >= 1.0:
@@ -261,6 +293,13 @@ class VisionApp:
                     line = console_line(
                         message, vad_label=vad, servo_label=self._servo_label(snap), fps=snap.fps
                     )
+                    tag = message.get("start_tag")
+                    if tag is not None:
+                        line += (
+                            f" | start_tag EXPERIMENTAL id={tag['id']} "
+                            f"bearing={tag['bearing_deg']:+.1f} d={tag['distance_m']:.2f}m "
+                            f"age={tag['age_ms']}ms"
+                        )
                     print(f"{self.now_ms() / 1000:7.1f}s {line}", flush=True)
             await asyncio.sleep(period)
 

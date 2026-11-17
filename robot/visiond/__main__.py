@@ -49,6 +49,15 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--debug-window", action="store_true", help="local preview window (not saved)")
     p.add_argument("--loop-file", action="store_true", help="replay a video file forever")
     p.add_argument("--exit-at-eof", action="store_true", help="stop when the video file ends")
+    p.add_argument(
+        "--apriltag",
+        action="store_true",
+        help="EXPERIMENTAL: report the start-mark AprilTag 36h11 (start_tag) [env VISION_APRILTAG]",
+    )
+    p.add_argument("--apriltag-id", type=int, help="tag id at the start mark [env, default 0]")
+    p.add_argument(
+        "--apriltag-size-m", type=float, help="side of the black square [env, default 0.15]"
+    )
     p.add_argument("--max-seconds", type=float, help="stop after this many seconds")
     return p
 
@@ -78,6 +87,15 @@ def config_from_args(args: argparse.Namespace, base: VisionConfig | None = None)
     ):
         if getattr(args, name):
             changes[attr] = True
+    tag_changes: dict[str, object] = {}
+    if args.apriltag:
+        tag_changes["enabled"] = True
+    if args.apriltag_id is not None:
+        tag_changes["tag_id"] = args.apriltag_id
+    if args.apriltag_size_m is not None:
+        tag_changes["tag_size_m"] = args.apriltag_size_m
+    if tag_changes:
+        changes["apriltag"] = replace(cfg.apriltag, **tag_changes)  # type: ignore[arg-type]
     if args.hfov_deg is not None:
         changes["servo"] = replace(cfg.servo, hfov_deg=args.hfov_deg)
     return replace(cfg, **changes)  # type: ignore[arg-type]
@@ -91,7 +109,13 @@ def main(argv: list[str] | None = None) -> int:
         f"[visiond] source={config.camera_source} robotd={config.robotd_url} "
         f"landmarks={config.landmarks} hfov={config.servo.hfov_deg} (placeholder)"
         + (" | servo SIMULATED" if config.sim_servo else "")
-        + (" | VAD ASSUMED from mouth motion" if config.assume_speaking else ""),
+        + (" | VAD ASSUMED from mouth motion" if config.assume_speaking else "")
+        + (
+            f" | AprilTag EXPERIMENTAL id={config.apriltag.tag_id} "
+            f"size={config.apriltag.tag_size_m} m (not counted in any result)"
+            if config.apriltag.enabled
+            else ""
+        ),
         flush=True,
     )
     try:

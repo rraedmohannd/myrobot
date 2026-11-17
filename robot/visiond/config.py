@@ -11,6 +11,8 @@ from collections.abc import Mapping
 from dataclasses import dataclass, field, fields, replace
 from pathlib import Path
 
+from visiond.apriltag import TagConfig
+
 ROBOT_DIR = Path(__file__).resolve().parents[1]
 REPO_DIR = ROBOT_DIR.parent
 DEFAULT_THRESHOLDS_PATH = REPO_DIR / "shared" / "vision_thresholds.json"
@@ -120,6 +122,7 @@ class VisionConfig:
     max_seconds: float = 0.0  # 0 = run until stopped
     reconnect_s: float = 2.0
     servo: ServoConfig = field(default_factory=ServoConfig)
+    apriltag: TagConfig = field(default_factory=TagConfig)  # EXPERIMENTAL (S7), off by default
 
 
 def _env_bool(env: Mapping[str, str], name: str, default: bool) -> bool:
@@ -150,6 +153,11 @@ def config_from_env(env: Mapping[str, str] | None = None) -> VisionConfig:
         max_fps=float(e.get("VISION_MAX_FPS", base.max_fps)),
         mirror=_env_bool(e, "CAMERA_MIRROR", base.mirror),
         servo=servo,
+        apriltag=TagConfig(
+            enabled=_env_bool(e, "VISION_APRILTAG", base.apriltag.enabled),
+            tag_id=int(e.get("VISION_APRILTAG_ID", base.apriltag.tag_id)),
+            tag_size_m=float(e.get("VISION_APRILTAG_SIZE_M", base.apriltag.tag_size_m)),
+        ),
     )
 
 

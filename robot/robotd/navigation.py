@@ -8,7 +8,10 @@ Rules built in here:
 - when blocked, turn toward the freer side (3 front sensors) until a direction is free;
   if a full turn finds none, stay stopped;
 - reverse only when the rear sensor is present and clear (the ESP32 enforces this too);
-- the way back uses the pose and breadcrumb POSITIONS; recorded motor commands are never replayed.
+- the way back uses the pose and breadcrumb POSITIONS; recorded motor commands are never replayed;
+- EXPERIMENTAL, off by default (`apriltag_return`, docs/APRILTAG.md): in the final approach of a
+  return, a start-mark AprilTag seen by visiond may shift the target; every use is an
+  `apriltag_correction` event with `experimental: true`.
 
 The ESP32's own obstacle stop (0.25 m) is the safety layer; the distances here are larger so that
 it normally never triggers.
@@ -27,6 +30,39 @@ Distance = float | None  # metres; math.inf = no echo (free); None = sensor abse
 Event = tuple[str, dict[str, Any]]
 
 
+@dataclass(frozen=True)
+class TagSighting:
+    """EXPERIMENTAL: the start-mark AprilTag as reported by visiond (`start_tag`)."""
+
+    id: int
+    bearing_rad: float  # from the robot's forward axis, positive = left
+    distance_m: float
+    age_ms: float  # visiond's age of the sighting + how old the vision.state message is
+
+
+def _finite(value: Any) -> bool:
+    return isinstance(value, (int, float)) and not isinstance(value, bool) and math.isfinite(value)
+
+
+def tag_from_vision(msg: dict[str, Any] | None, msg_age_s: float) -> TagSighting | None:
+    """The `start_tag` of a vision.state message, or None when absent or malformed."""
+    tag = msg.get("start_tag") if isinstance(msg, dict) else None
+    if not isinstance(tag, dict):
+        return None
+    tag_id = tag.get("id")
+    bearing, dist, age = tag.get("bearing_deg"), tag.get("distance_m"), tag.get("age_ms")
+    if not isinstance(tag_id, int) or isinstance(tag_id, bool):
+        return None
+    if not all(_finite(v) for v in (bearing, dist, age, msg_age_s)):
+        return None
+    return TagSighting(
+        id=tag_id,
+        bearing_rad=math.radians(float(bearing)),  # type: ignore[arg-type]
+        distance_m=float(dist),  # type: ignore[arg-type]
+        age_ms=float(age) + max(0.0, msg_age_s) * 1000.0,  # type: ignore[arg-type]
+    )
+
+
 @dataclass
 class Sense:
     pose: Pose
@@ -34,6 +70,7 @@ class Sense:
     front: tuple[Distance, Distance, Distance]  # front-left, front-centre, front-right
     rear: Distance
     dt_s: float
+    tag: TagSighting | None = None  # EXPERIMENTAL start-mark tag (only read while RETURNING)
 
     def front_min(self) -> float:
         """Nearest front distance; an absent sensor counts as blocked (0 m)."""
@@ -192,11 +229,91 @@ class Returner:
     _blocked_s: float = 0.0
     _elapsed_s: float = 0.0
     _skips: int = 0
+    # EXPERIMENTAL AprilTag (S7): tag position in the odometry frame recorded at the run start,
+    # the current correction of the origin, and whether this return used it
+    _tag_world: tuple[float, float] | None = None
+    _offset: tuple[float, float] = (0.0, 0.0)
+    _tag_used: bool = False
+    _tag_event_s: float = -1e9
 
     MAX_SKIPS = 5  # unreachable breadcrumbs in a row before `return_failed{blocked}`
 
+    # ---- EXPERIMENTAL start-mark AprilTag (does nothing unless cfg.apriltag_return) ----
+    def clear_start_tag(self) -> None:
+        """A new run: forget the tag position of the previous one."""
+        self._tag_world = None
+
+    def _tag_usable(self, tag: TagSighting | None) -> bool:
+        cfg = self.cfg
+        return (
+            tag is not None
+            and tag.id == cfg.apriltag_id
+            and tag.age_ms <= cfg.apriltag_max_age_ms
+            and cfg.apriltag_min_m <= tag.distance_m <= cfg.apriltag_max_m
+        )
+
+    @staticmethod
+    def _tag_position(pose: Pose, tag: TagSighting) -> tuple[float, float]:
+        angle = pose.theta + tag.bearing_rad
+        return (
+            pose.x + tag.distance_m * math.cos(angle),
+            pose.y + tag.distance_m * math.sin(angle),
+        )
+
+    def observe_start(self, sense: Sense) -> bool:
+        """Record where the tag is at the start of a run (once, near the origin). It only
+        records; it never changes the motion. True when it recorded."""
+        cfg, pose, tag = self.cfg, sense.pose, sense.tag
+        if not cfg.apriltag_return or self._tag_world is not None or not self._tag_usable(tag):
+            return False
+        if math.hypot(pose.x, pose.y) > cfg.apriltag_record_radius_m:
+            return False
+        assert tag is not None
+        self._tag_world = self._tag_position(pose, tag)
+        self.events.append((
+            "apriltag_start_recorded",
+            {"tag_id": tag.id, "tag_x": round(self._tag_world[0], 3),
+             "tag_y": round(self._tag_world[1], 3), "distance_m": round(tag.distance_m, 3),
+             "bearing_deg": round(math.degrees(tag.bearing_rad), 1), "experimental": True},
+        ))  # fmt: skip
+        return True
+
+    def _origin(self, sense: Sense) -> tuple[float, float]:
+        """Where the start point is in the odometry frame: (0, 0), unless the EXPERIMENTAL tag
+        correction is on, the start sighting was recorded and the robot is in the final
+        approach. A missing, stale, wrong-id or inconsistent sighting changes nothing."""
+        cfg, pose, tag = self.cfg, sense.pose, sense.tag
+        if not cfg.apriltag_return or self._tag_world is None:
+            return 0.0, 0.0
+        if math.hypot(pose.x, pose.y) > cfg.apriltag_final_approach_m:
+            return 0.0, 0.0
+        if self._tag_usable(tag):
+            assert tag is not None
+            seen = self._tag_position(pose, tag)
+            # the odometry frame drifted by (seen - recorded): the true start moved with it
+            new = (seen[0] - self._tag_world[0], seen[1] - self._tag_world[1])
+            if math.hypot(*new) <= cfg.apriltag_max_correction_m:
+                a, (ox, oy) = cfg.apriltag_blend, self._offset
+                self._offset = (ox + a * (new[0] - ox), oy + a * (new[1] - oy))
+                first = not self._tag_used
+                self._tag_used = True
+                if first or self._elapsed_s - self._tag_event_s >= 1.0:
+                    self._tag_event_s = self._elapsed_s
+                    self.events.append((
+                        "apriltag_correction",
+                        {"tag_id": tag.id, "tag_distance_m": round(tag.distance_m, 3),
+                         "tag_bearing_deg": round(math.degrees(tag.bearing_rad), 1),
+                         "tag_age_ms": int(tag.age_ms),
+                         "offset_x_m": round(self._offset[0], 3),
+                         "offset_y_m": round(self._offset[1], 3),
+                         "odom_x": round(pose.x, 3), "odom_y": round(pose.y, 3),
+                         "experimental": True},
+                    ))  # fmt: skip
+        return self._offset
+
     def start(self, crumbs: list[tuple[float, float]], pose: Pose) -> None:
         self.method, self.result = "direct", None
+        self._offset, self._tag_used, self._tag_event_s = (0.0, 0.0), False, -1e9
         self._crumbs = [*reversed(crumbs)]  # newest first; the last one is the origin
         if not self._crumbs or self._crumbs[-1] != (0.0, 0.0):
             self._crumbs.append((0.0, 0.0))
@@ -218,6 +335,9 @@ class Returner:
             "odom_distance_m": round(math.hypot(pose.x, pose.y), 3),
             "elapsed_s": round(self._elapsed_s, 1),
         }  # fmt: skip
+        if self._tag_used:  # EXPERIMENTAL: this return must be excluded from results
+            summary["apriltag_used"] = True
+            summary["apriltag_offset_m"] = round(math.hypot(*self._offset), 3)
         self.result = (kind, {**data, **summary})
         return 0.0, 0.0
 
@@ -231,9 +351,10 @@ class Returner:
         if sense.front_all_absent():
             return self._finish("return_failed", pose, reason="sensor_fault")
         direct = self.method == "direct"
+        origin = self._origin(sense)
         while True:
-            tx, ty = (0.0, 0.0) if direct else self._crumbs[self._index]
             final = direct or self._index == len(self._crumbs) - 1
+            tx, ty = origin if final else self._crumbs[self._index]
             dx, dy = tx - pose.x, ty - pose.y
             dist = math.hypot(dx, dy)
             if dist >= (cfg.arrival_tolerance_m if final else cfg.crumb_tolerance_m):

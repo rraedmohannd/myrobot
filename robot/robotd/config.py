@@ -58,6 +58,19 @@ class Config:
     return_block_wait_s: float = 5.0  # breadcrumb mode: wait this long before giving up
     return_timeout_s: float = 180.0
 
+    # ---- EXPERIMENTAL start-mark AprilTag (S7, docs/APRILTAG.md): OFF by default ----
+    # A run that used it is marked (`apriltag_correction` events, odom_config) and is never
+    # counted in any result unless Mohannd turns it on and says so in the report.
+    apriltag_return: bool = False  # ROBOTD_APRILTAG_RETURN=1
+    apriltag_id: int = 0  # ROBOTD_APRILTAG_ID; must match visiond's VISION_APRILTAG_ID
+    apriltag_final_approach_m: float = 1.5  # used only this close to the odometry origin
+    apriltag_max_age_ms: float = 400.0  # older sightings (visiond age + message age) are ignored
+    apriltag_record_radius_m: float = 0.2  # the start sighting is recorded only this near (0,0)
+    apriltag_min_m: float = 0.2  # plausible tag distances
+    apriltag_max_m: float = 4.0
+    apriltag_max_correction_m: float = 0.5  # a larger disagreement with odometry = inconsistent
+    apriltag_blend: float = 0.3  # weight of a new sighting in the correction (smoothing)
+
     # ---- supervisor ----
     engage_timeout_s: float = 10.0  # ENGAGED without a conversation -> resume
     reengage_cooldown_s: float = 5.0  # after a conversation, ignore "engaged" for this long
@@ -149,6 +162,8 @@ class Config:
             "sample_rate_hz": round(1000 / self.sample_period_ms, 1),
             "roam_speed_mps": self.roam_speed_mps,
         }
+        if self.apriltag_return:
+            out["apriltag_return"] = "EXPERIMENTAL - exclude this run from results"
         if is_simulated:
             out["note"] = "SIMULATED run (simulated ESP32) - not a physical result"
         return out
@@ -169,6 +184,8 @@ _ENV = {
     "LOG_DIR": "log_dir",
     "ROBOTD_SETTINGS_PIN": "settings_pin",
     "ROBOTD_SETTINGS_FILE": "settings_file",
+    "ROBOTD_APRILTAG_RETURN": "apriltag_return",
+    "ROBOTD_APRILTAG_ID": "apriltag_id",
 }
 
 
