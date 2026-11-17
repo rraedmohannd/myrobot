@@ -30,11 +30,11 @@ The questions for Mohannd, what only he can do, the steps for when the parts arr
 - A wiring table with a "Proposed GPIO" column (proposal only). Commit: `8a466dd`.
 
 ### S1.2 Checker and generator
-- `firmware/tools/pins_from_table.py` reads the pin-map table in `docs/HARDWARE.md` and refuses to write anything on any error: duplicates, input-only pins as outputs, flash pins, UART0, strapping pins without `yes` (GPIO12 always warns), a missing signal, an empty or invalid "Checked by / date", GPIOs that do not exist, expander rules (`X0`–`X15` only on trigger and direction rows). On success it writes `firmware/include/pins_generated.h`, the **only** file that defines `PINS_CONFIRMED` (with the table's SHA-256 and date). You commit that file after wiring.
+- `firmware/tools/pins_from_table.py` reads the pin-map table in `docs/HARDWARE.md` and refuses to write anything on any error: duplicates, input-only pins as outputs, flash pins, UART0, strapping pins without `yes` (GPIO12 always warns), a missing signal, an empty or invalid "Checked by / date", GPIOs that do not exist, expander rules (`X0`–`X15` only on the four ultrasonic trigger rows — narrowed in `ce6d656` to match the firmware, which refuses a direction line on the expander as fail-unsafe). On success it writes `firmware/include/pins_generated.h`, the **only** file that defines `PINS_CONFIRMED` (with the table's SHA-256 and date). You commit that file after wiring.
 - `firmware/include/pins.h` has three mutually exclusive paths: the CI profile (`pins_ci.h`), the compile check (all `-1`), or `pins_generated.h`; otherwise the `#error` stays. Defining `PINS_CONFIRMED` by hand is now an `#error`.
 - The real (empty) table: `--check` exits 1 with 50 errors ("not filled in" ×25, "Checked by / date empty" ×25), as expected until wiring.
 - Guard paths were built on a scratch copy of `firmware/` (7 cases, each giving the expected `#error` or SUCCESS).
-- Tests: 21 (`firmware/tools/tests/`, 12 fixture tables). Commit: `7902f1c`.
+- Tests: 22 (`firmware/tools/tests/`, 13 fixture tables). Commits: `7902f1c`, `ce6d656`.
 - Consequence passed on to the firmware: Option B needs an MCP23017 driver in the firmware, otherwise a filled-in Option B table would not compile.
 
 ## Backend support (parts of S3.4, S6.2, S6.3, S6.5)
