@@ -9,6 +9,7 @@ from typing import Any
 from scr_protocol import parse_robot_message
 from scr_serial import Event, EventCode, Flags, Heartbeat, Mode, Servo
 
+from robotd.calibration import SIM_PROFILE
 from robotd.config import Config
 from robotd.sim_esp32 import SimEsp32Config
 from robotd.sim_harness import SimHarness
@@ -150,7 +151,7 @@ def test_telemetry_loss_is_a_fault_and_commands_are_refused() -> None:
 
 
 def test_low_battery_is_a_fault() -> None:
-    h = SimHarness(sim_cfg=SimEsp32Config(battery_mv=9500))
+    h = SimHarness(sim_cfg=SimEsp32Config(nvs=dict(SIM_PROFILE), battery_mv=9500))
     h.run(1.0)
     assert h.brain.sup.state == "FAULT" and h.brain.sup.faults == ["low_battery"]
     ack = h.command("start_roaming")
@@ -168,7 +169,7 @@ def test_slip_event_when_one_encoder_disagrees() -> None:
 
 
 def test_u32_clock_wrap_during_a_run() -> None:
-    h = SimHarness(sim_cfg=SimEsp32Config(boot_t_ms=0xFFFFFFFF - 3000))
+    h = SimHarness(sim_cfg=SimEsp32Config(nvs=dict(SIM_PROFILE), boot_t_ms=0xFFFFFFFF - 3000))
     h.run(0.5)
     h.command("start_roaming")
     h.run(8.0)  # the ESP32 clock wraps about 2.5 s into the run
@@ -204,7 +205,7 @@ def test_commands_accepted_and_refused() -> None:
 
 
 def test_start_roaming_refused_when_boxed_in() -> None:
-    tiny = SimEsp32Config(room=(-0.3, -0.3, 0.3, 0.3), obstacles=())
+    tiny = SimEsp32Config(nvs=dict(SIM_PROFILE), room=(-0.3, -0.3, 0.3, 0.3), obstacles=())
     h = SimHarness(sim_cfg=tiny)
     h.run(0.5)
     ack = h.command("start_roaming")

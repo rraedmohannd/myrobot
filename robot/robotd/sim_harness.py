@@ -9,6 +9,7 @@ from typing import Any
 
 from scr_serial import Message
 
+from robotd.calibration import SIM_PROFILE
 from robotd.config import Config
 from robotd.core import Brain
 from robotd.sim_esp32 import STEP_MS, SimEsp32, SimEsp32Config
@@ -17,7 +18,8 @@ from robotd.sim_esp32 import STEP_MS, SimEsp32, SimEsp32Config
 class SimHarness:
     def __init__(self, cfg: Config | None = None, sim_cfg: SimEsp32Config | None = None) -> None:
         self.cfg = cfg or Config(sim=True)
-        self.sim = SimEsp32(sim_cfg or SimEsp32Config(seed=self.cfg.sim_seed))
+        sim_cfg = sim_cfg or SimEsp32Config(seed=self.cfg.sim_seed, nvs=dict(SIM_PROFILE))
+        self.sim = SimEsp32(sim_cfg)
         self.brain = Brain(self.cfg)
         self.brain.set_backend(True)  # tests switch it off to simulate a lost backend
         self.pi_alive = True  # False: the Pi sends nothing (heartbeat loss)

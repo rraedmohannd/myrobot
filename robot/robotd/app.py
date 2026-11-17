@@ -6,6 +6,7 @@ import logging
 import time
 
 from robotd.backend_link import BackendLink
+from robotd.calibration import SIM_PROFILE
 from robotd.config import Config, public_dict
 from robotd.core import Brain
 from robotd.link import SerialLink
@@ -27,8 +28,7 @@ class RobotApp:
         if cfg.sim:
             self.sim_server = SimEsp32Server(
                 sim or SimEsp32(SimEsp32Config(
-                    seed=cfg.sim_seed, metres_per_tick=cfg.metres_per_tick,
-                    track_width_m=cfg.track_width_m,
+                    seed=cfg.sim_seed, nvs=dict(SIM_PROFILE),
                 )),
                 cfg.sim_host, cfg.sim_port,
             )  # fmt: skip

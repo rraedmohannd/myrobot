@@ -10,6 +10,7 @@ import random
 from scr_odometry import Pose, range_along
 from scr_serial import Drive
 
+from robotd.calibration import SIM_PROFILE
 from robotd.config import Config
 from robotd.navigation import Breadcrumbs, Returner, Roamer, Sense
 from robotd.sim_esp32 import SimEsp32Config
@@ -68,7 +69,7 @@ def test_roam_turns_away_from_an_obstacle() -> None:
 
 def test_one_straight_segment_is_at_most_5_m() -> None:
     cfg = Config(sim=True, min_segment_m=4.0)
-    h = started(cfg, SimEsp32Config(room=OPEN_ROOM, obstacles=()))
+    h = started(cfg, SimEsp32Config(nvs=dict(SIM_PROFILE), room=OPEN_ROOM, obstacles=()))
     assert h.run_until(lambda: len(h.brain.roamer.segments) >= 3, 150)
     assert "obstacle" not in event_kinds(h)  # nothing in the way: only the limit ends a segment
     assert all(4.0 <= s <= 5.0 + 0.02 for s in h.brain.roamer.segments)
@@ -136,7 +137,7 @@ def test_reverse_only_with_rear_sensing() -> None:
 
 
 def test_simulated_robot_without_rear_sensor_never_reverses() -> None:
-    h = started(sim_cfg=SimEsp32Config(rear_sensor=False))
+    h = started(sim_cfg=SimEsp32Config(nvs=dict(SIM_PROFILE), rear_sensor=False))
     h.run(90)
     drives = [m for m in h.sim.received if isinstance(m, Drive)]
     assert len(drives) > 500 and all(m.left + m.right >= -1e-9 for m in drives)
@@ -176,7 +177,7 @@ def test_breadcrumbs_cut_loops_out() -> None:
 
 # ---------------- return-to-start ----------------
 def test_return_to_start_in_the_open_is_direct() -> None:
-    h = started(sim_cfg=SimEsp32Config(room=OPEN_ROOM, obstacles=()))
+    h = started(sim_cfg=SimEsp32Config(nvs=dict(SIM_PROFILE), room=OPEN_ROOM, obstacles=()))
     assert h.run_until(lambda: math.hypot(h.sim.true.x, h.sim.true.y) > 2.5, 200)
     assert h.command("return_to_start")["accepted"] and h.brain.sup.state == "RETURNING"
     assert h.run_until(lambda: h.brain.sup.state == "IDLE", 120)
