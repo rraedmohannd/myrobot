@@ -4,7 +4,7 @@
 # The image's xvfb-run hangs under Docker (it waits for a signal from Xvfb that
 # never arrives), so a plain Xvfb is started by hand instead.
 set -u
-cd /work
+cd /work || exit 1
 mkdir -p out
 Xvfb :99 -screen 0 1280x1024x24 >/dev/null 2>&1 &
 XPID=$!
