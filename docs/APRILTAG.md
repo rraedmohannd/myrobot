@@ -25,10 +25,10 @@ that a camera can find and measure. One tag is placed next to the start mark on 
   The camera's field of view is still a **placeholder** (60°, `CAMERA_HFOV_DEG`), so the
   distance is only as good as that number.
 
-**Wiring status (2026-11-17):** the logic lives in `robotd/navigation.py`
-(`tag_from_vision`, `Sense.tag`, `Returner.observe_start` / `clear_start_tag`); the three calls
-in `robotd/core.py` (pass the tag into `Sense`, clear it at `run_start`, call `observe_start`
-while ROAMING) are a separate small change. Until they are in, the flag has no effect.
+**Wiring (2026-11-17):** the logic lives in `robotd/navigation.py` (`tag_from_vision`,
+`Sense.tag`, `Returner.observe_start` / `clear_start_tag`). `robotd/core.py` passes the tag into
+`Sense` on every tick, clears the start record at `run_start` and calls `observe_start` while
+ROAMING, all only when `apriltag_return` is on.
 
 When the tag is not seen, the sighting is older than 400 ms, the id is wrong, the distance is
 implausible (outside 0.2-4 m) or the implied drift is larger than 0.5 m, the return behaves

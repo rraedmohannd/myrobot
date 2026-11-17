@@ -54,7 +54,15 @@ from robotd.blackbox import BlackBox
 from robotd.calibration import Calibration
 from robotd.config import Config
 from robotd.link import LinkCore
-from robotd.navigation import Breadcrumbs, Distance, Returner, Roamer, Sense, track_speeds
+from robotd.navigation import (
+    Breadcrumbs,
+    Distance,
+    Returner,
+    Roamer,
+    Sense,
+    tag_from_vision,
+    track_speeds,
+)
 from robotd.odometry import OdometryEstimator
 from robotd.supervisor import Action, Facts, Supervisor
 
@@ -451,7 +459,10 @@ class Brain:
                 faults += self._check_params(frame, now_s)
                 self._gyro_calibration(frame, now_s)
         self._battery_rules(frame, lost)
-        sense = Sense(self.odom.pose, self.odom.travelled_m, front, rear, dt)
+        tag = None  # EXPERIMENTAL start-mark AprilTag (docs/APRILTAG.md), only with the flag on
+        if cfg.apriltag_return and self.vision is not None:
+            tag = tag_from_vision(self.vision, now_s - self._vision_at)
+        sense = Sense(self.odom.pose, self.odom.travelled_m, front, rear, dt, tag)
         self._sense = sense
         vision_ok = self.vision is not None and now_s - self._vision_at <= cfg.vision_timeout_s
         engaged = vision_ok and now_s - self._engaged_at <= cfg.engage_lookaway_s + 1e-6
@@ -475,6 +486,9 @@ class Brain:
         if self.sup.state == "ROAMING":
             v, w = self.roamer.step(sense)
             self._drain(self.roamer.events)
+            if cfg.apriltag_return:  # records the start sighting only; never changes the motion
+                self.returner.observe_start(sense)
+                self._drain(self.returner.events)
         elif self.sup.state == "RETURNING":
             v, w = self.returner.step(sense)
             self._drain(self.returner.events)
@@ -678,6 +692,7 @@ class Brain:
             elif kind == "open_run":
                 self.odom.reset()
                 self.crumbs.reset()
+                self.returner.clear_start_tag()
                 self.roamer.segments.clear()
                 self._run_t0_ms, self._last_sample_ms, self.run_id = self.odom.t_ms, -1, None
                 self._push(self._run_start(continued=False))

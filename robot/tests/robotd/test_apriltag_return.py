@@ -9,11 +9,15 @@ from __future__ import annotations
 
 import math
 import random
+from collections.abc import Callable
 
 from scr_odometry import Pose
 
+from robotd.calibration import SIM_PROFILE
 from robotd.config import Config, load_config
 from robotd.navigation import Returner, Roamer, Sense, TagSighting, tag_from_vision
+from robotd.sim_esp32 import SimEsp32Config
+from robotd.sim_harness import SimHarness
 
 DT = 0.05
 FREE = (math.inf, math.inf, math.inf)
@@ -198,3 +202,59 @@ def test_flag_from_env_and_marked_in_odom_config() -> None:
     assert cfg.apriltag_return is True and cfg.apriltag_id == 4
     assert "EXPERIMENTAL" in cfg.odom_config(False)["apriltag_return"]
     assert "apriltag_return" not in Config().odom_config(False)
+
+
+# ---------------- through the Brain, against the SIMULATED ESP32 ----------------
+def _brain_run(apriltag_return: bool, send_vision: bool) -> SimHarness:
+    """Roam > 2.5 m, return, with an ideal SIMULATED vision.state carrying start_tag (computed
+    from the simulator's true pose, 10 Hz). Simulation only (CLAUDE.md rule 5)."""
+    cfg = Config(sim=True, apriltag_return=apriltag_return)
+    open_room = SimEsp32Config(nvs=dict(SIM_PROFILE), room=(-20.0, -20.0, 20.0, 20.0), obstacles=())
+    h = SimHarness(cfg, open_room)
+
+    def step() -> None:
+        if send_vision and h._steps % 10 == 0:
+            s = sighting(h.sim.true)
+            h.brain.on_vision(
+                {"type": "vision.state", "camera_ok": True, "faces": [], "selected_id": None,
+                 "engaged": False, "active_speaker_id": None, "overlap": False,
+                 "servo_target_deg": 0.0,
+                 "start_tag": {"id": 0, "center_x": 0.5,
+                               "bearing_deg": math.degrees(s.bearing_rad),
+                               "distance_m": s.distance_m, "age_ms": 30, "experimental": True}},
+                h.now_s,
+            )  # fmt: skip
+        h.step()
+
+    def until(cond: Callable[[], bool], timeout_s: float) -> bool:
+        for _ in range(int(timeout_s * 100)):
+            if cond():
+                return True
+            step()
+        return cond()
+
+    until(lambda: False, 0.5)
+    assert h.command("start_roaming")["accepted"]
+    assert until(lambda: math.hypot(h.sim.true.x, h.sim.true.y) > 2.5, 200)
+    assert h.command("return_to_start")["accepted"]
+    assert until(lambda: h.brain.sup.state == "IDLE", 120)
+    return h
+
+
+def test_brain_flag_on_records_and_corrects() -> None:
+    h = _brain_run(True, True)
+    kinds_ = [k for k, _ in h.brain.events]
+    assert "apriltag_start_recorded" in kinds_ and "apriltag_correction" in kinds_
+    corrections = [d for k, d in h.brain.events if k == "apriltag_correction"]
+    assert all(d["experimental"] is True for d in corrections)
+    done = [d for k, d in h.brain.events if k == "return_done"][-1]
+    assert done["apriltag_used"] is True
+
+
+def test_brain_flag_off_is_a_no_op() -> None:
+    with_vision = _brain_run(False, True)
+    without = _brain_run(False, False)
+    assert not any(k.startswith("apriltag") for k, _ in with_vision.brain.events)
+    assert with_vision.sim.true == without.sim.true  # same simulated path, same end
+    done = [d for k, d in with_vision.brain.events if k == "return_done"][-1]
+    assert "apriltag_used" not in done
