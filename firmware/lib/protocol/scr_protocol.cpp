@@ -1,5 +1,7 @@
 #include "scr_protocol.h"
 
+#include <cstring>
+
 namespace scr {
 namespace proto {
 
@@ -28,6 +30,20 @@ uint32_t getU32(const uint8_t*& p) {
   return v;
 }
 int32_t getI32(const uint8_t*& p) { return static_cast<int32_t>(getU32(p)); }
+// f32: IEEE-754 single precision, little-endian (the ESP32 and every build machine are LE IEEE).
+static_assert(sizeof(float) == 4, "float must be 32 bit");
+uint32_t f32Bits(float v) {
+  uint32_t u = 0;
+  std::memcpy(&u, &v, 4);
+  return u;
+}
+float bitsF32(uint32_t u) {
+  float v = 0.0f;
+  std::memcpy(&v, &u, 4);
+  return v;
+}
+void putF32(uint8_t*& p, float v) { putU32(p, f32Bits(v)); }
+float getF32(const uint8_t*& p) { return bitsF32(getU32(p)); }
 
 Message blank(MsgType type) {
   Message m{};
@@ -74,6 +90,66 @@ Message makeAck(uint8_t acked_type, uint8_t acked_seq, uint8_t status) {
   m.ack.acked_seq = acked_seq;
   m.ack.status = status;
   return m;
+}
+
+Message makeParamSet(uint16_t id, float value) {
+  Message m = blank(MsgType::ParamSet);
+  m.param_set.id = id;
+  m.param_set.value = value;
+  return m;
+}
+Message makeParamGet(uint16_t id) {
+  Message m = blank(MsgType::ParamGet);
+  m.param_get.id = id;
+  return m;
+}
+Message makeParamSave() { return blank(MsgType::ParamSave); }
+Message makeDiagRequest() { return blank(MsgType::DiagRequest); }
+Message makeBringup(uint8_t kind, int16_t arg) {
+  Message m = blank(MsgType::Bringup);
+  m.bringup.kind = kind;
+  m.bringup.arg = arg;
+  return m;
+}
+Message makeParamReport(uint16_t id, float value, float min, float max, uint8_t source) {
+  Message m = blank(MsgType::ParamReport);
+  m.param_report.id = id;
+  m.param_report.value = value;
+  m.param_report.min = min;
+  m.param_report.max = max;
+  m.param_report.source = source;
+  return m;
+}
+Message makeDiagReport(const DiagReport& d) {
+  Message m = blank(MsgType::DiagReport);
+  m.diag_report = d;
+  return m;
+}
+Message makeImuRaw(const ImuRaw& r) {
+  Message m = blank(MsgType::ImuRaw);
+  m.imu_raw = r;
+  return m;
+}
+Message makeUsRaw(const UsRaw& r) {
+  Message m = blank(MsgType::UsRaw);
+  m.us_raw = r;
+  return m;
+}
+
+uint32_t fnv1aUpdate(uint32_t h, const uint8_t* data, size_t len) {
+  for (size_t i = 0; i < len; ++i) {
+    h ^= data[i];
+    h *= kFnvPrime;  // uint32_t arithmetic: modulo 2^32, like the Python & 0xFFFFFFFF
+  }
+  return h;
+}
+
+uint32_t fnv1aParam(uint32_t h, uint16_t id, float value) {
+  uint8_t b[6];
+  uint8_t* p = b;
+  putU16(p, id);
+  putF32(p, value);
+  return fnv1aUpdate(h, b, sizeof(b));
 }
 
 uint16_t crc16Ccitt(const uint8_t* data, size_t len) {
@@ -152,6 +228,15 @@ bool bodySizeOf(uint8_t type, size_t* size) {
     case MsgType::Telemetry: *size = kTelemetryBodySize; return true;
     case MsgType::Event: *size = kEventBodySize; return true;
     case MsgType::Ack: *size = kAckBodySize; return true;
+    case MsgType::ParamSet: *size = kParamSetBodySize; return true;
+    case MsgType::ParamGet: *size = kParamGetBodySize; return true;
+    case MsgType::ParamSave: *size = 0; return true;
+    case MsgType::DiagRequest: *size = 0; return true;
+    case MsgType::Bringup: *size = kBringupBodySize; return true;
+    case MsgType::ParamReport: *size = kParamReportBodySize; return true;
+    case MsgType::DiagReport: *size = kDiagReportBodySize; return true;
+    case MsgType::ImuRaw: *size = kImuRawBodySize; return true;
+    case MsgType::UsRaw: *size = kUsRawBodySize; return true;
   }
   return false;
 }
@@ -179,6 +264,7 @@ size_t packBody(const Message& msg, uint8_t* out) {
       putU16(p, t.battery_mv);
       putI16(p, t.battery_ma);
       putU16(p, t.flags);
+      putU32(p, t.param_hash);
       break;
     }
     case MsgType::Event:
@@ -191,9 +277,66 @@ size_t packBody(const Message& msg, uint8_t* out) {
       *p++ = msg.ack.acked_seq;
       *p++ = msg.ack.status;
       break;
+    case MsgType::ParamSet:
+      putU16(p, msg.param_set.id);
+      putF32(p, msg.param_set.value);
+      break;
+    case MsgType::ParamGet:
+      putU16(p, msg.param_get.id);
+      break;
+    case MsgType::Bringup:
+      *p++ = msg.bringup.kind;
+      putI16(p, msg.bringup.arg);
+      break;
+    case MsgType::ParamReport: {
+      const ParamReport& r = msg.param_report;
+      putU16(p, r.id);
+      putF32(p, r.value);
+      putF32(p, r.min);
+      putF32(p, r.max);
+      *p++ = r.source;
+      break;
+    }
+    case MsgType::DiagReport: {
+      const DiagReport& d = msg.diag_report;
+      const uint8_t count = d.i2c_count > 8 ? 8 : d.i2c_count;
+      *p++ = d.fw_major;
+      *p++ = d.fw_minor;
+      *p++ = d.fw_patch;
+      putU32(p, d.git_hash);
+      *p++ = d.build_env;
+      *p++ = d.driver_type;
+      *p++ = d.diag_flags;
+      putU32(p, d.param_hash);
+      *p++ = d.reset_reason;
+      putU32(p, d.uptime_ms);
+      putU16(p, d.loop_period_max_us);
+      putU16(p, d.loop_jitter_us);
+      putU32(p, d.free_heap);
+      *p++ = count;
+      for (uint8_t i = 0; i < 8; ++i) *p++ = i < count ? d.i2c_addr[i] : 0;  // unused slots 0
+      *p++ = d.sensors;
+      break;
+    }
+    case MsgType::ImuRaw: {
+      const ImuRaw& r = msg.imu_raw;
+      putU32(p, r.t_ms);
+      for (int i = 0; i < 3; ++i) putI32(p, r.gyro_urad_s[i]);
+      for (int i = 0; i < 3; ++i) putI16(p, r.accel_mg[i]);
+      break;
+    }
+    case MsgType::UsRaw: {
+      const UsRaw& r = msg.us_raw;
+      putU32(p, r.t_ms);
+      for (int i = 0; i < 4; ++i) putU16(p, r.dist_mm[i]);
+      for (int i = 0; i < 4; ++i) *p++ = r.misses[i];
+      break;
+    }
     case MsgType::Stop:
     case MsgType::Heartbeat:
     case MsgType::CalibrateGyro:
+    case MsgType::ParamSave:
+    case MsgType::DiagRequest:
       break;
   }
   return static_cast<size_t>(p - out);
@@ -256,6 +399,7 @@ DecodeResult decodeFrame(const uint8_t* encoded, size_t len, Message* msg, uint8
       t.battery_mv = getU16(p);
       t.battery_ma = getI16(p);
       t.flags = getU16(p);
+      t.param_hash = getU32(p);
       break;
     }
     case MsgType::Event:
@@ -268,9 +412,66 @@ DecodeResult decodeFrame(const uint8_t* encoded, size_t len, Message* msg, uint8
       m.ack.acked_seq = *p++;
       m.ack.status = *p++;
       break;
+    case MsgType::ParamSet:
+      m.param_set.id = getU16(p);
+      m.param_set.value = getF32(p);
+      break;
+    case MsgType::ParamGet:
+      m.param_get.id = getU16(p);
+      break;
+    case MsgType::Bringup:
+      m.bringup.kind = *p++;
+      m.bringup.arg = getI16(p);
+      break;
+    case MsgType::ParamReport: {
+      ParamReport& r = m.param_report;
+      r.id = getU16(p);
+      r.value = getF32(p);
+      r.min = getF32(p);
+      r.max = getF32(p);
+      r.source = *p++;
+      break;
+    }
+    case MsgType::DiagReport: {
+      DiagReport& d = m.diag_report;
+      d.fw_major = *p++;
+      d.fw_minor = *p++;
+      d.fw_patch = *p++;
+      d.git_hash = getU32(p);
+      d.build_env = *p++;
+      d.driver_type = *p++;
+      d.diag_flags = *p++;
+      d.param_hash = getU32(p);
+      d.reset_reason = *p++;
+      d.uptime_ms = getU32(p);
+      d.loop_period_max_us = getU16(p);
+      d.loop_jitter_us = getU16(p);
+      d.free_heap = getU32(p);
+      d.i2c_count = *p++;
+      for (int i = 0; i < 8; ++i) d.i2c_addr[i] = *p++;
+      if (d.i2c_count > 8) d.i2c_count = 8;
+      d.sensors = *p++;
+      break;
+    }
+    case MsgType::ImuRaw: {
+      ImuRaw& r = m.imu_raw;
+      r.t_ms = getU32(p);
+      for (int i = 0; i < 3; ++i) r.gyro_urad_s[i] = getI32(p);
+      for (int i = 0; i < 3; ++i) r.accel_mg[i] = getI16(p);
+      break;
+    }
+    case MsgType::UsRaw: {
+      UsRaw& r = m.us_raw;
+      r.t_ms = getU32(p);
+      for (int i = 0; i < 4; ++i) r.dist_mm[i] = getU16(p);
+      for (int i = 0; i < 4; ++i) r.misses[i] = *p++;
+      break;
+    }
     case MsgType::Stop:
     case MsgType::Heartbeat:
     case MsgType::CalibrateGyro:
+    case MsgType::ParamSave:
+    case MsgType::DiagRequest:
       break;
   }
   if (msg) *msg = m;

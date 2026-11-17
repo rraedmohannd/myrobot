@@ -48,7 +48,45 @@ static std::vector<Vector> canonical() {
   t.battery_mv = 11850;
   t.battery_ma = 1520;
   t.flags = 0x0051;
+  t.param_hash = 0xDEADBEEFu;
   Telemetry zeros{};
+  DiagReport d{};
+  d.fw_major = 2;
+  d.fw_minor = 0;
+  d.fw_patch = 1;
+  d.git_hash = 0x1A2B3C4Du;
+  d.build_env = kBuildEsp32Dev;
+  d.driver_type = 0;
+  d.diag_flags = kDiagPinsConfirmed | kDiagParamsFromNvs;
+  d.param_hash = 0x01020304u;
+  d.reset_reason = kResetBrownout;
+  d.uptime_ms = 987654;
+  d.loop_period_max_us = 10450;
+  d.loop_jitter_us = 310;
+  d.free_heap = 201234;
+  d.i2c_count = 2;
+  d.i2c_addr[0] = 0x40;
+  d.i2c_addr[1] = 0x68;
+  d.sensors = kSensorImu | kSensorIna219 | (kSensorUs0 << 0) | (kSensorUs0 << 3);
+  ImuRaw imu{};
+  imu.t_ms = 4242;
+  imu.gyro_urad_s[0] = -150;
+  imu.gyro_urad_s[1] = 2300;
+  imu.gyro_urad_s[2] = -987654;
+  imu.accel_mg[0] = 5;
+  imu.accel_mg[1] = -12;
+  imu.accel_mg[2] = 998;
+  UsRaw us{};
+  us.t_ms = 777;
+  us.dist_mm[0] = 310;
+  us.dist_mm[1] = kUsNoEcho;
+  us.dist_mm[2] = 0;
+  us.dist_mm[3] = kUsAbsent;
+  us.misses[0] = 0;
+  us.misses[1] = 2;
+  us.misses[2] = 0;
+  us.misses[3] = 3;
+  // Same names, seqs and values as shared/scr_serial/vectors.py CANONICAL_VECTORS.
   return {
       {"drive", 1, makeDrive(250, -125)},
       {"stop", 2, makeStop()},
@@ -60,6 +98,19 @@ static std::vector<Vector> canonical() {
       {"telemetry_zeros", 0, makeTelemetry(zeros)},
       {"event", 201, makeEvent(5000, kEventObstacleStop, 180)},
       {"ack", 202, makeAck(0x04, 4, kAckOk)},
+      // ---- version 2 ----
+      {"param_set", 7, makeParamSet(9, 0.25f)},
+      {"param_get_all", 8, makeParamGet(kParamAll)},
+      {"param_save", 9, makeParamSave()},
+      {"diag_request", 10, makeDiagRequest()},
+      {"bringup_imu", 11, makeBringup(kBringupImuRaw, 100)},
+      {"bringup_jog", 12, makeBringup(kBringupServoJog, -25)},
+      {"param_report", 203, makeParamReport(27, 250.0f, 150.0f, 1000.0f, kParamSourceNvs)},
+      {"diag_report", 204, makeDiagReport(d)},
+      {"imu_raw", 205, makeImuRaw(imu)},
+      {"us_raw", 206, makeUsRaw(us)},
+      {"event_slip", 207, makeEvent(65000, kEventSlip, 1)},
+      {"ack_out_of_range", 208, makeAck(0x07, 7, kAckOutOfRange)},
   };
 }
 
@@ -109,6 +160,7 @@ static void assertSameMessage(const Message& a, const Message& b, const char* na
       TEST_ASSERT_EQUAL_UINT16_MESSAGE(a.telemetry.battery_mv, b.telemetry.battery_mv, name);
       TEST_ASSERT_EQUAL_INT16_MESSAGE(a.telemetry.battery_ma, b.telemetry.battery_ma, name);
       TEST_ASSERT_EQUAL_UINT16_MESSAGE(a.telemetry.flags, b.telemetry.flags, name);
+      TEST_ASSERT_EQUAL_HEX32_MESSAGE(a.telemetry.param_hash, b.telemetry.param_hash, name);
       break;
     case MsgType::Event:
       TEST_ASSERT_EQUAL_UINT32_MESSAGE(a.event.t_ms, b.event.t_ms, name);
@@ -119,6 +171,55 @@ static void assertSameMessage(const Message& a, const Message& b, const char* na
       TEST_ASSERT_EQUAL_UINT8_MESSAGE(a.ack.acked_type, b.ack.acked_type, name);
       TEST_ASSERT_EQUAL_UINT8_MESSAGE(a.ack.acked_seq, b.ack.acked_seq, name);
       TEST_ASSERT_EQUAL_UINT8_MESSAGE(a.ack.status, b.ack.status, name);
+      break;
+    case MsgType::ParamSet:
+      TEST_ASSERT_EQUAL_UINT16_MESSAGE(a.param_set.id, b.param_set.id, name);
+      TEST_ASSERT_EQUAL_FLOAT_MESSAGE(a.param_set.value, b.param_set.value, name);
+      break;
+    case MsgType::ParamGet:
+      TEST_ASSERT_EQUAL_UINT16_MESSAGE(a.param_get.id, b.param_get.id, name);
+      break;
+    case MsgType::Bringup:
+      TEST_ASSERT_EQUAL_UINT8_MESSAGE(a.bringup.kind, b.bringup.kind, name);
+      TEST_ASSERT_EQUAL_INT16_MESSAGE(a.bringup.arg, b.bringup.arg, name);
+      break;
+    case MsgType::ParamReport:
+      TEST_ASSERT_EQUAL_UINT16_MESSAGE(a.param_report.id, b.param_report.id, name);
+      TEST_ASSERT_EQUAL_FLOAT_MESSAGE(a.param_report.value, b.param_report.value, name);
+      TEST_ASSERT_EQUAL_FLOAT_MESSAGE(a.param_report.min, b.param_report.min, name);
+      TEST_ASSERT_EQUAL_FLOAT_MESSAGE(a.param_report.max, b.param_report.max, name);
+      TEST_ASSERT_EQUAL_UINT8_MESSAGE(a.param_report.source, b.param_report.source, name);
+      break;
+    case MsgType::DiagReport: {
+      const DiagReport& x = a.diag_report;
+      const DiagReport& y = b.diag_report;
+      TEST_ASSERT_EQUAL_UINT8_MESSAGE(x.fw_major, y.fw_major, name);
+      TEST_ASSERT_EQUAL_UINT8_MESSAGE(x.fw_minor, y.fw_minor, name);
+      TEST_ASSERT_EQUAL_UINT8_MESSAGE(x.fw_patch, y.fw_patch, name);
+      TEST_ASSERT_EQUAL_HEX32_MESSAGE(x.git_hash, y.git_hash, name);
+      TEST_ASSERT_EQUAL_UINT8_MESSAGE(x.build_env, y.build_env, name);
+      TEST_ASSERT_EQUAL_UINT8_MESSAGE(x.driver_type, y.driver_type, name);
+      TEST_ASSERT_EQUAL_HEX8_MESSAGE(x.diag_flags, y.diag_flags, name);
+      TEST_ASSERT_EQUAL_HEX32_MESSAGE(x.param_hash, y.param_hash, name);
+      TEST_ASSERT_EQUAL_UINT8_MESSAGE(x.reset_reason, y.reset_reason, name);
+      TEST_ASSERT_EQUAL_UINT32_MESSAGE(x.uptime_ms, y.uptime_ms, name);
+      TEST_ASSERT_EQUAL_UINT16_MESSAGE(x.loop_period_max_us, y.loop_period_max_us, name);
+      TEST_ASSERT_EQUAL_UINT16_MESSAGE(x.loop_jitter_us, y.loop_jitter_us, name);
+      TEST_ASSERT_EQUAL_UINT32_MESSAGE(x.free_heap, y.free_heap, name);
+      TEST_ASSERT_EQUAL_UINT8_MESSAGE(x.i2c_count, y.i2c_count, name);
+      TEST_ASSERT_EQUAL_HEX8_ARRAY_MESSAGE(x.i2c_addr, y.i2c_addr, 8, name);
+      TEST_ASSERT_EQUAL_HEX8_MESSAGE(x.sensors, y.sensors, name);
+      break;
+    }
+    case MsgType::ImuRaw:
+      TEST_ASSERT_EQUAL_UINT32_MESSAGE(a.imu_raw.t_ms, b.imu_raw.t_ms, name);
+      TEST_ASSERT_EQUAL_INT32_ARRAY_MESSAGE(a.imu_raw.gyro_urad_s, b.imu_raw.gyro_urad_s, 3, name);
+      TEST_ASSERT_EQUAL_INT16_ARRAY_MESSAGE(a.imu_raw.accel_mg, b.imu_raw.accel_mg, 3, name);
+      break;
+    case MsgType::UsRaw:
+      TEST_ASSERT_EQUAL_UINT32_MESSAGE(a.us_raw.t_ms, b.us_raw.t_ms, name);
+      TEST_ASSERT_EQUAL_UINT16_ARRAY_MESSAGE(a.us_raw.dist_mm, b.us_raw.dist_mm, 4, name);
+      TEST_ASSERT_EQUAL_UINT8_ARRAY_MESSAGE(a.us_raw.misses, b.us_raw.misses, 4, name);
       break;
     default:
       break;
@@ -215,12 +316,33 @@ static void test_body_sizes() {
   TEST_ASSERT_TRUE(bodySizeOf(0x04, &n)); TEST_ASSERT_EQUAL(1, n);
   TEST_ASSERT_TRUE(bodySizeOf(0x05, &n)); TEST_ASSERT_EQUAL(0, n);
   TEST_ASSERT_TRUE(bodySizeOf(0x06, &n)); TEST_ASSERT_EQUAL(0, n);
-  TEST_ASSERT_TRUE(bodySizeOf(0x81, &n)); TEST_ASSERT_EQUAL(44, n);
+  TEST_ASSERT_TRUE(bodySizeOf(0x81, &n)); TEST_ASSERT_EQUAL(48, n);
   TEST_ASSERT_TRUE(bodySizeOf(0x82, &n)); TEST_ASSERT_EQUAL(7, n);
   TEST_ASSERT_TRUE(bodySizeOf(0x83, &n)); TEST_ASSERT_EQUAL(3, n);
+  // version 2
+  TEST_ASSERT_TRUE(bodySizeOf(0x07, &n)); TEST_ASSERT_EQUAL(6, n);
+  TEST_ASSERT_TRUE(bodySizeOf(0x08, &n)); TEST_ASSERT_EQUAL(2, n);
+  TEST_ASSERT_TRUE(bodySizeOf(0x09, &n)); TEST_ASSERT_EQUAL(0, n);
+  TEST_ASSERT_TRUE(bodySizeOf(0x0A, &n)); TEST_ASSERT_EQUAL(0, n);
+  TEST_ASSERT_TRUE(bodySizeOf(0x0B, &n)); TEST_ASSERT_EQUAL(3, n);
+  TEST_ASSERT_TRUE(bodySizeOf(0x84, &n)); TEST_ASSERT_EQUAL(15, n);
+  TEST_ASSERT_TRUE(bodySizeOf(0x85, &n)); TEST_ASSERT_EQUAL(37, n);
+  TEST_ASSERT_TRUE(bodySizeOf(0x86, &n)); TEST_ASSERT_EQUAL(22, n);
+  TEST_ASSERT_TRUE(bodySizeOf(0x87, &n)); TEST_ASSERT_EQUAL(16, n);
   TEST_ASSERT_FALSE(bodySizeOf(0x00, &n));
-  TEST_ASSERT_FALSE(bodySizeOf(0x07, &n));
-  TEST_ASSERT_FALSE(bodySizeOf(0x84, &n));
+  TEST_ASSERT_FALSE(bodySizeOf(0x0C, &n));
+  TEST_ASSERT_FALSE(bodySizeOf(0x88, &n));
+}
+
+// Interface spec A4 / scr_serial.params.param_hash: FNV-1a over (id u16 LE, value f32 LE).
+static void test_fnv1a_param_hash() {
+  // FNV-1a 32 of the empty input is the offset basis; of "a" it is 0xE40C292C (published vector).
+  TEST_ASSERT_EQUAL_HEX32(0x811C9DC5u, fnv1aUpdate(kFnvOffset, nullptr, 0));
+  const uint8_t a = 'a';
+  TEST_ASSERT_EQUAL_HEX32(0xE40C292Cu, fnv1aUpdate(kFnvOffset, &a, 1));
+  // fnv1aParam = the 6 bytes 09 00 | 00 00 80 3e (0.25f).
+  const uint8_t bytes[6] = {0x09, 0x00, 0x00, 0x00, 0x80, 0x3e};
+  TEST_ASSERT_EQUAL_HEX32(fnv1aUpdate(kFnvOffset, bytes, 6), fnv1aParam(kFnvOffset, 9, 0.25f));
 }
 
 static void test_every_message_round_trips() {
@@ -255,7 +377,8 @@ static void test_extreme_values_round_trip() {
   t.us_mm[3] = 1;
   t.battery_mv = 0xFFFF;
   t.battery_ma = INT16_MIN;
-  t.flags = 0x07FF;
+  t.flags = 0x3FFF;
+  t.param_hash = 0xFFFFFFFFu;
   const Message msgs[] = {makeTelemetry(t), makeDrive(INT16_MIN, INT16_MAX), makeServo(INT16_MIN),
                           makeEvent(0xFFFFFFFFu, 11, INT16_MIN), makeAck(0xFF, 0xFF, 5), makeMode(2)};
   for (const Message& m : msgs) {
@@ -446,6 +569,7 @@ int main(int, char**) {
   RUN_TEST(test_cobs_decode_rejects_damage);
   RUN_TEST(test_drive_example_from_the_document);
   RUN_TEST(test_body_sizes);
+  RUN_TEST(test_fnv1a_param_hash);
   RUN_TEST(test_every_message_round_trips);
   RUN_TEST(test_extreme_values_round_trip);
   RUN_TEST(test_bad_crc_is_dropped);
