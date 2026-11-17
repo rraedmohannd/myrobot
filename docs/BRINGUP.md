@@ -35,14 +35,14 @@ Nothing is connected to the battery in this section.
 ## 2. Flash
 Battery **off**. The ESP32 is powered from the laptop's USB only. Tracks off the ground already (a box under the chassis).
 
-- [ ] Build the release on the laptop (Docker), exactly as in `robot/README.md` "Flashing the ESP32", step 1. Expected: `firmware/release/esp32dev/` with `bootloader.bin`, `partitions.bin`, `boot_app0.bin`, `firmware.bin`, `SHA256SUMS`. If the build stops with `#error` about pins, section 1 is not finished. <!-- step:build-release -->
+- [ ] Build the release on the laptop (Docker), exactly as in `robot/README.md` "Flashing the ESP32", step 1. Expected: `firmware/release/` with `bootloader.bin`, `partitions.bin`, `boot_app0.bin`, `firmware.bin`, `SHA256SUMS` and `VERSION`. If the build stops with `#error` about pins, section 1 is not finished. <!-- step:build-release -->
 - [ ] Flash from the laptop (the Pi comes in section 7) with the command below, run from `robot\` after `.venv\Scripts\python -m pip install "esptool>=5.1,<6"`; it writes the same four images at the same offsets as `robot/deploy/flash_esp32.sh`. Expected: "Hash of data verified" four times. If esptool cannot connect, hold the BOOT button while it starts; if it still fails, stop and ask. <!-- step:flash-laptop -->
   ```powershell
-  $R = "..\firmware\release\esp32dev"
+  $R = "..\firmware\release"
   .venv\Scripts\python -m esptool --chip esp32 --port COM5 --baud 460800 write-flash 0x1000 $R\bootloader.bin 0x8000 $R\partitions.bin 0xe000 $R\boot_app0.bin 0x10000 $R\firmware.bin
   ```
 - [ ] Check the firmware: `.venv\Scripts\python -m robotctl diag --port COM5`. Expected: `firmware X.Y.Z`, `build ESP32DEV`, flags include `PINS_CONFIRMED`, **no** `SIMULATED` and **no** `CI_PINS_DO_NOT_FLASH`, reset `POWER_ON`. Write down the version, the git hash and the I2C addresses found. If `CI_PINS_DO_NOT_FLASH` shows, you flashed the CI build: flash the real one. <!-- step:diag-first -->
-- [ ] Check the version against the repository: `.venv\Scripts\python -m robotctl diag --port COM5 --expect-version (Get-Content ..\firmware\VERSION)`. Expected: `SAME`, exit 0. <!-- step:diag-version -->
+- [ ] Check the version against the repository: `.venv\Scripts\python -m robotctl diag --port COM5 --expect-version (Get-Content ..\firmware\release\VERSION)`. Expected: `SAME`, exit 0. <!-- step:diag-version -->
 - [ ] Live view: `.venv\Scripts\python -m robotctl status --port COM5 --secs 5`. Expected: telemetry lines twice a second, encoders not changing, faults `none` (or `ULTRASONIC_FAULT` while the 5 V side is unpowered), parameter hash shown. Stop and ask if `LINK:` errors appear (cable, port, baud). <!-- step:status-first -->
 
 ## 3. Tracks off the ground
@@ -84,7 +84,7 @@ Values that robotd and the firmware use. The calibration file collects them; `ro
 - [ ] Copy the calibration: `scp C:\scr-bringup\calibration.json C:\scr-bringup\calibration-log.jsonl <user>@<pi>:/tmp/` then on the Pi `sudo mkdir -p /etc/smart-campus-robot && sudo cp /tmp/calibration*.json* /etc/smart-campus-robot/`. Restart robotd: `sudo systemctl restart robotd`. Expected in `journalctl -u robotd -n 50`: calibration loaded, parameters pushed, hash OK. <!-- step:pi-calibration -->
 - [ ] Serial port and services: `ls -l /dev/esp32`, `systemctl status robotd visiond`. Expected: the link exists, both services active. <!-- step:pi-services -->
 - [ ] Through robotd: `cd ~/smart-campus-robot/robot && .venv/bin/python -m robotctl status` (robotd must be IDLE; robotctl puts it in bring-up mode while connected). Expected: the same telemetry as on the laptop, robotd state shown. <!-- step:pi-robotctl -->
-- [ ] Flashing from the Pi works for later updates: copy the release (`scp -r firmware/release/esp32dev <user>@<pi>:firmware-release`) and run `bash robot/deploy/flash_esp32.sh ~/firmware-release` (tracks off the ground). Expected: it flashes, `robotctl diag --expect-version` says `SAME`, robotd starts again. <!-- step:pi-flash -->
+- [ ] Flashing from the Pi works for later updates: copy the release (`scp -r firmware/release <user>@<pi>:firmware-release`) and run `bash robot/deploy/flash_esp32.sh ~/firmware-release` (tracks off the ground). Expected: it flashes, `robotctl diag --expect-version` says `SAME`, robotd starts again. <!-- step:pi-flash -->
 - [ ] Screen, touch, speaker and microphone: the page on the 7" screen, touch at the right spots, the settings page's test tone and microphone meter. Write down what does not work. <!-- step:pi-screen-audio -->
 - [ ] Camera field of view: a printed face 1.5–2 m straight ahead at camera height, visiond running. `.venv/bin/python -m robotctl hfov-cal`, type `camera mount clear`. Expected: a sweep of ±30°, a field of view between 50° and 90° for a usual webcam; accept. Without face data it asks you to find the two edge angles by eye instead. <!-- step:hfov-cal -->
 - [ ] Phone-camera test steps (sprint 4 log, section R4) again with the real webcam on the servo: one person, then two. <!-- step:camera-people -->
