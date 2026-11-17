@@ -301,3 +301,42 @@ async def test_return_trial_saves_the_tape_measurement(tmp_path: Path, monkeypat
     assert set(fake.token_seen) == {"t0k"}
     log = (tmp_path / "calibration-log.jsonl").read_text(encoding="utf-8")
     assert '"step": "return-trial"' in log and "t0k" not in log
+
+
+async def test_motor_test_through_robotd_itself(tmp_path: Path) -> None:
+    """robotd --sim (SIMULATED ESP32, SIMULATED calibration profile) with its real /ws/ctl."""
+    from robotd import calibration as calib
+    from robotd.app import RobotApp
+    from robotd.config import Config
+
+    path = tmp_path / "calibration.json"
+    calib.save(calib.simulated(), path)
+    robot = RobotApp(Config(
+        sim=True, sim_port=0, ui_port=0, cache_dir=str(tmp_path / "cache"),
+        backend_url="ws://127.0.0.1:9/ws/robot", backend_reconnect_s=5.0, fault_clear_s=0.2,
+        reconnect_s=0.1, log_dir=str(tmp_path / "logs"), calibration_path=str(path),
+    ))  # fmt: skip
+    await robot.start()
+    lines: list[str] = []
+    try:
+        for _ in range(400):  # robotd: IDLE, parameters pushed, start-up gyro calibration done
+            if (
+                robot.brain.sup.state == "IDLE"
+                and robot.brain.params_ok
+                and "gyro_bias" in [k for k, _ in robot.brain.events]
+            ):
+                break
+            await asyncio.sleep(0.02)
+        code = await cli.run([
+            "motor-test", "--side", "left", "--ctl", f"ws://127.0.0.1:{robot.ui.port}/ws/ctl",
+            "--non-interactive", "--yes-i-confirm", "tracks off the ground", "--track-moved",
+            "forward", "--accept", "--no-save-params", "--calibration", str(path),
+        ], out=lines.append)  # fmt: skip
+    finally:
+        await robot.stop()
+    text = "\n".join(lines)
+    assert code == 0, text
+    assert "[SIMULATED]" in text and "robotd ws://" in text
+    data = json.loads(path.read_text(encoding="utf-8"))
+    assert data["is_simulated"] is True
+    assert data["values"]["MOTOR_INVERT_LEFT"]["method"].startswith("SIMULATED: motor-test")

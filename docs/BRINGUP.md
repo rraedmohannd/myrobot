@@ -1,0 +1,101 @@
+# Bring-up: from parts on the table to a calibrated robot
+
+This replaces the checklist "for when the parts arrive" of `docs/SPRINT_4_LOG.md`. Do the sections **in this order**. Every step gives the exact command, what you should see, what to write down, and when to **stop and ask** (your supervisor, or a new chat with the log). No step needs new code: if a step seems to need code, stop and ask.
+
+The checklist lines (`- [ ] … <!-- step:… -->`) are read by the admin's **Bring-up** tab, where you tick them (who and when are stored). Keep the `<!-- step:… -->` markers exactly as they are.
+
+**Before you start.**
+- `robotctl` is the bring-up tool (`robot/robotctl/`). Every step prints what to do, **refuses to move anything until you type the confirmation it asks for** (for example `tracks off the ground`), stops on its own (STOP + MODE SAFE on every exit, also on Ctrl-C and on errors), and writes its result **with the raw measurements** to the calibration file and to `calibration-log.jsonl` next to it. It asks before changing anything; nothing is saved in the ESP32's flash unless you answer yes to `PARAM_SAVE`.
+- Exit codes: 0 done, 2 refused (nothing moved), 3 link problem, 4 a check found a problem, 5 stopped (the motors were stopped), 6 calibration-file problem.
+- Sections 1–6 run on the **laptop** with the ESP32 on a USB cable (`--port COMx`); sections 7–8 on the **Pi**. The laptop commands below are PowerShell, run from `robot\`:
+  ```powershell
+  cd C:\Users\hanan\Documents\smart-campus-robot\robot
+  $env:ROBOTD_CALIBRATION = "C:\scr-bringup\calibration.json"   # the REAL calibration file, outside the repository
+  $env:SCR_OPERATOR = "Mohannd"
+  .venv\Scripts\python -m robotctl --help
+  ```
+  The COM port is in Device Manager → Ports (COM & LPT) after plugging the ESP32 in (`COM5` below; use yours).
+- Anything run against the simulated ESP32 says **SIMULATED** on every line and goes only into a file marked `"is_simulated": true`; robotctl refuses to mix simulated and real results in one file. Only what you measure on the robot counts (CLAUDE.md rule 5).
+- **Emergency stop** = the battery switch. Keep a hand near it whenever the tracks can move.
+
+## 1. Before power
+Nothing is connected to the battery in this section.
+
+- [ ] Decide option A or B of `docs/PIN_PLAN.md` with your supervisor. Default: **option B** (MCP23017 I2C expander at 0x20 carrying the 4 HC-SR04 trigger lines; option A does not fit without the dangerous strapping pins). Write the decision and the date in `docs/PIN_PLAN.md` section 5. <!-- step:decide-pin-option -->
+- [ ] Buy what the plan needs and is not in the parts list: the MCP23017 module (option B), 4 × 1 kΩ + 4 × 2 kΩ resistors for the echo dividers, 4 × 10 kΩ pull-downs for the L298N ENA/ENB. Stop and ask if a part is not available. <!-- step:buy-extra-parts -->
+- [ ] Check that the ESP32 DevKit is an **ESP32-WROOM-32** module (printed on the metal can) with 38 pins. If it is a WROVER, an S3 or a C3, stop and ask: the pin rules of `docs/PIN_PLAN.md` do not hold. <!-- step:check-devkit -->
+- [ ] On the bench, power **one** Rover 5 encoder from 3.3 V, turn the wheel by hand and measure both outputs with the multimeter. Write down: do they switch cleanly between 0 and 3.3 V? If yes the encoder level shifters may be skipped (and input-only pins need 10 kΩ pull-ups); if not, keep the BSS138 shifters at 5 V as in `docs/PIN_PLAN.md` section 6. <!-- step:encoder-3v3 -->
+- [ ] Remove the ENA/ENB jumpers of both L298N modules and fit the 10 kΩ pull-downs from ENA and ENB to GND (`docs/PIN_PLAN.md` section 7). Check with the multimeter: ENA/ENB read about 10 kΩ to GND. Without this the motors can run at full speed while the ESP32 boots. <!-- step:enable-pulldowns -->
+- [ ] Wire the robot following the proposal (or your own assignment) and the level shifting of `docs/PIN_PLAN.md` section 6. Echoes through the 1 kΩ / 2 kΩ dividers. Common ground between the battery side, the ESP32, the servo buck and the Pi. <!-- step:wire -->
+- [ ] Fill in the pin-map table in `docs/HARDWARE.md` **from the wired robot**, in the exact format described there: one GPIO (or `X0`…`X15` for expander pins) per row, `yes` for GPIO 0, 2, 5, 12, 15, your name and the date in every "Checked by / date" cell, and the expander address row for option B. <!-- step:fill-pin-table -->
+- [ ] Check the table: `python firmware/tools/pins_from_table.py --check` (from the repository root). Expected: no error lines and exit status 0. Fix the table (not the tool) until it passes; if a rule seems wrong for your board, stop and ask. <!-- step:pins-check -->
+- [ ] Generate the header: `python firmware/tools/pins_from_table.py`. Expected: it writes `firmware/include/pins_generated.h`. Commit that file **together with** the table (`git add docs/HARDWARE.md firmware/include/pins_generated.h`). Never type pin numbers into `pins.h` and never add `-DPINS_CONFIRMED` by hand: `pins.h` refuses both. <!-- step:pins-generate -->
+- [ ] Write down in `docs/HARDWARE.md` ("Also to write down after wiring"): the motor driver fitted (L298N or VNH), and which IMU breakout (ICM-20948 or MPU-6050) with its AD0 level (0x68 low, 0x69 high). <!-- step:write-down-hardware -->
+
+## 2. Flash
+Battery **off**. The ESP32 is powered from the laptop's USB only. Tracks off the ground already (a box under the chassis).
+
+- [ ] Build the release on the laptop (Docker), exactly as in `robot/README.md` "Flashing the ESP32", step 1. Expected: `firmware/release/esp32dev/` with `bootloader.bin`, `partitions.bin`, `boot_app0.bin`, `firmware.bin`, `SHA256SUMS`. If the build stops with `#error` about pins, section 1 is not finished. <!-- step:build-release -->
+- [ ] Flash from the laptop (the Pi comes in section 7) with the command below, run from `robot\` after `.venv\Scripts\python -m pip install "esptool>=5.1,<6"`; it writes the same four images at the same offsets as `robot/deploy/flash_esp32.sh`. Expected: "Hash of data verified" four times. If esptool cannot connect, hold the BOOT button while it starts; if it still fails, stop and ask. <!-- step:flash-laptop -->
+  ```powershell
+  $R = "..\firmware\release\esp32dev"
+  .venv\Scripts\python -m esptool --chip esp32 --port COM5 --baud 460800 write-flash 0x1000 $R\bootloader.bin 0x8000 $R\partitions.bin 0xe000 $R\boot_app0.bin 0x10000 $R\firmware.bin
+  ```
+- [ ] Check the firmware: `.venv\Scripts\python -m robotctl diag --port COM5`. Expected: `firmware X.Y.Z`, `build ESP32DEV`, flags include `PINS_CONFIRMED`, **no** `SIMULATED` and **no** `CI_PINS_DO_NOT_FLASH`, reset `POWER_ON`. Write down the version, the git hash and the I2C addresses found. If `CI_PINS_DO_NOT_FLASH` shows, you flashed the CI build: flash the real one. <!-- step:diag-first -->
+- [ ] Check the version against the repository: `.venv\Scripts\python -m robotctl diag --port COM5 --expect-version (Get-Content ..\firmware\VERSION)`. Expected: `SAME`, exit 0. <!-- step:diag-version -->
+- [ ] Live view: `.venv\Scripts\python -m robotctl status --port COM5 --secs 5`. Expected: telemetry lines twice a second, encoders not changing, faults `none` (or `ULTRASONIC_FAULT` while the 5 V side is unpowered), parameter hash shown. Stop and ask if `LINK:` errors appear (cable, port, baud). <!-- step:status-first -->
+
+## 3. Tracks off the ground
+Robot on the stand, **both tracks free**, battery **on**, hand near the switch. The firmware's caps are 0, so nothing can move until robotctl raises them for one test (it asks you to type `raise the duty caps for this test`, and puts them back at the end).
+
+- [ ] Left side: `.venv\Scripts\python -m robotctl motor-test --port COM5 --side left --duty 0.15 --secs 1`. Type `tracks off the ground`, then `raise the duty caps for this test`. Watch the left track; answer which way it ran (`forward`/`backward`/`none`). Expected: both left encoders count (hundreds of ticks), the right ones stay near 0, a proposal for `MOTOR_INVERT_LEFT`, `ENCODER_INVERT_FL`, `ENCODER_INVERT_RL`. Accept (`y`) and save (`PARAM_SAVE`, `y`). Write down the counts. <!-- step:motor-left -->
+- [ ] Right side: the same with `--side right`. <!-- step:motor-right -->
+- [ ] Run both again after accepting: now each track must run **forward** and its encoders count **up**, and robotctl says "Current values are right." If a track does not move at duty 0.15, try 0.25 once (`--duty 0.25`); if it still does not move, or a motor only hums, or something smells hot, switch off and stop and ask. <!-- step:motor-recheck -->
+- [ ] Watchdog: start `motor-test --side left --secs 3` and pull the USB cable while the track runs. Expected: the track stops within a fraction of a second (the ESP32's 300 ms watchdog). Plug in again; `status` must show `WATCHDOG_STOP` once and then normal telemetry. If the track keeps running, switch off and stop and ask: this is the safety rule. <!-- step:watchdog-test -->
+- [ ] Choose the duty limits with your supervisor and set them: `.venv\Scripts\python -m robotctl param set --port COM5 TEST_MAX_DUTY 0.3` and `... param set --port COM5 MOTOR_MAX_DUTY <value>` (type `set TEST_MAX_DUTY` etc. when asked; accept; save). These are **choices**, written as such in the calibration file. <!-- step:set-duty-caps -->
+
+## 4. Encoders
+Battery on, MODE stays SAFE (nothing is driven).
+
+- [ ] `.venv\Scripts\python -m robotctl encoder-check --port COM5`. Push the LEFT track forward by hand about one sprocket turn, press Enter; then the RIGHT track. Expected: the two encoders of the pushed side count up, the other side stays near 0, "every encoder counts up going forward". Write down the four counts of each push. <!-- step:encoder-check -->
+- [ ] Front and rear encoder of one side should show about the same count (within 10 %). If one counts much less or not at all, check its connector and shifter channel; if it stays wrong, stop and ask. If the counts appear on the wrong side, the encoder cables are swapped between sides: fix the wiring (and the table in `docs/HARDWARE.md`, then section 1's two `pins_from_table.py` steps and section 2 again). <!-- step:encoder-balance -->
+
+## 5. Sensors
+- [ ] I2C scan: `.venv\Scripts\python -m robotctl diag --port COM5` (option B; add `--no-expander` once for option A: it is stored in the calibration file as `expander_addr`). Expected: `OK` for the IMU (0x68 or 0x69), the INA219 (0x40) and, with option B, the MCP23017 (0x20); no `UNEXPECTED` address. A missing device: check SDA/SCL, 3.3 V and GND of that breakout. An unexpected address: an address pin set differently — stop and ask before changing anything. <!-- step:i2c-scan -->
+- [ ] Ultrasonics, one sensor at a time: a flat box exactly 0.50 m in front of the sensor's face (tape measure), then `.venv\Scripts\python -m robotctl ultrasonic-check --port COM5 --distance 0.50 --sensors 1` (0 front-left, 1 front-centre, 2 front-right, 3 rear). Expected: `OK`, error within ±25 mm, no `ABSENT`, few misses. Repeat for 0, 2 and 3. Write down the median and error of each. A sensor that stays `ABSENT`: trigger/echo wiring or the divider; with option B also the expander. <!-- step:ultrasonic-check -->
+- [ ] Local obstacle stop (tracks off the ground): start `motor-test --port COM5 --side left --duty 0.15 --secs 3`, and during the run hold a hand 15 cm in front of the front-centre sensor. Expected: the track stops and the ESP32 sends `OBSTACLE_STOP` (robotctl reports the refused DRIVE and stops). If the track keeps running, switch off and stop and ask. <!-- step:obstacle-stop -->
+- [ ] Gyro bias: robot still on the floor, nobody touching the table. `.venv\Scripts\python -m robotctl gyro-cal --port COM5`. Expected: `GYRO_CAL_DONE`, a bias of a few mrad/s, "remaining drift" below about 1 deg/min. Write down the bias. If it says the robot moved, run it again without touching anything. <!-- step:gyro-cal -->
+- [ ] Gyro sign: `.venv\Scripts\python -m robotctl status --port COM5 --secs 5` while turning the robot by hand **counter-clockwise** (seen from above). Expected: `gyro_z` positive. If negative, stop and ask (IMU mounted upside down or axes mapped differently). <!-- step:gyro-sign -->
+- [ ] Battery voltage: multimeter on the INA219's V+ terminal, read it (e.g. 12.34 V), then `.venv\Scripts\python -m robotctl battery-cal --port COM5 --multimeter 12.34`. Expected: a `BATTERY_VOLTAGE_SCALE` between 0.97 and 1.03; accept and save. Outside 0.8–1.2 robotctl refuses: check the wiring of V+ and the shunt value (`INA219_SHUNT_OHMS`, printed on the breakout). <!-- step:battery-cal -->
+- [ ] Battery limits: with your supervisor and the pack/BMS data, set `LOW_BATTERY_MV`, `LOW_BATTERY_RECOVER_MV` and, if wanted, the hard cut `BATTERY_CUTOFF_MV` with `robotctl param set`. These are choices, not measurements. <!-- step:battery-limits -->
+
+## 6. Calibration
+Values that robotd and the firmware use. The calibration file collects them; `robotd` pushes them to the ESP32 at every connection and checks the parameter hash.
+
+- [ ] Servo: tape a mark straight ahead of the camera and one 45° to the LEFT (protractor at the servo axis). `.venv\Scripts\python -m robotctl servo-cal --port COM5`, type `camera mount clear`. Jog with `+20` / `-20` (µs) until the camera points straight ahead → `c`; at the 45° mark → `a`; to the left end where the mount or cable starts to bind → `l`; to the right end → `r`; `q`. Expected: µs per degree around 10 (typical hobby servo; yours may differ), left = higher or lower pulse, usable angles each side; accept and save. Stop jogging at once if the servo buzzes or strains. <!-- step:servo-cal -->
+- [ ] Distance (pushed, on the floor, tethered by USB): lay a 3 m tape on a flat floor. `.venv\Scripts\python -m robotctl distance-cal --port COM5 --runs 5`. For each run: front edge on 0, push the robot straight along the tape to about 3 m, press Enter, type where the same edge stopped (e.g. 2.987). Expected: `METRES_PER_TICK` around 5e-4 (placeholder guess) with a spread under 2 %; accept and save. Write down all five runs. A spread above 2 %: repeat; still above, stop and ask. <!-- step:distance-cal -->
+- [ ] Gyro scale (by hand): tape a mark along the robot's side. `.venv\Scripts\python -m robotctl rotate-test --port COM5 --turns 1 --runs 5`. Each run: turn the robot one full turn counter-clockwise on the spot back to the mark, press Enter. Expected: ratios close to 1.0 with a spread under 0.02, `GYRO_SCALE` between 0.95 and 1.05; accept and save. <!-- step:rotate-test -->
+- [ ] Speed loop on the stand (tracks off the ground): set a first ramp and maximum speed with your supervisor (`robotctl param set --port COM5 RAMP_MM_S2 500`, `... MAX_SPEED_MM_S 300`), then `.venv\Scripts\python -m robotctl pid-step --port COM5 --speed 0.2 --kff 1.0 --kp 0.5` and type `tracks off the ground`. Expected: a CSV (and a PNG if matplotlib is installed) next to the calibration file, rise time, overshoot and steady-state error, and suggested gains. The suggestions are rules of thumb: accept only what you and your supervisor agree with; repeat with the new gains until the overshoot is under 15 % and the steady error under 5 %. Keep the CSV/PNG for the report. <!-- step:pid-step -->
+- [ ] Camera field of view: needs the Pi (visiond). Do it in section 7. <!-- step:hfov-later -->
+- [ ] Status of the file: `.venv\Scripts\python -m robotctl status --port COM5`. Expected: the parameter hash of the ESP32 equals the one expected from the calibration file. Keep `C:\scr-bringup\calibration.json` and `calibration-log.jsonl` safe (they are the record of how every value was measured). <!-- step:calibration-status -->
+
+## 7. Pi
+- [ ] Install: on the Pi, `cd ~/smart-campus-robot && bash robot/deploy/setup.sh` (read it first; it was only run in an emulated container). Set `BACKEND_URL` and `ROBOT_TOKEN` in the robot.env it creates, reboot. Write down every change you had to make. <!-- step:pi-setup -->
+- [ ] Copy the calibration: `scp C:\scr-bringup\calibration.json C:\scr-bringup\calibration-log.jsonl <user>@<pi>:/tmp/` then on the Pi `sudo mkdir -p /etc/smart-campus-robot && sudo cp /tmp/calibration*.json* /etc/smart-campus-robot/`. Restart robotd: `sudo systemctl restart robotd`. Expected in `journalctl -u robotd -n 50`: calibration loaded, parameters pushed, hash OK. <!-- step:pi-calibration -->
+- [ ] Serial port and services: `ls -l /dev/esp32`, `systemctl status robotd visiond`. Expected: the link exists, both services active. <!-- step:pi-services -->
+- [ ] Through robotd: `cd ~/smart-campus-robot/robot && .venv/bin/python -m robotctl status` (robotd must be IDLE; robotctl puts it in bring-up mode while connected). Expected: the same telemetry as on the laptop, robotd state shown. <!-- step:pi-robotctl -->
+- [ ] Flashing from the Pi works for later updates: copy the release (`scp -r firmware/release/esp32dev <user>@<pi>:firmware-release`) and run `bash robot/deploy/flash_esp32.sh ~/firmware-release` (tracks off the ground). Expected: it flashes, `robotctl diag --expect-version` says `SAME`, robotd starts again. <!-- step:pi-flash -->
+- [ ] Screen, touch, speaker and microphone: the page on the 7" screen, touch at the right spots, the settings page's test tone and microphone meter. Write down what does not work. <!-- step:pi-screen-audio -->
+- [ ] Camera field of view: a printed face 1.5–2 m straight ahead at camera height, visiond running. `.venv/bin/python -m robotctl hfov-cal`, type `camera mount clear`. Expected: a sweep of ±30°, a field of view between 50° and 90° for a usual webcam; accept. Without face data it asks you to find the two edge angles by eye instead. <!-- step:hfov-cal -->
+- [ ] Phone-camera test steps (sprint 4 log, section R4) again with the real webcam on the servo: one person, then two. <!-- step:camera-people -->
+
+## 8. Floor
+On the floor, in an empty area, low speed, hand near the switch. Commands on the Pi (robotd stopped for the first three: `sudo systemctl stop robotd`, then `--port /dev/esp32`; start it again afterwards).
+
+- [ ] Distance, driven: `.venv/bin/python -m robotctl distance-cal --port /dev/esp32 --runs 5 --drive --duty 0.2`, type `3 m clear in front of the robot`, press Enter to stop near 3 m, type the tape reading. Expected: within 2 % of the pushed value of section 6. Accept only if you trust it more (write down both). <!-- step:distance-driven -->
+- [ ] Rotation, driven, and track width: `.venv/bin/python -m robotctl rotate-test --port /dev/esp32 --driven --runs 5`, type `robot on the floor and 1 m clear around it`, type the angle really turned each time (read from the mark). Expected: `GYRO_SCALE` close to the hand value and an effective `track_width_m` (Rover 5: of the order of 0.19 m; yours is what counts). Accept and save. <!-- step:rotate-driven -->
+- [ ] Square: `.venv/bin/python -m robotctl square-test --port /dev/esp32 --side 2.0`, type `floor clear for the square`; after each square (CW, then CCW) type the tape distance from the start mark. Write down both closures; they go in the calibration log and the report. <!-- step:square-test -->
+- [ ] Short roaming from the admin (Robot (live) → Start roaming), then `stop_roaming`. Check the turn-away distance and the local stop with a box. <!-- step:first-roam -->
+- [ ] Return trials, at least 10: `export SCR_ADMIN_TOKEN=<the admin token>` (type it; never store it), then `.venv/bin/python -m robotctl return-trial --backend http://<backend>:8000 --roam-secs 60`, type `floor clear for roaming`, measure the distance from the start mark with the tape and type it. Expected: "Saved return trial … for run …". Only these physical trials count as results; simulated runs are refused. <!-- step:return-trials -->
+- [ ] Blocked-return test, sensor-unplugged test, backend-off test and the 30-minute mixed test of `docs/PLAN.md`. Write down what happened. <!-- step:floor-faults -->
+- [ ] Bundle for the supervisor: `.venv/bin/python -m robotctl bundle --out ~/bringup-$(date +%F).zip`. It holds logs, configuration (secrets redacted), the calibration file and log, and the versions — never images or audio. <!-- step:bundle -->

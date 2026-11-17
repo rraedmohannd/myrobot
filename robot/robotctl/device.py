@@ -113,7 +113,11 @@ class Device:
                 got.append(m)
                 if done(m):
                     return got
-        raise LinkError(f"no answer to {type(msg).__name__} within {timeout:.1f} s")
+        refused = getattr(self, "refusals", [])
+        raise LinkError(
+            f"no answer to {type(msg).__name__} within {timeout:.1f} s"
+            + (f" (robotd refused: {refused[-1]})" if refused else "")
+        )
 
     async def command(self, msg: Message, timeout: float = 1.0) -> Ack:  # noqa: ASYNC109
         """Send and wait for the ACK of this message type."""
@@ -302,6 +306,7 @@ class CtlDevice(Device):
         self._replies: asyncio.Queue[dict[str, Any]] = asyncio.Queue()
         self._task: asyncio.Task[None] | None = None
         self._error: BaseException | None = None
+        self.refusals: list[str] = []
 
     async def open(self) -> None:
         import aiohttp
@@ -334,6 +339,8 @@ class CtlDevice(Device):
                 if reply.get("bringup") is True or reply.get("mode") == "bringup":
                     return
                 continue
+            if kind == "ctl.ack" and reply.get("request") not in (None, "ctl.bringup"):
+                continue  # the answer to ctl.hello / ctl.telemetry_rate
             if kind in ("ctl.bringup", "ctl.ack", "ctl.error"):
                 if reply.get("ok", reply.get("accepted", kind != "ctl.error")) and reply.get(
                     "on", True
@@ -417,6 +424,11 @@ class CtlDevice(Device):
                         self.vision = data["vision"]
                 elif kind in ("ctl.vision", "vision.state"):
                     self.vision = data
+                elif kind == "ctl.ack" and data.get("request") == "ctl.serial":
+                    if not data.get("ok", True):
+                        log.warning("robotd refused a frame: %s", data.get("reason"))
+                        self.refusals = (self.refusals + [str(data.get("reason"))])[-10:]
+                    continue
                 self._replies.put_nowait(data)
             self._error = ConnectionError("robotd closed the connection")
         except Exception as exc:  # noqa: BLE001 - reported through pump()/send()
