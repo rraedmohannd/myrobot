@@ -9,6 +9,8 @@ import random
 import pytest
 from scr_serial import (
     CANONICAL_VECTORS,
+    AckStatus,
+    DiagReport,
     Drive,
     Event,
     EventCode,
@@ -16,6 +18,7 @@ from scr_serial import (
     FrameDecoder,
     FrameError,
     Heartbeat,
+    MsgType,
     Servo,
     Telemetry,
     cobs_decode,
@@ -23,6 +26,9 @@ from scr_serial import (
     crc16_ccitt,
     decode_frame,
     encode_frame,
+    f32,
+    load_table,
+    param_hash,
     read_fixture,
 )
 from scr_serial.vectors import CPP_FIXTURE, PYTHON_FIXTURE
@@ -64,18 +70,20 @@ def test_every_canonical_message_round_trips() -> None:
         assert frame.seq == seq and frame.msg == msg, name
 
 
-def test_telemetry_body_is_44_bytes_and_carries_the_simulated_flag() -> None:
+def test_telemetry_body_is_48_bytes_and_carries_the_simulated_flag() -> None:
+    # protocol version 2 appended param_hash (u32) to the 44 bytes of version 1
     _, msg = CANONICAL_VECTORS["telemetry"]
     assert isinstance(msg, Telemetry)
-    assert len(msg.pack()) == 44
+    assert len(msg.pack()) == 48
+    assert msg.pack()[:44] == Telemetry.unpack(msg.pack()).pack()[:44]
     assert msg.is_simulated
     assert not Telemetry.unpack(CANONICAL_VECTORS["telemetry_zeros"][1].pack()).is_simulated
 
 
 def test_units_on_the_wire() -> None:
-    assert Drive(0.25, -0.125).pack() == (250).to_bytes(2, "little", signed=True) + (
-        -125
-    ).to_bytes(2, "little", signed=True)
+    assert Drive(0.25, -0.125).pack() == (250).to_bytes(2, "little", signed=True) + (-125).to_bytes(
+        2, "little", signed=True
+    )
     assert Servo(-12.34).pack() == (-1234).to_bytes(2, "little", signed=True)
     assert Drive(99.0, -99.0).pack() == Drive(32.767, -32.768).pack()  # clamped, never wraps
 
@@ -137,3 +145,71 @@ def test_unknown_type_and_wrong_length_are_rejected() -> None:
 def test_flags_match_the_document() -> None:
     assert int(Flags.MOTORS_ENABLED | Flags.IMU_OK | Flags.SIMULATED) == 0x0051
     assert int(Flags.REAR_OBSTACLE_STOP) == 1 << 10
+
+
+# ---------------- protocol version 2 ----------------
+def test_version_2_body_sizes_match_the_document() -> None:
+    sizes = {
+        "param_set": 6, "param_get_all": 2, "param_save": 0, "diag_request": 0,
+        "bringup_imu": 3, "param_report": 15, "diag_report": 37, "imu_raw": 22, "us_raw": 16,
+    }  # fmt: skip
+    for name, size in sizes.items():
+        assert len(CANONICAL_VECTORS[name][1].pack()) == size, name
+
+
+def test_diag_report_round_trip_and_text() -> None:
+    _, diag = CANONICAL_VECTORS["diag_report"]
+    assert isinstance(diag, DiagReport)
+    again = DiagReport.unpack(diag.pack())
+    assert again == diag
+    assert again.version_text == "2.0.1" and again.git_text == "1a2b3c4d"
+    assert again.i2c_addresses == (0x40, 0x68)
+    many = DiagReport(**{**diag.__dict__, "i2c_addresses": tuple(range(0x10, 0x1C))})
+    assert DiagReport.unpack(many.pack()).i2c_addresses == tuple(range(0x10, 0x18))  # 8 slots
+
+
+def test_parameter_table_is_consistent_and_does_not_move_the_robot() -> None:
+    table = load_table()
+    ids = [p.id for p in table.params]
+    assert ids == sorted(ids) and len(set(ids)) == len(ids)
+    for p in table.params:
+        assert p.min <= p.default <= p.max, p.name
+    defaults = {p.name: p.default for p in table.params}
+    # sprint-4 rule: the compiled defaults cannot move the robot
+    for name in ("METRES_PER_TICK", "PID_KP", "MAX_SPEED_MM_S", "RAMP_MM_S2", "TEST_MAX_DUTY",
+                 "MOTOR_MAX_DUTY", "SERVO_US_PER_DEG", "SERVO_SLEW_CDEG_PER_S"):  # fmt: skip
+        assert defaults[name] == 0, name
+    assert table.by_name("OBSTACLE_THRESHOLD_MM").min >= 150  # cannot be tuned away
+    assert table.by_name("METRES_PER_TICK").required
+
+
+def test_param_hash_is_fnv1a_over_id_and_f32() -> None:
+    assert param_hash({}) == 0x811C9DC5
+    table = load_table()
+    base = table.defaults()
+    h = param_hash(base)
+    assert h == param_hash(dict(reversed(list(base.items()))))  # order of the dict is irrelevant
+    assert param_hash({**base, 1: 0.0005}) != h
+    assert param_hash({**base, 1: 0.0005}) == param_hash({**base, 1: f32(0.0005)})  # f32 bytes
+
+
+def test_param_spec_range_check_uses_the_firmware_precision() -> None:
+    spec = load_table().by_name("TEST_MAX_DUTY")
+    assert spec.in_range(0.5) and not spec.in_range(0.5001)
+    assert load_table().by_name("SLIP_MIN_TICKS").in_range(30)
+    assert not load_table().by_name("SLIP_MIN_TICKS").in_range(30.5)
+
+
+def test_firmware_parameter_header_is_up_to_date() -> None:
+    from scr_serial.gen_params_header import HEADER, render
+
+    assert HEADER.read_text(encoding="utf-8") == render(), (
+        "run: python -m scr_serial.gen_params_header"
+    )
+
+
+def test_new_codes_match_the_document() -> None:
+    assert int(EventCode.SLIP) == 12 and int(EventCode.BATTERY_CUTOFF) == 16
+    assert int(AckStatus.OUT_OF_RANGE) == 6 and int(AckStatus.UNKNOWN_PARAM) == 7
+    assert int(Flags.VOLTAGE_COMP_FALLBACK) == 1 << 13
+    assert int(MsgType.BRINGUP) == 0x0B and int(MsgType.US_RAW) == 0x87

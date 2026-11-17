@@ -18,19 +18,34 @@ from scr_serial.messages import (
     US_NO_ECHO,
     Ack,
     AckStatus,
+    Bringup,
+    BringupKind,
+    BuildEnv,
     CalibrateGyro,
+    DiagFlags,
+    DiagReport,
+    DiagRequest,
     Drive,
     DriveMode,
     Event,
     EventCode,
     Flags,
     Heartbeat,
+    ImuRaw,
     Message,
     Mode,
     MsgType,
+    ParamGet,
+    ParamReport,
+    ParamSave,
+    ParamSet,
+    ParamSource,
+    ResetReason,
+    Sensors,
     Servo,
     Stop,
     Telemetry,
+    UsRaw,
 )
 
 FIXTURE_DIR = Path(__file__).resolve().parent.parent / "serial_fixtures"
@@ -49,7 +64,7 @@ CANONICAL_VECTORS: dict[str, tuple[int, Message]] = {
         t_ms=123456, encoders=(1000, -2000, 300000, -4), gyro_z=-0.012345,
         accel_mg=(12, -34, 1001), ultrasonic_mm=(250, 1200, US_NO_ECHO, US_ABSENT),
         battery_mv=11850, battery_ma=1520,
-        flags=Flags.MOTORS_ENABLED | Flags.IMU_OK | Flags.SIMULATED,
+        flags=Flags.MOTORS_ENABLED | Flags.IMU_OK | Flags.SIMULATED, param_hash=0xDEADBEEF,
     )),
     "telemetry_zeros": (0, Telemetry(
         t_ms=0, encoders=(0, 0, 0, 0), gyro_z=0.0, accel_mg=(0, 0, 0),
@@ -57,6 +72,29 @@ CANONICAL_VECTORS: dict[str, tuple[int, Message]] = {
     )),
     "event": (201, Event(t_ms=5000, code=EventCode.OBSTACLE_STOP, arg=180)),
     "ack": (202, Ack(acked_type=int(MsgType.MODE), acked_seq=4, status=AckStatus.OK)),
+    # ---- version 2 ----
+    "param_set": (7, ParamSet(id=9, value=0.25)),  # exact in f32: round trips are equal
+    "param_get_all": (8, ParamGet()),
+    "param_save": (9, ParamSave()),
+    "diag_request": (10, DiagRequest()),
+    "bringup_imu": (11, Bringup(BringupKind.IMU_RAW, 100)),
+    "bringup_jog": (12, Bringup(BringupKind.SERVO_JOG, -25)),
+    "param_report": (203, ParamReport(
+        id=27, value=250.0, min=150.0, max=1000.0, source=ParamSource.NVS,
+    )),
+    "diag_report": (204, DiagReport(
+        fw_version=(2, 0, 1), git_hash=0x1A2B3C4D, build_env=BuildEnv.ESP32DEV, driver_type=0,
+        diag_flags=DiagFlags.PINS_CONFIRMED | DiagFlags.PARAMS_FROM_NVS, param_hash=0x01020304,
+        reset_reason=ResetReason.BROWNOUT, uptime_ms=987654, loop_period_max_us=10450,
+        loop_jitter_us=310, free_heap=201234, i2c_addresses=(0x40, 0x68),
+        sensors=Sensors.IMU | Sensors.INA219 | Sensors.US0 | Sensors.US3,
+    )),
+    "imu_raw": (205, ImuRaw(t_ms=4242, gyro_urad_s=(-150, 2300, -987654), accel_mg=(5, -12, 998))),
+    "us_raw": (206, UsRaw(t_ms=777, dist_mm=(310, US_NO_ECHO, 0, US_ABSENT), misses=(0, 2, 0, 3))),
+    "event_slip": (207, Event(t_ms=65000, code=EventCode.SLIP, arg=1)),
+    "ack_out_of_range": (208, Ack(
+        acked_type=int(MsgType.PARAM_SET), acked_seq=7, status=AckStatus.OUT_OF_RANGE,
+    )),
 }  # fmt: skip
 
 

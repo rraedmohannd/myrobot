@@ -1,6 +1,6 @@
-# Pi ↔ ESP32 serial protocol (version 1)
+# Pi ↔ ESP32 serial protocol (version 2)
 
-Decided in sprint 4 (2026-11-17), before the hardware exists. Two implementations, tested against each other:
+Decided in sprint 4 (2026-11-17), before the hardware exists; version 2 (sprint 5, section 10) adds runtime parameters, diagnostics and bring-up modes. Two implementations, tested against each other:
 - Python: `shared/scr_serial/` (used by `robotd` and by the simulated ESP32);
 - C++: `firmware/lib/protocol/` (used by the firmware and its native tests).
 
@@ -111,3 +111,41 @@ The firmware README lists all of them; the ones the Pi side must know:
 - `DRIVE` during gyro calibration gets `BUSY` and zero targets. The gyro bias is not re-estimated automatically while stopped; the Pi asks with `CALIBRATE_GYRO`.
 - An ultrasonic sensor reports `0xFFFE` until its first finished measurement and after 3 pings without an echo pulse.
 - An encoder fault in `DRIVE` mode stops the robot until that encoder counts again. Low battery only reports; the Pi decides.
+
+## 10. Version 2 (sprint 5, 2026-11-17): parameters, diagnostics, bring-up
+Additive to version 1: framing, CRC, COBS, sequence numbers, baud rate and the watchdog are unchanged, and every valid frame of any type still feeds the watchdog. Both implementations and both fixture files carry all frames of both versions (section 6 table plus 12 new vectors in `shared/scr_serial/vectors.py`). `f32` = IEEE-754 single precision, little-endian.
+
+### 10.1 Telemetry grows to 48 bytes
+`TELEMETRY` gets one field after `flags`: `param_hash u32` (section 10.4). Everything before it is unchanged. A version-1 receiver would reject the frame (wrong length); both sides were updated together.
+
+### 10.2 New Pi → ESP32 messages
+| type | name | body | answer |
+|---|---|---|---|
+| `0x07` | `PARAM_SET` | `id u16`, `value f32` | `ACK` `OK` / `OUT_OF_RANGE` / `UNKNOWN_PARAM` / `BUSY`; after `OK` a `PARAM_REPORT` of that id |
+| `0x08` | `PARAM_GET` | `id u16` (`0xFFFF` = all) | one `PARAM_REPORT` per parameter in id order, then `ACK OK` |
+| `0x09` | `PARAM_SAVE` | – | `ACK OK` after writing NVS; `REJECTED_MODE` unless the drive mode is SAFE, or both targets are 0 and the tracks are still |
+| `0x0A` | `DIAG_REQUEST` | – | `DIAG_REPORT` |
+| `0x0B` | `BRINGUP` | `kind u8`, `arg i16` | `ACK`. Kind 0 `OFF` (every bring-up stream off), 1 `IMU_RAW` stream (arg = rate in Hz, 1–200), 2 `US_RAW` stream (one report per ultrasonic round), 3 `SERVO_JOG` (arg = pulse step in µs, \|arg\| ≤ 50, bounded by the compiled range 500–2500 µs, answered with `EVENT SERVO_PULSE`). Kinds 1–3 are refused with `REJECTED_MODE` outside `MODE TEST`. Leaving TEST or a watchdog stop ends every stream. |
+
+`PARAM_SET` is answered `BUSY` while a target is not zero or a track moves faster than 10 mm/s: **no parameter changes while the tracks move.** Nothing can be set outside the compiled `[min, max]`.
+
+### 10.3 New ESP32 → Pi messages
+| type | name | body |
+|---|---|---|
+| `0x84` | `PARAM_REPORT` | `id u16`, `value f32`, `min f32`, `max f32`, `source u8` (0 compiled default, 1 loaded from NVS, 2 set since boot and not saved) — 15 bytes |
+| `0x85` | `DIAG_REPORT` | 37 bytes: `fw_major u8`, `fw_minor u8`, `fw_patch u8`, `git_hash u32` (first 8 hex digits of the commit; 0 = unknown), `build_env u8` (0 esp32dev, 1 esp32-compile-check, 2 esp32-ci-pins, 3 sim-check, 4 native test, 5 robotd's simulated ESP32), `driver_type u8` (0 L298N, 1 VNH), `diag_flags u8` (bit 0 PINS_CONFIRMED, 1 CI_PINS_DO_NOT_FLASH, 2 PARAMS_FROM_NVS, 3 SIMULATED), `param_hash u32`, `reset_reason u8` (0 unknown, 1 power-on, 2 brownout, 3 task watchdog, 4 panic, 5 software, 6 reset pin, 7 other watchdog, 8 deep-sleep wake), `uptime_ms u32`, `loop_period_max_us u16`, `loop_jitter_us u16`, `free_heap u32`, `i2c_count u8`, `i2c_addr[8] u8` (7-bit addresses found by the scan, unused slots 0), `sensors u8` (bit 0 IMU, 1 INA219, 2 I2C expander, 3–6 ultrasonic 0–3 answered at least once). Also sent once at boot, right after `EVENT BOOT`. |
+| `0x86` | `IMU_RAW` | `t_ms u32`, `gyro[3] i32` (µrad/s, robot axes forward/left/up, bias **not** removed), `accel[3] i16` (mg) — 22 bytes |
+| `0x87` | `US_RAW` | `t_ms u32`, `dist_mm[4] u16` (special values as in telemetry), `misses[4] u8` (consecutive misses per sensor) — 16 bytes |
+
+New event codes: 12 `SLIP` (arg: side, 0 left, 1 right; once per episode: \|front − rear\| ticks of one side over a 0.5 s window above `SLIP_RATIO` × the larger of the two and above `SLIP_MIN_TICKS`), 13 `I2C_RECOVERED` (arg: bus-clear attempts), 14 `PARAM_CHANGED` (arg: id), 15 `SERVO_PULSE` (arg: pulse µs), 16 `BATTERY_CUTOFF` (arg: mV; the motors go to SAFE; only when `BATTERY_CUTOFF_MV` > 0).
+New `ACK` status values: 6 `OUT_OF_RANGE`, 7 `UNKNOWN_PARAM`.
+New telemetry flags: bit 11 `PARAMS_UNSAVED`, 12 `BRINGUP_ACTIVE`, 13 `VOLTAGE_COMP_FALLBACK` (no INA219 reading; the duty cap is computed for a full 12.6 V pack).
+
+### 10.4 Runtime parameters and their hash
+- The table is `shared/scr_serial/params.json` (40 parameters: id, name, unit, type, default, min, max, group, the `robotctl` step that measures it, whether the calibration needs it). It is the **single source**: the firmware compiles `firmware/lib/params/scr_param_table.h`, generated by `python -m scr_serial.gen_params_header`, and a Python test fails when the header is out of date.
+- The defaults are the sprint 4 placeholders: **an uncalibrated robot does not move** (`METRES_PER_TICK`, the PID gains, ramp, maximum speed, `TEST_MAX_DUTY` and `MOTOR_MAX_DUTY` are 0). `OBSTACLE_THRESHOLD_MM` cannot be set below 150 mm.
+- Values persist in NVS after `PARAM_SAVE`.
+- **Hash:** FNV-1a 32-bit (offset `0x811C9DC5`, prime `0x01000193`) over, for every parameter in ascending id order, `id u16 LE` followed by the current `value f32 LE`. Same function in Python (`scr_serial.param_hash`) and C++. `robotd` pushes the calibration values at every connection and compares the hash it expects with the hash in telemetry, so the Pi and the ESP32 can no longer disagree about `METRES_PER_TICK` (the sprint 4 problem).
+
+### 10.5 Motor voltage compensation
+`duty_cap = min(MOTOR_MAX_DUTY, MOTOR_RATED_V / max(V_batt − V_DRIVER_DROP, 0.1))`. `V_batt` comes from the INA219 (filtered), or is taken as 12.6 V (a full pack, the most conservative value) when the INA219 has no valid reading (flag 13). It applies to DRIVE and TEST mode; TEST is also capped by `TEST_MAX_DUTY`. `MOTOR_RATED_V` 7.2 V is the Rover 5 datasheet value; `V_DRIVER_DROP` is a placeholder (L298N 2.0 V, VNH about 0.3 V).
