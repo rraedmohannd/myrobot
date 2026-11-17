@@ -2,7 +2,9 @@
 
 Environment: BACKEND_URL (ws://<backend>:8000/ws/robot), ROBOT_TOKEN, ROBOT_ID,
 ROBOTD_SERIAL_PORT, ROBOTD_UI_PORT, ROBOTD_UI_HOST, ROBOTD_SIM_PORT, ROBOTD_ASSETS_DIR,
-ROBOTD_CACHE_DIR, ROBOTD_PAGE_BACKEND. The repository's .env is never read.
+ROBOTD_CACHE_DIR, ROBOTD_PAGE_BACKEND, ROBOTD_CALIBRATION, LOG_DIR, ROBOTD_SETTINGS_PIN,
+ROBOTD_SETTINGS_FILE. BACKEND_URL may list several addresses separated by commas (tried in
+order). The repository's .env is never read.
 """
 
 import argparse
@@ -28,7 +30,14 @@ def main() -> None:
         "--port", dest="serial_port", help="serial port of the ESP32 (default /dev/esp32)"
     )
     parser.add_argument("--config", help="JSON file with Config fields")
-    parser.add_argument("--backend", dest="backend_url", help="ws://host:8000/ws/robot")
+    parser.add_argument(
+        "--calibration", dest="calibration_path",
+        help="calibration file (default /etc/smart-campus-robot/calibration.json on the Pi, "
+        "robot/calibration.dev.json in development; --sim without it: SIMULATED profile)",
+    )  # fmt: skip
+    parser.add_argument(
+        "--backend", dest="backend_url", help="ws://host:8000/ws/robot[,ws://other:8000/ws/robot]"
+    )
     parser.add_argument("--ui-port", dest="ui_port", type=int)
     parser.add_argument("--sim-port", dest="sim_port", type=int)
     parser.add_argument("--seed", dest="sim_seed", type=int)

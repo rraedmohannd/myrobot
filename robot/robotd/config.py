@@ -78,7 +78,9 @@ class Config:
     vision_timeout_s: float = 1.5  # no vision.state for this long -> camera "absent"
 
     # ---- backend link ----
+    # one address, or several separated by commas: tried in order, reconnect cycles through them
     backend_url: str = "ws://localhost:8000/ws/robot"
+    backend_index: int = 0  # which of them is in use (set by the backend link)
     robot_token: str = ""
     robot_id: str = "robotd"
     backend_reconnect_s: float = 2.0
@@ -104,9 +106,19 @@ class Config:
     page_backend: str = ""  # host:port the PAGE uses for /ws/robot; default: from backend_url
 
     @property
+    def backend_urls(self) -> list[str]:
+        urls = [u.strip() for u in self.backend_url.split(",") if u.strip()]
+        return urls or ["ws://localhost:8000/ws/robot"]
+
+    @property
+    def current_backend_url(self) -> str:
+        urls = self.backend_urls
+        return urls[self.backend_index % len(urls)]
+
+    @property
     def backend_http(self) -> str:
-        """http(s)://host:port of the backend, derived from the WebSocket address."""
-        url = self.backend_url
+        """http(s)://host:port of the backend in use, derived from its WebSocket address."""
+        url = self.current_backend_url
         scheme = "https" if url.startswith("wss://") else "http"
         rest = url.split("://", 1)[-1]
         return f"{scheme}://{rest.split('/', 1)[0]}"

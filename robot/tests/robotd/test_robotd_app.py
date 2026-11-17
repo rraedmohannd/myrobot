@@ -349,4 +349,33 @@ def test_inject_puts_backend_before_scripts_and_local_script_last() -> None:
     html = inject(PAGE, "192.168.1.20:8000", "")
     assert 'window.SCR_BACKEND = "192.168.1.20:8000";window.SCR_ROBOT_TOKEN = null;' in html
     assert html.index("SCR_BACKEND") < html.index("robot-client.js") < html.index("robot-local.js")
-    assert html.count("<script") == 4
+    assert html.count("<script") == 5
+    assert html.index("robot-guard.js") < html.index("SCR_BACKEND")  # the guard runs first
+
+
+async def test_several_backend_addresses_and_calibration_report(
+    backend: FakeBackend, tmp_path: Path
+) -> None:
+    cfg = Config(
+        sim=True, sim_port=0, ui_port=0, cache_dir=str(tmp_path / "cache"),
+        backend_url=f"ws://127.0.0.1:9/ws/robot, ws://127.0.0.1:{backend.port}/ws/robot",
+        backend_reconnect_s=0.1, status_period_s=0.2, fault_clear_s=0.2, reconnect_s=0.1,
+        log_dir=str(tmp_path / "logs"),
+    )  # fmt: skip
+    robot = RobotApp(cfg)
+    await robot.start()
+    try:  # the first address refuses: robotd moves on to the second one
+        assert await wait_for(lambda: robot.backend.connected)
+        assert cfg.backend_index == 1 and cfg.backend_http == f"http://127.0.0.1:{backend.port}"
+        assert await wait_for(lambda: bool(backend.of("calibration.report")))
+        report = backend.of("calibration.report")[0]
+        assert report["is_simulated"] is True and "METRES_PER_TICK" in report["values"]
+        assert await wait_for(lambda: "firmware" in backend.of("robot.status")[-1])
+        status = backend.of("robot.status")[-1]
+        assert status["calibration"]["status"] == "complete"
+        assert status["calibration"]["is_simulated"] is True
+        assert status["firmware"]["build_env"] == "robotd-simulated"
+        assert "battery_a" in status and "energy_wh" in status
+        assert backend.invalid == []
+    finally:
+        await robot.stop()

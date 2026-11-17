@@ -142,7 +142,9 @@ class Brain:
         self.param_pushes = 0
         self._need_push = True
         self._push_at: float | None = None
+        self._grace_until = -1e9
         self.diag: DiagReport | None = None
+        self.health: dict[str, Any] = {}  # Pi health (robotd.health), set by the app
         self.bringup = False
         # ---- gyro bias ----
         self.gyro_bias_residual = 0.0
@@ -201,13 +203,23 @@ class Brain:
     def calibration_status(self) -> dict[str, Any]:
         return calib.status_dict(self.cal, self.table)
 
-    def _push_params(self, now_s: float) -> None:
+    def _push_params(self, now_s: float, grace: bool = True) -> None:
         for pid, value in calib.push_values(self.cal, self.table).items():
             self.link.send(ParamSet(pid, value))
         self.link.send(DiagRequest())
         self._need_push, self._push_at = False, now_s
+        if grace:  # a first push: its answer is on the way; a retry gets no grace
+            self._grace_until = now_s + PARAM_GRACE_S
         self.param_pushes += 1
         log.info("parameters pushed to the ESP32 (push %d)", self.param_pushes)
+
+    def set_health(self, health: dict[str, Any]) -> None:
+        """A new Pi health reading; an under-voltage becomes a warning event (power evidence)."""
+        if health.get("under_voltage_now") and not self.health.get("under_voltage_now"):
+            self._event("under_voltage", {
+                "cpu_temp_c": health.get("cpu_temp_c"), "throttled": health.get("throttled_now"),
+            }, always=True)  # fmt: skip
+        self.health = health
 
     def on_link(self, connected: bool, now_s: float) -> None:
         """The serial port was (re)opened or lost."""
@@ -524,10 +536,10 @@ class Brain:
                 "esp32": f"{frame.param_hash:08x}", "expected": f"{self.expected_hash:08x}",
             })  # fmt: skip
         self.params_ok = False
-        if self._push_at is not None and now_s - self._push_at < PARAM_GRACE_S:
+        if now_s < self._grace_until:
             return []  # just pushed: the answer is on its way (motion is held meanwhile)
         if self._push_at is None or now_s - self._push_at >= self.cfg.param_push_retry_s:
-            self._push_params(now_s)
+            self._push_params(now_s, grace=False)
         return ["param_hash_mismatch"]
 
     def _gyro_calibration(self, frame: Telemetry, now_s: float) -> None:
@@ -633,6 +645,8 @@ class Brain:
         if firmware is not None:
             out["firmware"] = firmware
         out["calibration"] = self.calibration_status()
+        if self.health:
+            out["health"] = dict(self.health)
         return out
 
     def take_outbox(self, limit: int = 50) -> list[dict[str, Any]]:

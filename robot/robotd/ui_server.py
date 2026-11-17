@@ -49,6 +49,8 @@ could not be loaded from the backend and no cached copy exists. Retrying…</p>
 def inject(html: str, backend_host: str, token: str) -> str:
     """Add the backend address (+ token) before the page's scripts, the local script at the end."""
     head = (
+        # robot mode: the page never opens the camera (visiond owns it); runs before page scripts
+        '<script src="/local/robot-guard.js"></script>\n'
         f"<script>window.SCR_BACKEND = {json.dumps(backend_host)};"
         f"window.SCR_ROBOT_TOKEN = {json.dumps(token or None)};</script>\n"
     )

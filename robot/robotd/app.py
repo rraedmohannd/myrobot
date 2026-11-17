@@ -15,6 +15,7 @@ from robotd.calibration import SIM_PROFILE, Calibration
 from robotd.config import Config, public_dict
 from robotd.core import Brain
 from robotd.ctl import CtlHub
+from robotd.health import read_health
 from robotd.link import SerialLink
 from robotd.sim_esp32 import SimEsp32, SimEsp32Config, SimEsp32Server
 from robotd.transport import SerialTransport, TcpTransport, Transport
@@ -23,7 +24,8 @@ from robotd.ui_server import UiServer
 log = logging.getLogger("robotd")
 
 TICK_S = 0.02  # brain step: 50 Hz
-CAL_POLL_S = 2.0  # the calibration file is checked for changes this often
+CAL_POLL_S = 2.0
+HEALTH_PERIOD_S = 5.0  # the calibration file is checked for changes this often
 
 
 def load_calibration(cfg: Config) -> tuple[Calibration, str, Path | None]:
@@ -110,6 +112,7 @@ class RobotApp:
             asyncio.create_task(self._loop(), name="brain"),
             asyncio.create_task(self._sync(), name="asset-sync"),
             asyncio.create_task(self._watch_calibration(), name="calibration-watch"),
+            asyncio.create_task(self._watch_health(), name="pi-health"),
         ]
 
     async def _sync(self) -> None:
@@ -125,6 +128,12 @@ class RobotApp:
                 self._cal_mtime = mtime
                 log.info("calibration file changed: reloading")
                 self.reload_calibration()
+
+    async def _watch_health(self) -> None:
+        while True:
+            with contextlib.suppress(Exception):
+                self.brain.set_health(await asyncio.to_thread(read_health))
+            await asyncio.sleep(HEALTH_PERIOD_S)
 
     async def _loop(self) -> None:
         while True:

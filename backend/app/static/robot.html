@@ -258,7 +258,10 @@ const client = new RobotClient({
 //   ?face_start=1[&face_start_ms=1500]  a face looking at the camera starts the conversation
 //   ?mouth_thr=0.025                    mouth-activity threshold (calibrate with real people)
 // Frames never leave the browser: only face_track_id and overlap go out with audio.end.
-let cameraWanted = params.get("camera") === "1" || params.get("face_start") === "1";
+// Robot mode (page served by robotd on the robot): visiond owns the webcam, so this page never
+// opens it (robotd's robot-guard.js also refuses any video request). Elsewhere nothing changes.
+const robotMode = !!window.SCR_ROBOT_MODE;
+let cameraWanted = !robotMode && (params.get("camera") === "1" || params.get("face_start") === "1");
 const camera = new SpeakerCamera({
   client, video: $("camVideo"), canvas: $("camCanvas"), box: $("cam"),
   activityMin: parseFloat(params.get("mouth_thr")) || 0.025,
@@ -570,7 +573,7 @@ addEventListener("keydown", e => {
   if (e.target === $("typed") || e.ctrlKey || e.altKey || e.metaKey) return;
   if (e.code === "Space") { e.preventDefault(); start(); }
   else if (e.code === "KeyT") { e.preventDefault(); toggleTyping(); }
-  else if (e.code === "KeyC") { cameraWanted = !camera.running; camera.toggle(); }
+  else if (e.code === "KeyC" && !robotMode) { cameraWanted = !camera.running; camera.toggle(); }
   else if (e.code === "Escape") { if (xp) { client.stopPlayback(); exitExplainer(); } if (inSession) client.endSession("user_done"); }
   else if (e.code === "KeyF") { if (document.fullscreenElement) document.exitFullscreen(); else document.documentElement.requestFullscreen().catch(() => {}); }
 });
@@ -578,7 +581,7 @@ addEventListener("keydown", e => {
 render();
 client.connect();
 loadScreen();
-if (params.get("face_start") === "1") camera.start();   // the camera must watch before a conversation exists
+if (params.get("face_start") === "1" && !robotMode) camera.start();   // the camera must watch before a conversation exists
 </script>
 </body>
 </html>

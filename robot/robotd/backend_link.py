@@ -40,7 +40,7 @@ class BackendLink:
         self.last_error = ""
 
     def _url(self) -> str:
-        url = self.cfg.backend_url
+        url = self.cfg.current_backend_url
         if self.cfg.robot_token:
             url += ("&" if "?" in url else "?") + "token=" + self.cfg.robot_token
         return url
@@ -58,6 +58,12 @@ class BackendLink:
                 if not failing:  # the URL is not logged: it may carry the token
                     log.warning("backend unavailable (%s); retrying", self.last_error)
                 failing = True
+                if len(self.cfg.backend_urls) > 1:  # several addresses: try the next one
+                    self.cfg.backend_index = (self.cfg.backend_index + 1) % len(
+                        self.cfg.backend_urls
+                    )
+                    log.info("trying backend address %d of %d", self.cfg.backend_index + 1,
+                             len(self.cfg.backend_urls))  # fmt: skip
             else:
                 failing = False
             finally:
@@ -138,6 +144,9 @@ class BackendLink:
             if now >= next_heartbeat:
                 next_heartbeat = now + cfg.backend_heartbeat_s
                 await self._send(ws, {"type": "heartbeat"})
+            report = self.brain.take_calibration_report()  # at connect and on file change
+            if report is not None:
+                await self._send(ws, report)
             if now >= next_status:
                 next_status = now + cfg.status_period_s
                 await self._send(ws, self.brain.status(now))

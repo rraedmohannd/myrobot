@@ -73,7 +73,10 @@
   }
 
   // audio.end: use visiond's speaker while it is reporting; otherwise the page's own camera.
+  // Robot mode: visiond owns the webcam; the page's camera must not run (robot-guard.js refuses
+  // video anyway; this stops one that was somehow started).
   const own = window.speakerCamera || null;
+  if (own && own.running && typeof own.stop === "function") own.stop();
   window.speakerCamera = {
     audioEndFields() {
       if (performance.now() - visionAt < 1500) {
