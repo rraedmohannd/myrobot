@@ -8,3 +8,8 @@ docs/PROTOCOL.md text eol=lf
 *.desktop text eol=lf
 robot/deploy/robot.env.example text eol=lf
 shared/serial_fixtures/*.txt text eol=lf
+# Server deployment files (sprint 6) are read on Linux servers and in containers
+deploy/server/Caddyfile text eol=lf
+deploy/server/*.conf.example text eol=lf
+deploy/server/.env.production.example text eol=lf
+deploy/backup/* text eol=lf

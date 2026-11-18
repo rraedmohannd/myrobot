@@ -5,7 +5,7 @@ name: CI
 
 on:
   push:
-    branches: ["sprint-*"]
+    branches: ["sprint-*", "release"]
   pull_request:
   workflow_dispatch:
 
@@ -87,6 +87,21 @@ jobs:
       - name: JS speaker logic test
         working-directory: .
         run: node backend/tests/js/speaker_logic_test.mjs
+
+  shellcheck:
+    name: shellcheck (shell scripts)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      # Every tracked *.sh, with the same pinned shellcheck as on the laptop (docs/SPRINT_6.md P0.4).
+      # Excluded: robot/scripts/container_test.sh (its functions are called indirectly, by name, so
+      # shellcheck 0.10 reports them as unreachable, SC2317 "info"; to be fixed in that file).
+      - name: shellcheck
+        run: |
+          mapfile -t files < <(git ls-files '*.sh' | grep -vxF robot/scripts/container_test.sh)
+          printf '%s\n' "${files[@]}"
+          docker run --rm -v "$PWD:/mnt" -w /mnt koalaman/shellcheck:v0.10.0 -x "${files[@]}"
 
   robot:
     name: robot + firmware tools (Python ${{ matrix.python }})

@@ -168,3 +168,28 @@ Everything below is active only with `APP_ENV=production`; the laptop setup is u
   - the client address seen in nginx mode on real Linux (expected: the gateway .1).
   
   In a rehearsal on a non-443 port, the http→https redirect goes to port 443; on the server it is correct. The admin "Bring-up" tab reads `/docs/BRINGUP.md`, which is not in the server image, so on the server it says the checklist is missing. Bring-up is done on the laptop anyway.
+
+## P0.4 — Server scripts (`deploy/server/`)
+All 8 scripts are bash with `set -euo pipefail` and have `--help`. **shellcheck v0.10.0: 0 findings**; `bash -n` passes on all of them.
+
+| Script | What it does |
+|---|---|
+| `lib.sh` | Shared helpers: finds the checkout and the env file, reads/writes single keys without sourcing the file, `dc()` (Caddy profile, or the nginx override when `USE_CADDY=false`), health wait, database restore, file restore into the volumes as uid 10001. |
+| `install.sh` | Ubuntu 22.04/24.04, Debian 12/13 (other systems refused unless `--force`). Steps: packages; Docker from Docker's own apt repository; `ufw` (SSH, 80/tcp, 443/tcp+udp only; refuses if sshd listens on another port than the one given); unattended security upgrades; code in `/opt/smart-campus-robot` (clone over HTTPS or with a deploy key, `--ref`). Creates `deploy/server/.env` with **generated** secrets (`[A-Za-z0-9]`, access code `xxxx-xxxx-xxxx`), the domain or `<ip-with-dashes>.sslip.io`, and the OpenAI key typed hidden. The file is mode 600, root only. Then builds, starts, waits for health, and prints the URLs and next steps. Re-running keeps the existing `.env` and only adds missing keys. The install log never contains a secret; the access code is shown only on the terminal. |
+| `restore-bundle.sh` | Refuses links, absolute paths and `..` in the archive. Checks the SHA-256 of every file and refuses files the manifest does not list. Refuses a bundle from newer code, and refuses a non-empty database unless `--replace` (which asks for YES and backs up first). Restores, migrates, then prints an OK/DIFF table per table (exit 1 on a difference). |
+| `create-admin.sh` | Wraps `create-admin` (password typed, or `--password-stdin`). |
+| `update.sh` | Refuses a checkout with local changes. Backup → tag the running image as `rollback` → fetch + fast-forward (or `--ref` a tag) → build (or `--image` from GHCR, P1) → up → health check. **If the check fails:** puts back the image, the commit and `BACKEND_IMAGE`, restarts, and says that database migrations are not reversed, naming the backup stamp to restore. `--simulate-failed-health` exists for testing only. |
+| `status.sh` | Containers, health, disk, last backup, today's paid calls against the cap, certificate expiry. |
+| `backup-now.sh` / `restore-backup.sh` | A backup on demand; a restore of a dated backup (asks for YES, backs up first, checks health). |
+
+- `.gitattributes`: LF for the Caddyfile, `*.conf.example`, `.env.production.example`, `deploy/backup/*`.
+- **CI:** runs on pushes to `release` too, plus a new **shellcheck** job over every tracked `*.sh`.
+- **Tested in a privileged Ubuntu 24.04 container with Docker-in-Docker** (Caddy's internal CA, so nothing contacted Let's Encrypt):
+  - The first run found 2 bugs, both fixed: a placeholder check that matched a comment line, and the domain/key placeholders.
+  - Then the full install ran: apt, the Docker repository, ufw active with the right rules, unattended-upgrades. The stack built and was healthy. A second run was idempotent (0 keys added).
+  - `status.sh`: all sections OK.
+  - `restore-bundle.sh` **with the real bundle**: 353 SHA-256 OK, migrated 0012 → 0013, **22/22 tables OK**. A second restore without `--replace` was refused; a tampered `db.dump` was refused; `--replace --yes` backed up first, then 22/22 OK.
+  - `create-admin` worked; restore-backup worked.
+  - `update.sh` rollback tested three ways: simulated health failure; a new image with a failure; a broken `--image`. Each time the image, commit and `BACKEND_IMAGE` were put back, the stack was healthy again and the script exited 1. A normal update exited 0.
+- **Debian 12:** packages, Docker 29.10 + compose, ufw, idempotent second run (no stack started).
+- **Not run anywhere:** real systemd, a real Let's Encrypt certificate, real sshd port detection, nginx mode (`--no-caddy`), the interactive prompts (domain, hidden key, YES).
