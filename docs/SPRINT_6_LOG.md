@@ -221,3 +221,13 @@ All 8 scripts are bash with `set -euo pipefail` and have `--help`. **shellcheck 
   
   shellcheck still 0 findings.
 - `install.sh` clones `main` by default, which does not exist on GitHub yet (question 2). Until then, use `--ref`.
+- **02:20:** the updated addendum (v3, "route 2 decided") reached the disk and replaced the assumption above. Applied:
+  - route 1 (the owner's proxy) is cancelled, so there is no `PROXY_REQUEST.md`;
+  - the tunnel service is `cloudflared` (profile `tunnel`), and `tunnel-url.sh` re-creates only the backend;
+  - the server env file is `/srv/guest/.env`;
+  - the rehearsal project is `guest-rehearsal`;
+  - the SSH user has no sudo, so the guest scripts never need root;
+  - L1/L2 come after T1–T5.
+  
+  One design consequence: `cloudflared` cannot share the backend's network namespace, because re-creating the backend would break it and the public address would change. Instead it gets a fixed address on a pinned 10.x /24, and `FORWARDED_ALLOW_IPS` trusts only that address.
+- **OpenAI budget:** T4 asks for real providers in the rehearsal, but Mohannd's sprint instruction caps it at 3 real questions. Kept: load and memory runs use fake providers; at most 3 real questions (typed, spoken, "I don't know"). Question 4.
