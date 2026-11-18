@@ -231,3 +231,39 @@ All 8 scripts are bash with `set -euo pipefail` and have `--help`. **shellcheck 
   
   One design consequence: `cloudflared` cannot share the backend's network namespace, because re-creating the backend would break it and the public address would change. Instead it gets a fixed address on a pinned 10.x /24, and `FORWARDED_ALLOW_IPS` trusts only that address.
 - **OpenAI budget:** T4 asks for real providers in the rehearsal, but Mohannd's sprint instruction caps it at 3 real questions. Kept: load and memory runs use fake providers; at most 3 real questions (typed, spoken, "I don't know"). Question 4.
+
+### T3 — Guest scripts (`deploy/server/guest/`) and T5 — `docs/DEPLOY_GUEST.md`
+- **Scripts:** `lib.sh`, `preflight.sh`, `snapshot-others.sh`, `compare-others.sh`, `load-image.sh`, `install-guest.sh`, `restore-bundle.sh`, `create-admin.sh`, `status-guest.sh`, `tunnel.sh`, and the later items `update-guest.sh`, `uninstall-guest.sh` (L1) and `check-forbidden.sh` (L2). Env template `guest.env.example`, installed as `/srv/guest/.env`.
+- **Rules built in:**
+  - Every script refuses to run outside `/srv/guest/app/deploy/server/guest`.
+  - One compose helper: `docker compose -p guest --env-file /srv/guest/.env -f /srv/guest/app/docker-compose.guest.yml`.
+  - **No sudo or root anywhere**: if `/srv/guest` is missing or not writable, the script says to ask the owner.
+  - Never calls `install.sh`.
+  - No `jq`: `restore-bundle.sh` uses python3, or the backend image's Python if the host has none.
+- **Install and tunnel:**
+  - `install-guest.sh` generates the secrets, asks for the OpenAI key hidden (the separate server key with a monthly limit), runs preflight and the snapshot, starts with `--profile tunnel`, then calls `tunnel-url.sh` and `compare-others.sh`.
+  - Only `tunnel.sh restart` re-creates `cloudflared` (with a warning that the address changes); `update-guest.sh` and `restore-bundle.sh` never touch it.
+- **Admin accounts:** `create-admin.sh supervisor` makes a second admin account for the supervisor; the password is typed by Mohannd.
+- **`check-forbidden.sh` (L2, in CI):**
+  - Forbidden: any `prune`; systemctl/apt/ufw/iptables/reboot/shutdown; daemon.json/crontab; compose without `-p guest`; `rm -rf` outside `/srv/guest`.
+  - Also forbidden: direct `docker logs/exec/stop/restart/...`, and any `docker inspect` other than the allowed start-time format.
+  - Tested by `deploy/server/tests/test-guest-check-forbidden.sh`: 43/43 cases.
+- **shellcheck:** 0 findings on all 14 scripts.
+- **Tested** as a non-root user in the docker group, in a throw-away Ubuntu 24.04 + Docker 29 container with a test root:
+  - **Preflight:** exit 1 when another container holds the port.
+  - **load-image:** refuses a wrong hash and a foreign image.
+  - **Install:** healthy with fake providers.
+  - **The alarm is proven:** after restarting one dummy "other" container and stopping another, `compare-others.sh` printed "START TIME CHANGED" and "NOT RUNNING ANY MORE" and exited 1. When nothing changed it exited 0.
+  - **restore-bundle with the real bundle:** 353 SHA-256 OK, 22/22 tables OK, a second run refused.
+  - **Supervisor admin account:** created.
+  - **status-guest:** idle memory backend 65 MiB of 512, db 48 of 320.
+  - **tunnel.sh up:** a real trycloudflare address; `/health` 200 and `/robot` 303 over it.
+  - **update-guest:** rollback after a simulated failure without re-creating `cloudflared`; old images removed by exact tag.
+  - **uninstall:** `--purge` refuses a wrong confirmation.
+- **`docs/DEPLOY_GUEST.md`:**
+  - opens with the checklist "Tomorrow with the supervisor";
+  - then SSH (key already in place), preflight, snapshot, building and moving the image, install, restore, admin accounts, compare-others;
+  - the links for the supervisor;
+  - the PC backup.
+  
+  Placeholders only. `PROXY_REQUEST.md` was not written (route 1 cancelled; one line under "Later").

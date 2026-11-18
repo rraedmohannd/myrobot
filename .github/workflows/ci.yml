@@ -100,6 +100,13 @@ jobs:
           mapfile -t files < <(git ls-files '*.sh')
           printf '%s\n' "${files[@]}"
           docker run --rm -v "$PWD:/mnt" -w /mnt koalaman/shellcheck:v0.10.0 -x "${files[@]}"
+      # Guest mode (docs/SPRINT_6_GUEST.md L2): no forbidden command in deploy/server/guest/ (prune,
+      # host-wide commands, compose without -p guest, rm -rf outside /srv/guest, full inspect, ...),
+      # and the check itself catches every forbidden form (fixtures in a temporary folder).
+      - name: guest-mode forbidden-command check
+        run: |
+          bash deploy/server/guest/check-forbidden.sh
+          bash deploy/server/tests/test-guest-check-forbidden.sh
 
   robot:
     name: robot + firmware tools (Python ${{ matrix.python }})

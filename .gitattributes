@@ -13,3 +13,4 @@ deploy/server/Caddyfile text eol=lf
 deploy/server/*.conf.example text eol=lf
 deploy/server/.env.production.example text eol=lf
 deploy/backup/* text eol=lf
+deploy/server/guest/** text eol=lf
