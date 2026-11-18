@@ -38,7 +38,7 @@ except urllib.error.HTTPError as e:
     code, body = e.code, e.read()
 d = json.loads(body)
 keys = ("status", "version", "database", "pgvector", "migration")
-print("HTTP %s: " % code + " ".join("%s=%s" % (k, d[k]) for k in keys if k in d))
+print("HTTP %s: " % code + " ".join("%s=%s" % (k, d[k]) for k in keys if d.get(k) is not None))
 ' 2>/dev/null)" || health="no answer (is the backend running? docker compose logs backend)"
 note "$health"
 

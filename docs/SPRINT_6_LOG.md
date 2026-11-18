@@ -193,3 +193,31 @@ All 8 scripts are bash with `set -euo pipefail` and have `--help`. **shellcheck 
   - `update.sh` rollback tested three ways: simulated health failure; a new image with a failure; a broken `--image`. Each time the image, commit and `BACKEND_IMAGE` were put back, the stack was healthy again and the script exited 1. A normal update exited 0.
 - **Debian 12:** packages, Docker 29.10 + compose, ufw, idempotent second run (no stack started).
 - **Not run anywhere:** real systemd, a real Let's Encrypt certificate, real sshd port detection, nginx mode (`--no-caddy`), the interactive prompts (domain, hidden key, YES).
+
+## Guest mode (G1–G8) and the HTTPS link for the supervisor
+- 01:50: `docs/SPRINT_6_GUEST.md` appeared (guest mode beside another live project on the rented server; the owner's rules stay outside the repo). It was read with the rules file and committed (placeholders only, checked: no address or name of the other project anywhere in the repo or its history).
+- ~02:00: Mohannd's message said the addendum had changed (T1–T5 first, the goal is now **a public HTTPS link for the supervisor tomorrow**, two routes: a site on the owner's Caddy, and a Cloudflare quick tunnel inside the guest project; a one-command rehearsal on the home PC as the backup). **The new version did not reach the disk** (watched until 02:08; the file still has the 01:55 content without T1–T5). I continued from the message and the G-items, as follows (question 3):
+  - **T-order assumed:** guest compose with the quick tunnel → one-command start on the PC with a real quick tunnel → access checks over the public link → request for the owner's proxy → guides. L-items not seen.
+
+## P0.8 — `docs/DEPLOY_SERVER.md` (for a dedicated server)
+- Step-by-step guide in plain English for a server admin who is not a project member. It opens with a box: this guide is for a server **dedicated** to the project (ports 80/443, firewall). The current shared server uses `docs/DEPLOY_GUEST.md` instead.
+- What it covers:
+  - requirements;
+  - what Mohannd sends: deploy key option A (recommended) or B, the bundle by scp, the domain, and the OpenAI key typed in hidden or sent separately (a separate key with a monthly limit);
+  - first install: `install.sh` with its flag table, `restore-bundle.sh`, `create-admin.sh`;
+  - a 12-item check table with expected results;
+  - the nginx variant with certbot;
+  - updates (`--ref`, `--image`, automatic rollback), backups and restore, logs, disk;
+  - key rotation per key, with what to restart;
+  - security notes and troubleshooting.
+- Every command and flag was checked against the scripts' own `--help`. It states that the install was rehearsed only in containers.
+- Mismatches the guide's author found in the scripts, **fixed**:
+  - the GHCR image name in `update.sh` (now `smart-campus-backend`, as the workflow pushes it);
+  - `install.sh` now sets the deploy key (`core.sshCommand`) on an existing checkout too, so `update.sh` can fetch;
+  - `status.sh` no longer prints `database=None …` in production;
+  - `install.sh` suggests copying the bundle to the SSH user, not `root`;
+  - an incomplete command in a warning;
+  - a `dc up -d` hint that only works inside `lib.sh`.
+  
+  shellcheck still 0 findings.
+- `install.sh` clones `main` by default, which does not exist on GitHub yet (question 2). Until then, use `--ref`.

@@ -190,6 +190,10 @@ if [[ -n "$DEPLOY_KEY" ]]; then
 fi
 if git -C "$TARGET" rev-parse --git-dir >/dev/null 2>&1; then
     note "already a git checkout ($(git -C "$TARGET" log -1 --format='%h %s' 2>/dev/null || echo 'commit unknown')): kept. To update: deploy/server/update.sh"
+    if [[ -n "$DEPLOY_KEY" ]]; then
+        git -C "$TARGET" config core.sshCommand "$GIT_SSH_COMMAND"
+        note "deploy key set for git fetch in $TARGET (core.sshCommand)"
+    fi
 elif [[ -e "$TARGET" && -n "$(ls -A "$TARGET" 2>/dev/null)" ]]; then
     if [[ -f "$TARGET/docker-compose.prod.yml" && -f "$TARGET/deploy/server/lib.sh" ]]; then
         warn "$TARGET holds the code but is not a git checkout: kept, but update.sh will not work there"
@@ -320,7 +324,7 @@ if [[ $current_key_set -eq 0 || $ASK_KEY -eq 1 ]]; then
     else
         [[ $current_key_set -eq 1 ]] || env_set OPENAI_API_KEY ""
         warn "no OpenAI key: questions get the offline reply until you add OPENAI_API_KEY to $ENV_FILE"
-        warn "(then: sudo docker compose -p $SCR_PROJECT ... up -d, or simply run install.sh again)"
+        warn "(then run install.sh again: it keeps .env and starts the stack)"
     fi
     unset key
 else
@@ -363,7 +367,7 @@ fi
 cat <<MSG
 
 Next steps:
-  1. copy the data bundle from the laptop:  scp backups/smart-campus-bundle-*.tar.gz root@$DOMAIN:/root/
+  1. copy the data bundle from the laptop:  scp backups/smart-campus-bundle-*.tar.gz <ssh-user>@$DOMAIN:   (then: sudo bash deploy/server/restore-bundle.sh ~<ssh-user>/smart-campus-bundle-<stamp>.tar.gz)
      then:  sudo bash $SCRIPTS/restore-bundle.sh /root/smart-campus-bundle-<date>.tar.gz
   2. an admin login:  sudo bash $SCRIPTS/create-admin.sh <name>
   3. the robot: BACKEND_URL=wss://$DOMAIN/ws/robot and ROBOT_TOKEN from $ENV_FILE (docs/DEPLOY.md)

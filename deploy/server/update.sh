@@ -3,7 +3,7 @@
 #
 #     sudo bash deploy/server/update.sh                  pull the current branch (fast-forward only)
 #     sudo bash deploy/server/update.sh --ref v1.2.0     a tag, a branch or a commit
-#     sudo bash deploy/server/update.sh --ref v1.2.0 --image ghcr.io/rraedmohannd/myrobot-backend:v1.2.0
+#     sudo bash deploy/server/update.sh --ref v1.2.0 --image ghcr.io/rraedmohannd/smart-campus-backend:v1.2.0
 #
 # Steps: 1. backup (backup-now.sh)  2. keep the running backend image as smart-campus-backend:rollback
 # 3. git fetch + checkout/pull  4. build the backend image here, or with --image pull a ready-made
