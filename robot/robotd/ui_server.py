@@ -21,6 +21,7 @@ import json
 import logging
 import mimetypes
 import re
+import ssl
 from collections.abc import Callable
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
@@ -31,6 +32,7 @@ from aiohttp import web
 from robotd.config import Config
 from robotd.core import Brain
 from robotd.settings import SettingsApi
+from robotd.tls import client_ssl_context
 
 if TYPE_CHECKING:
     from robotd.ctl import CtlHub
@@ -48,13 +50,18 @@ could not be loaded from the backend and no cached copy exists. Retrying…</p>
 <script src="/local/robot-local.js"></script></body></html>"""
 
 
-def inject(html: str, backend_host: str, token: str) -> str:
-    """Add the backend address (+ token) before the page's scripts, the local script at the end."""
+def inject(html: str, backend_host: str, token: str, secure: bool = False) -> str:
+    """Add the backend address (+ token) before the page's scripts, the local script at the end.
+
+    `secure` (the backend address in use is wss://): the page itself is served over
+    http://localhost, so its client would open ws://; robot-guard.js upgrades that one address
+    to wss://."""
     head = (
         # robot mode: the page never opens the camera (visiond owns it); runs before page scripts
         '<script src="/local/robot-guard.js"></script>\n'
         f"<script>window.SCR_BACKEND = {json.dumps(backend_host)};"
-        f"window.SCR_ROBOT_TOKEN = {json.dumps(token or None)};</script>\n"
+        f"window.SCR_ROBOT_TOKEN = {json.dumps(token or None)};"
+        f"window.SCR_BACKEND_SECURE = {json.dumps(secure)};</script>\n"
     )
     tail = '<script src="/local/robot-local.js"></script>\n'
     at = html.find("<script")
@@ -99,7 +106,15 @@ class UiServer:
 
     # ---------------- lifecycle ----------------
     async def start(self) -> int:
-        self._http = aiohttp.ClientSession(timeout=aiohttp.ClientTimeout(total=20, sock_connect=3))
+        try:  # verified https (system CAs, or BACKEND_CA_FILE)
+            ssl_ctx = await asyncio.to_thread(client_ssl_context, self.cfg)
+        except OSError as exc:  # the backend link reports the bad file; still verified here
+            log.error("BACKEND_CA_FILE unusable (%s): page assets use the system CA store", exc)
+            ssl_ctx = await asyncio.to_thread(ssl.create_default_context)
+        self._http = aiohttp.ClientSession(
+            timeout=aiohttp.ClientTimeout(total=20, sock_connect=3),
+            connector=aiohttp.TCPConnector(ssl=ssl_ctx),
+        )
         self._runner = web.AppRunner(self.app, access_log=None)
         await self._runner.setup()
         site = web.TCPSite(self._runner, self.cfg.ui_host, self.cfg.ui_port)
@@ -155,11 +170,19 @@ class UiServer:
                     clients.discard(ws)
 
     # ---------------- assets ----------------
+    def _auth(self) -> dict[str, str]:
+        """The robot token for robotd's own GETs to the backend: in production (server mode) the
+        robot page and /api/robot need it. A header, so it stays out of access logs; aiohttp
+        drops Authorization if a redirect leaves the backend's origin."""
+        return {"Authorization": f"Bearer {self.cfg.robot_token}"} if self.cfg.robot_token else {}
+
     async def _fetch(self, url_path: str, cache_rel: str) -> bytes | None:
         """GET from the backend; a good answer is written to the cache."""
         assert self._http is not None
         try:
-            async with self._http.get(self.cfg.backend_http + url_path) as resp:
+            async with self._http.get(
+                self.cfg.backend_http + url_path, headers=self._auth()
+            ) as resp:
                 if resp.status != 200:
                     return None
                 body = await resp.read()
@@ -202,7 +225,8 @@ class UiServer:
     async def _page(self, request: web.Request) -> web.Response:
         body = await self._asset("robot.html", "/robot")
         html = body.decode("utf-8", "replace") if body is not None else _FALLBACK_PAGE
-        html = inject(html, self.cfg.page_backend_host, self.cfg.robot_token)
+        secure = self.cfg.current_backend_url.startswith("wss://")
+        html = inject(html, self.cfg.page_backend_host, self.cfg.robot_token, secure)
         return web.Response(
             text=html, content_type="text/html", headers={"Cache-Control": "no-store"}
         )
@@ -238,7 +262,8 @@ class UiServer:
         """Read-only pass-through for the page's relative requests (idle screen, media)."""
         assert self._http is not None
         try:
-            async with self._http.get(self.cfg.backend_http + request.rel_url.path_qs) as resp:
+            url = self.cfg.backend_http + request.rel_url.path_qs
+            async with self._http.get(url, headers=self._auth()) as resp:
                 body = await resp.read()
                 return web.Response(body=body, status=resp.status, content_type=resp.content_type,
                                     headers={"Cache-Control": "no-store"})  # fmt: skip

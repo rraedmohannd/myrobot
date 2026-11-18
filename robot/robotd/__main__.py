@@ -1,6 +1,7 @@
 """`python -m robotd [--sim] [--port /dev/esp32] [--config robotd.json]`
 
-Environment: BACKEND_URL (ws://<backend>:8000/ws/robot), ROBOT_TOKEN, ROBOT_ID,
+Environment: BACKEND_URL (ws://<backend>:8000/ws/robot or wss://<domain>/ws/robot), ROBOT_TOKEN,
+ROBOT_ID, BACKEND_CA_FILE (only for a test/self-hosted CA; wss is always verified),
 ROBOTD_SERIAL_PORT, ROBOTD_UI_PORT, ROBOTD_UI_HOST, ROBOTD_SIM_PORT, ROBOTD_ASSETS_DIR,
 ROBOTD_CACHE_DIR, ROBOTD_PAGE_BACKEND, ROBOTD_CALIBRATION, LOG_DIR, ROBOTD_SETTINGS_PIN,
 ROBOTD_SETTINGS_FILE. BACKEND_URL may list several addresses separated by commas (tried in
@@ -14,6 +15,7 @@ import logging
 
 from robotd.app import RobotApp
 from robotd.config import load_config
+from robotd.tls import install_log_redaction
 
 
 def main() -> None:
@@ -36,7 +38,9 @@ def main() -> None:
         "robot/calibration.dev.json in development; --sim without it: SIMULATED profile)",
     )  # fmt: skip
     parser.add_argument(
-        "--backend", dest="backend_url", help="ws://host:8000/ws/robot[,ws://other:8000/ws/robot]"
+        "--backend",
+        dest="backend_url",
+        help="ws://host:8000/ws/robot or wss://domain/ws/robot (several: comma separated)",
     )
     parser.add_argument("--ui-port", dest="ui_port", type=int)
     parser.add_argument("--sim-port", dest="sim_port", type=int)
@@ -48,6 +52,7 @@ def main() -> None:
         level=logging.DEBUG if args.verbose else logging.INFO,
         format="%(asctime)s %(levelname)s %(name)s: %(message)s",
     )
+    install_log_redaction()  # the robot token never reaches journald
     overrides = {k: v for k, v in vars(args).items() if k not in ("config", "verbose")}
     cfg = load_config(args.config, **overrides)
     with contextlib.suppress(KeyboardInterrupt):

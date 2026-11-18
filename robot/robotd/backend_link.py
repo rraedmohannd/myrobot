@@ -7,6 +7,10 @@ that goes out is validated against `scr_protocol` first.
 If the backend is lost, the brain is told at once (it stops roaming by itself), run messages stay
 in the brain's bounded outbox, and this task keeps reconnecting. Nothing here is needed for the
 robot to stop (CLAUDE.md rule 4).
+
+wss:// (server mode, docs/DEPLOY.md): the certificate is always verified, hostname included
+(robotd.tls). The token travels in the query (`?token=`), as before; it is redacted from every
+error text and log line, because aiohttp's handshake errors print the full URL.
 """
 
 import asyncio
@@ -22,6 +26,7 @@ from scr_protocol import ProtocolError, parse_backend_message, parse_robot_messa
 from robotd import __version__
 from robotd.config import Config
 from robotd.core import Brain
+from robotd.tls import client_ssl_context, redact, register_secret
 
 log = logging.getLogger("robotd.backend")
 
@@ -37,7 +42,8 @@ class BackendLink:
         self.connects = 0
         self.sent: dict[str, int] = {}  # message type -> count
         self.invalid = 0  # messages we refused to send (not in the contract)
-        self.last_error = ""
+        self.last_error = ""  # always redacted (no token)
+        register_secret(cfg.robot_token)
 
     def _url(self) -> str:
         url = self.cfg.current_backend_url
@@ -47,15 +53,19 @@ class BackendLink:
 
     async def run(self) -> None:
         failing = False
+        ssl_ctx = None
         while True:
             try:
+                if ssl_ctx is None:  # reads the CA files; a bad BACKEND_CA_FILE raises OSError
+                    ssl_ctx = await asyncio.to_thread(client_ssl_context, self.cfg)
                 timeout = aiohttp.ClientTimeout(total=None, sock_connect=5)
-                async with aiohttp.ClientSession(timeout=timeout) as session:
+                connector = aiohttp.TCPConnector(ssl=ssl_ctx)  # used for wss:// only
+                async with aiohttp.ClientSession(timeout=timeout, connector=connector) as session:
                     async with session.ws_connect(self._url(), max_msg_size=8 << 20) as ws:
                         await self._session(ws)
             except (aiohttp.ClientError, OSError, TimeoutError, BackendLost) as exc:
-                self.last_error = f"{type(exc).__name__}: {exc}"
-                if not failing:  # the URL is not logged: it may carry the token
+                self.last_error = redact(f"{type(exc).__name__}: {exc}")
+                if not failing:  # never the raw URL: it carries the token
                     log.warning("backend unavailable (%s); retrying", self.last_error)
                 failing = True
                 if len(self.cfg.backend_urls) > 1:  # several addresses: try the next one

@@ -36,3 +36,23 @@ Branch `release`, created from `sprint-5` (commit `6ab1207`) on 2026-11-19. Task
 - **Real run:** `smart-campus-bundle-20261119-012024.tar.gz`, 88.4 MB, 353 files (db.dump 1.65 MB, 5 media files, 347 speech-cache mp3s). Rows: chunks 121, sources 20, faqs 38, explainers 12, explainer_segments 74, pitches 12, programs 6, faculties 1, media 5, robot_runs 4 (all 4 simulated), events 29, pose_samples 2166; sessions/turns 0 (13/20 stay on the laptop).
 - **Checked:** 4 bundles (PowerShell, PowerShell with conversations, bash, final): 353/353 SHA-256 OK with `sha256sum -c`, no extra files, `pg_restore --exit-on-error` into a throw-away pgvector container with 0 errors, counts equal to the manifest for all 22 tables (with conversations: sessions 13, turns 20). PowerShell and bash manifests agree. Developer database counts unchanged.
 - **Not verified:** the bash script on real Linux/macOS (only Git Bash on Windows). `pg_dump` keeps the sequence positions of the excluded tables, so the server can see roughly how many conversations existed, never their content.
+
+## P0.7 — The robot over the internet
+- `robotd` works with `BACKEND_URL=wss://<domain>/ws/robot`, alone or in the comma list (e.g. the server first, the laptop as a fallback).
+- **Certificate check:** it was already on (aiohttp's default context: system CAs and hostname check). Now explicit in `robot/robotd/tls.py`, used by both connections to the backend (the WebSocket, and the UI server's HTTP session for the page, `/api/robot` and `/media`). There is no switch to turn it off. `BACKEND_CA_FILE` exists only for a test or self-hosted CA.
+- **Token leak fixed:** when the handshake failed (for example Caddy answering 502/503 while the backend restarts), aiohttp's error text contained the URL with `?token=…`, and robotd wrote it to journald. Now it is redacted (`token=***`) in `last_error`, and a filter on the root log handlers also covers aiohttp's own loggers.
+- **Two server-mode breakages found and fixed:**
+  - The Pi's local robot page built a `ws://` address to the backend. robotd now tells the page the backend is secure (`SCR_BACKEND_SECURE`), and `robot-guard.js` upgrades only that address to `wss://`.
+  - In production the backend requires the token for `/robot` and `/api/robot`. robotd's page requests now send it as an `Authorization: Bearer` header (a header, so it does not appear in access logs).
+- **Safety unchanged** (rule 4): with no server or an untrusted certificate, the robot stays IDLE, the ESP32 link keeps running and robotd keeps retrying every 2 s (tested).
+- **Tests:** 10 new in `robot/tests/robotd/test_robotd_tls.py`, with a throw-away CA made by `openssl`:
+  - trusted CA connects and the token arrives;
+  - untrusted certificate refused;
+  - hostname mismatch refused;
+  - unreadable CA file: keeps retrying;
+  - redaction;
+  - the guard's wss upgrade (in Node).
+- **Results:** robot suite **340 passed** (was 331), firmware tools 29 passed, ruff clean.
+- `docs/DEPLOY.md` has a new section "Server mode (backend on a rented server)": settings, certificates, safety without the server, why conversation needs the internet anyway, how to check from the Pi.
+- **Latency note:** the round trip Jordan ↔ Germany adds about 60–100 ms per message. This is an estimate, to be measured at the demo site; it is small next to the speech services (seconds).
+- **Not verified:** the robot page over wss in a real Chromium (only the logic in Node). The live run against the rehearsal stack is in P0.6 below.

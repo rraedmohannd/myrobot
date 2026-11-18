@@ -8,6 +8,44 @@ The backend runs on **your laptop**. The robot (Raspberry Pi) and the admin page
    WebSocket ws://<laptop>:8000/ws/robot          └──► internet (OpenAI) for speech and answers
 ```
 
+## Server mode (backend on a rented server)
+
+The backend can also run on a rented server on the internet (the server side, for the person who runs it: `docs/DEPLOY_SERVER.md`). On the robot only two settings change; sections 1–8 below (laptop mode) stay valid and the laptop can stay as a fallback.
+
+```
+ Raspberry Pi (robot)  ── internet ──►  server: Caddy :443 (TLS) → backend → PostgreSQL
+   its own screen UI on http://localhost          │
+   WebSocket wss://<domain>/ws/robot              └──► OpenAI for speech and answers
+```
+
+**Settings on the Pi** (`sudo nano /etc/smart-campus-robot/robot.env`, then `sudo systemctl restart robotd`):
+
+| Setting | Server mode |
+|---|---|
+| `BACKEND_URL` | `wss://<domain>/ws/robot` — `wss`, the server's domain (for example `203-0-113-7.sslip.io`), no port. The laptop may be listed too, separated by a comma (no spaces), as a fallback: `wss://<domain>/ws/robot,ws://192.168.137.1:8000/ws/robot`. The order decides which one is tried first; when one fails, robotd tries the next one. No `?token=` in it. |
+| `ROBOT_TOKEN` | the value of `ROBOT_TOKEN` in the server's `deploy/server/.env`, given by Mohannd. Typed on the Pi only, never committed or sent in clear text. If the laptop is the fallback, its `.env` must have the same `ROBOT_TOKEN`. |
+
+**Certificate check.** robotd always verifies the server's certificate, hostname included, for the WebSocket and for its HTTP requests (the robot page, `/api/robot/...`, media). There is no setting to switch this off. Let's Encrypt certificates (what Caddy gets automatically, also for an `sslip.io` name) are trusted by Raspberry Pi OS (`ca-certificates` package), so nothing has to be installed. The Pi's clock must be right (it is set over the internet by NTP; a wrong date makes every certificate look invalid). `BACKEND_CA_FILE` exists **only for a test CA or a self-hosted CA** (for example a rehearsal server with `CADDY_TLS=internal`): it replaces the system CA store with that one file. Never needed with Let's Encrypt.
+
+**The token in the logs.** robotd sends the token as before (`?token=` on the WebSocket, a header on its HTTP requests) and removes it from every log line and error text (`token=***`), so `journalctl` never shows it.
+
+**Safety does not depend on the server** (CLAUDE.md rule 4). Motor stop, obstacle stops and command timeouts live on the ESP32 and the Pi. If the internet or the server is lost, the robot stops roaming by itself, keeps reconnecting with a pause between attempts, and keeps all safety behaviour.
+
+**Conversation needs the internet anyway.** Speech recognition, answers and speech (STT / LLM / TTS) are cloud services, also in laptop mode. A server adds one more hop: Jordan ↔ Germany adds about **60–100 ms** per message (an estimate, to be measured at the demo site), small next to the speech services (several hundred ms to seconds per turn).
+
+**The robot screen stays local.** Chromium on the Pi still opens `http://localhost:8765`. robotd serves the page and the page opens its conversation WebSocket to `wss://<domain>/ws/robot` with the robot token, so the visitors' access code (`SITE_ACCESS_CODE`) is not needed on the robot.
+
+**Check from the Pi:**
+```bash
+curl -sS https://<domain>/health        # {"status":"ok",...}; a certificate error here = clock or certificate problem
+journalctl -u robotd -f                 # "backend connected"
+```
+Typical messages in `journalctl -u robotd`:
+- `backend connected` — working.
+- `... certificate verify failed ...` — the certificate is not trusted (wrong clock on the Pi, the server not finished getting its certificate, or a test CA without `BACKEND_CA_FILE`).
+- `... Hostname mismatch ...` — `BACKEND_URL` uses another name than the certificate (use the domain, not the IP address).
+- `the backend refused the connection (ROBOT_TOKEN missing or wrong)` — fix `ROBOT_TOKEN`.
+
 ## 1. Start it
 ```powershell
 cd C:\Users\hanan\Documents\smart-campus-robot

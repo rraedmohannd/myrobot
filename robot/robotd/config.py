@@ -95,6 +95,10 @@ class Config:
     backend_url: str = "ws://localhost:8000/ws/robot"
     backend_index: int = 0  # which of them is in use (set by the backend link)
     robot_token: str = ""
+    # wss:// is always verified (system CA store, hostname checked; no switch to turn it off).
+    # BACKEND_CA_FILE: a CA bundle that REPLACES the system store - only for a test CA or a
+    # self-hosted CA (rehearsal with Caddy `internal`). Not needed with Let's Encrypt.
+    backend_ca_file: str = ""
     robot_id: str = "robotd"
     backend_reconnect_s: float = 2.0
     backend_heartbeat_s: float = 5.0
@@ -173,6 +177,7 @@ _ENV = {
     "BACKEND_URL": "backend_url",
     "ROBOT_TOKEN": "robot_token",
     "ROBOT_ID": "robot_id",
+    "BACKEND_CA_FILE": "backend_ca_file",
     "ROBOTD_SERIAL_PORT": "serial_port",
     "ROBOTD_UI_PORT": "ui_port",
     "ROBOTD_UI_HOST": "ui_host",
