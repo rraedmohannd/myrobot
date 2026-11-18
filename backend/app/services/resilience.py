@@ -9,6 +9,11 @@ text-to-speech, embeddings) therefore has:
 
 A failed call always ends as a `ProviderError`, which the conversation turns into the cached
 "weak internet" reply. The status of each provider (for `/health` and the admin) is kept here.
+
+Every attempt is also counted against the daily cap of paid calls (services/cost_guard.py,
+DAILY_PAID_CALL_LIMIT) right before it is made. A refused call raises `PaidLimitError` (a
+`ProviderError`, so it ends in the same polite reply) without touching the breaker. Fake
+providers (FAKE_PROVIDERS=true) go through these same wrappers and are counted too.
 """
 
 import asyncio
@@ -19,6 +24,7 @@ from datetime import UTC, datetime
 from typing import Any, TypeVar
 
 from app.core.config import get_settings
+from app.services.cost_guard import take_paid_call
 from app.services.providers import LLMResult, ProviderError
 
 T = TypeVar("T")
@@ -73,6 +79,7 @@ class ProviderGuard:
         attempts = 1 + settings.provider_retries
         for attempt in range(attempts):
             self.check()
+            await take_paid_call(self.name)  # daily cap: PaidLimitError, breaker untouched
             self.calls += 1
             try:
                 result = await asyncio.wait_for(fn(), timeout_s)
@@ -149,7 +156,7 @@ class ResilientTTS:
     def __init__(self, inner: Any) -> None:
         self.inner = inner
         if hasattr(inner, "stream"):
-            self.stream = inner.stream  # experimental streaming is passed through unguarded
+            self.stream = self._stream  # experimental streaming: no time limit, but counted
 
     def __getattr__(self, name: str) -> Any:
         return getattr(self.inner, name)
@@ -158,6 +165,11 @@ class ResilientTTS:
         return await guard("tts").call(
             lambda: self.inner.synthesize(text, voice), get_settings().provider_timeout_tts_s
         )
+
+    async def _stream(self, *args: Any, **kwargs: Any) -> AsyncIterator[bytes]:
+        await take_paid_call("tts")
+        async for chunk in self.inner.stream(*args, **kwargs):
+            yield chunk
 
 
 class ResilientLLM:
@@ -183,6 +195,7 @@ class ResilientLLM:
         attempts = 1 + settings.provider_retries
         for attempt in range(attempts):
             g.check()
+            await take_paid_call("llm")
             g.calls += 1
             stream = self.inner.stream_json(instructions, user_input)
             deadline = time.monotonic() + settings.provider_timeout_llm_s

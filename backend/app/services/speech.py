@@ -238,8 +238,13 @@ class CachedTTS:
 
 # ---------------- FastAPI dependencies (overridden in tests) ----------------
 def get_stt() -> STT:
+    from app.services.providers import fake_providers_on
     from app.services.resilience import ResilientSTT  # time limit, retries, circuit breaker
 
+    if fake_providers_on():  # SIMULATED: always hears the same harmless question
+        from app.services.fake_providers import REHEARSAL_TRANSCRIPT, FakeSTT
+
+        return ResilientSTT(FakeSTT(default=REHEARSAL_TRANSCRIPT))
     return ResilientSTT(OpenAISTT())
 
 
@@ -263,6 +268,11 @@ def make_tts(provider: str | None = None) -> TTS:
 
 
 def get_tts() -> CachedTTS:
+    from app.services.providers import fake_providers_on
     from app.services.resilience import ResilientTTS
 
+    if fake_providers_on():  # SIMULATED: short silent WAV, cached under the "fake-tts" model
+        from app.services.fake_providers import FakeTTS
+
+        return CachedTTS(ResilientTTS(FakeTTS(wav=True)))
     return CachedTTS(ResilientTTS(make_tts()))

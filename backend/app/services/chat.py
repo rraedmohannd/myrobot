@@ -22,6 +22,7 @@ from app.db.models import Session, Turn
 from app.ingestion.lang import detect_lang
 from app.services import curated as cur
 from app.services.chat_types import ChatSource
+from app.services.cost_guard import PaidLimitError
 from app.services.numbers import invented_numbers, numbers_in  # noqa: F401 (re-exported)
 from app.services.providers import LLM, Embedder, LLMResult, ProviderError, stream_json
 from app.services.rag import Passage, embed_missing, retrieve
@@ -97,6 +98,7 @@ class ChatResult:
     timings: dict[str, int]
     invented_numbers: list[str] = field(default_factory=list)
     error: str | None = None
+    limited: bool = False  # a cost-guard limit refused the provider call (HTTP: 429)
     passages: list[Passage] = field(default_factory=list)
     # What the robot actually says: the answer without the pieces that failed the number check
     # (replaced once by NUMBER_SAFE). Equal to `answer` when nothing was dropped.
@@ -350,6 +352,7 @@ async def answer_events(
         result.error = str(e)
         result.answer = UNAVAILABLE[lang]
         result.kind = "offline"
+        result.limited = isinstance(e, PaidLimitError)  # the cost guard, not the network
     if result.error is None and not spoken_filter.spoken:
         # nothing retrieved, or an answer the extractor could not follow: checked as a whole
         fallback = SpeechPieces(settings.tts_first_piece_words)

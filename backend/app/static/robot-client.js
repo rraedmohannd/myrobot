@@ -60,10 +60,12 @@
       clearTimeout(this.reconnectTimer);
       this.emit("conn", "connecting");
       this.connecting = new Promise(resolve => {
-        const proto = location.protocol === "https:" ? "wss" : "ws";
-        // robotd's local UI server serves this page from the robot itself and sets
-        // window.SCR_BACKEND ("host:port" of the backend) and window.SCR_ROBOT_TOKEN. Without
-        // them (pages served by the backend) nothing changes: same host, token from the options.
+        // robotd's local UI server serves this page from the robot itself (plain http) and sets
+        // window.SCR_BACKEND ("host:port" of the backend), window.SCR_ROBOT_TOKEN and, for a
+        // backend behind HTTPS (server mode), window.SCR_BACKEND_SECURE = true (then wss://).
+        // Without them (pages served by the backend) nothing changes: same host, token from the
+        // options, wss:// when the page itself is https (the visitor cookie goes with it).
+        const proto = global.SCR_BACKEND_SECURE ? "wss" : (location.protocol === "https:" ? "wss" : "ws");
         const host = global.SCR_BACKEND || location.host;
         const token = this.o.token || global.SCR_ROBOT_TOKEN || null;
         const query = token ? `?token=${encodeURIComponent(token)}` : "";

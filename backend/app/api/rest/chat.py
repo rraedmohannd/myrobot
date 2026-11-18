@@ -3,10 +3,10 @@ tests)."""
 
 from typing import Annotated
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, HTTPException, status
 from pydantic import BaseModel, Field
 
-from app.api.deps import SessionDep
+from app.api.deps import PaidAccess, SessionDep
 from app.services.chat import answer_question
 from app.services.providers import LLM, Embedder, get_embedder, get_llm
 
@@ -45,10 +45,15 @@ class ChatResponse(BaseModel):
 async def chat(
     body: ChatRequest,
     session: SessionDep,
+    _caller: PaidAccess,  # production: robot token or visitor session, per-IP rate limit
     embedder: Annotated[Embedder, Depends(get_embedder)],
     llm: Annotated[LLM, Depends(get_llm)],
 ) -> ChatResponse:
     result = await answer_question(session, embedder, llm, body.message.strip(), body.session_id)
+    if result.limited:  # the daily cap of paid calls (services/cost_guard.py)
+        raise HTTPException(
+            status.HTTP_429_TOO_MANY_REQUESTS, "Daily limit of AI calls reached. Try tomorrow."
+        )
     return ChatResponse(
         session_id=result.session_id,
         answer=result.answer,

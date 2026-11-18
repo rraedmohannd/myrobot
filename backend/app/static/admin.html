@@ -885,11 +885,37 @@ async function loadBringup() {
 const VIEWS = { bringup: loadBringup, faqs: loadFaqs, places: loadPlaces, robot: async () => { await loadRobot(); robotPolling(); }, explainers: loadExplainers, runs: loadRuns, media: loadMedia, overview: loadOverview, gaps: loadGaps, conversations: loadConversations, evaluation: loadEvaluation, coverage: loadCoverage, ask: async () => {} };
 
 // ---------------- system: providers, LAN address, privacy (sprint 3 S5-S7) ----------------
+// ---------------- Server card (sprint 6): production mode, paid calls, backup, disk, certificate ----------------
+const bytes = n => n == null ? "–" : n >= 1e9 ? (n / 1e9).toFixed(1) + " GB" : n >= 1e6 ? (n / 1e6).toFixed(1) + " MB" : n >= 1e3 ? (n / 1e3).toFixed(0) + " kB" : n + " B";
+function serverCard(s) {
+  if (!s) return `<div class="card" id="serverCard" style="grid-column:1/-1"><h2>Server</h2><p class="muted">Server facts are not available.</p></div>`;
+  const limited = s.daily_limit != null;
+  const pct = limited && s.daily_limit ? Math.min(100, Math.round(100 * (s.paid_calls_today || 0) / s.daily_limit)) : 0;
+  const disk = s.disk ? `${bytes(s.disk.used_bytes)} used of ${bytes(s.disk.total_bytes)} · ${bytes(s.disk.free_bytes)} free` : "–";
+  const lowDisk = s.disk && s.disk.free_bytes < 0.1 * s.disk.total_bytes;
+  const cert = s.certificate ? `${when(s.certificate.not_after)} (${s.certificate.days_left} days left)` : "unknown";
+  return `<div class="card" id="serverCard" style="grid-column:1/-1"><h2>Server</h2>
+    ${s.over_limit ? `<div class="issue" id="overLimit">⚠ The daily limit of paid AI calls is reached (${s.paid_calls_today} of ${s.daily_limit}). The robot gives its polite “weak internet” reply until midnight (local time). Raise DAILY_PAID_CALL_LIMIT only if the OpenAI budget allows it.</div>` : ""}
+    ${s.fake_providers ? `<div class="issue">⚠ SIMULATED providers (FAKE_PROVIDERS=true): answers, transcripts and speech are fake. Rehearsal only.</div>` : ""}
+    ${s.rate_limits && s.rate_limits.refused_since_start ? `<p><span class="tag warn">! ${s.rate_limits.refused_since_start} turn(s) or request(s) refused by the per-IP rate limit since the start</span> <span class="muted">last ${when(s.rate_limits.last_refused_at)}</span></p>` : ""}
+    <table class="data">
+      <tr><th>Mode</th><td>${s.production ? `<span class="tag good">production (APP_ENV=production)</span>` : `<span class="tag">development (laptop)</span>`}</td></tr>
+      <tr><th>Paid AI calls today</th><td>${limited ? `${fmt(s.paid_calls_today)} of ${s.daily_limit} <progress value="${s.paid_calls_today || 0}" max="${s.daily_limit || 1}" style="vertical-align:middle;width:140px"></progress> <span class="muted">${pct}%${s.refused_today ? ` · ${s.refused_today} refused` : ""}</span>` : `<span class="muted">no daily limit (DAILY_PAID_CALL_LIMIT not set)</span>`}</td></tr>
+      <tr><th>Rate limits per IP</th><td>${s.rate_limits && s.rate_limits.visitor_per_min != null ? `visitors ${s.rate_limits.visitor_per_min}/min · robot token ${s.rate_limits.robot_per_min}/min` : `<span class="muted">off</span>`}</td></tr>
+      <tr><th>Last backup</th><td>${s.last_backup ? `${when(s.last_backup.time)} · database ${bytes(s.last_backup.db_bytes)} · files ${bytes(s.last_backup.files_bytes)}` : `<span class="muted">none found</span>`}</td></tr>
+      <tr><th>Disk (data)</th><td>${lowDisk ? `<span class="tag bad">! low</span> ` : ""}${disk}</td></tr>
+      <tr><th>Certificate expires</th><td>${s.certificate && s.certificate.days_left < 14 ? `<span class="tag warn">! soon</span> ` : ""}${cert}</td></tr>
+    </table></div>`;
+}
+
 async function loadSystem() {
   const d = await api("/api/admin/system");
+  let srv = null;
+  try { srv = await api("/api/admin/server"); } catch (e) { /* older backend: no Server card data */ }
   const names = { stt: "Speech-to-text", llm: "Language model", tts: "Text-to-speech", embeddings: "Embeddings (search)" };
   const errors = Object.entries(d.providers).flatMap(([k, v]) => v.recent_errors.map(e => ({ ...e, provider: k }))).sort((a, b) => a.at < b.at ? 1 : -1).slice(0, 12);
   el("view-system").innerHTML = `<div class="grid">
+    ${serverCard(srv)}
     <div class="card"><h2>AI providers (as seen by this backend since it started)</h2>
       <table class="data"><tr><th>Provider</th><th>State</th><th class="num">Calls</th><th class="num">Failed</th><th>Last success</th><th>Last error</th></tr>
       ${Object.entries(d.providers).map(([k, v]) => `<tr><td>${names[k] || k}</td><td>${v.state === "closed" && v.ok ? `<span class="tag good">✓ ok</span>` : v.state === "closed" ? `<span class="tag warn">! ${v.failures_in_a_row} failure(s) in a row</span>` : v.state === "open" ? `<span class="tag bad">! not reachable (paused)</span>` : `<span class="tag warn">! trying again</span>`}</td><td class="num">${v.calls}</td><td class="num">${v.failed_calls}</td><td>${when(v.last_ok)}</td><td class="muted">${esc(v.last_error || "–")}</td></tr>`).join("")}</table>
@@ -900,12 +926,12 @@ async function loadSystem() {
       ${d.lan.base_is_localhost ? `<div class="issue">This page was opened with “localhost”, which only works on this laptop. For the robot or a phone, set PUBLIC_BASE_URL in .env to the laptop's address (for example http://192.168.1.20:8000) and open the firewall for port 8000: see docs/DEPLOY.md.</div>` : ""}
       <div class="row" style="align-items:flex-start"><canvas id="lanQr" style="background:#fff;border:1px solid var(--line);border-radius:8px"></canvas>
         <div style="flex:1;min-width:240px"><p><b>Robot screen page</b><br><code style="word-break:break-all">${esc(d.lan.robot_page)}</code></p><p><b>WebSocket for the Raspberry Pi</b><br><code style="word-break:break-all">${esc(d.lan.robot_ws)}</code></p>
-        <p>${d.lan.token_required ? `<span class="tag good">✓ ROBOT_TOKEN is set</span> Robots that are not on this laptop must send it (it is inside the addresses above: do not show this QR to the public).` : `<span class="tag warn">! ROBOT_TOKEN is not set</span> Anyone on the same network can connect as a robot. Set it before the demo.`}</p></div></div>
+        <p>${d.lan.token_required && d.lan.token_in_urls === false ? `<span class="tag good">✓ ROBOT_TOKEN is set</span> Server mode: the token is not shown here. The robot reads it from its robot.env; visitors open the page with the access code.` : d.lan.token_required ? `<span class="tag good">✓ ROBOT_TOKEN is set</span> Robots that are not on this laptop must send it (it is inside the addresses above: do not show this QR to the public).` : `<span class="tag warn">! ROBOT_TOKEN is not set</span> Anyone on the same network can connect as a robot. Set it before the demo.`}</p></div></div>
       <p class="muted">${esc(d.lan.note)}</p>
       <h2 style="margin-top:14px">Privacy and data</h2>
       <p>Conversations are kept for <b>${d.privacy.retention_days} days</b> (text and timings only: no audio, no face images, anonymous speakers). ${d.privacy.conversations_total} stored, ${d.privacy.conversations_older_than_retention} older than the limit${d.privacy.conversations_older_than_retention ? ` → <code>docker compose exec backend python -m app.ingestion.cli purge-conversations</code>` : ""}. Details: docs/PRIVACY.md. Backups: <code>scripts/backup-db.ps1</code>.</p>
       <h2 style="margin-top:14px">Admin access</h2>
-      <p>${d.admin_users ? `${d.admin_users} admin user(s).` : `<span class="tag warn">! no admin user yet</span> Create one: <code>docker compose exec backend python -m app.ingestion.cli create-admin yourname</code>`} ${d.admin_token_set ? "The shared token (ADMIN_TOKEN) also works, for scripts." : "ADMIN_TOKEN is not set."}</p>
+      <p>${d.admin_users ? `${d.admin_users} admin user(s).` : `<span class="tag warn">! no admin user yet</span> Create one: <code>docker compose exec backend python -m app.ingestion.cli create-admin yourname</code>`} ${d.admin_token_set && d.admin_token_accepted === false ? "Server mode: the shared token (ADMIN_TOKEN) is refused; log in (ADMIN_TOKEN_SCRIPTS=true allows it for scripts)." : d.admin_token_set ? "The shared token (ADMIN_TOKEN) also works, for scripts." : "ADMIN_TOKEN is not set."}</p>
       <p class="muted">Backend ${esc(d.version)} · up ${Math.round(d.uptime_s / 60)} min · memory ${d.memory_mb ?? "–"} MB</p>
     </div></div>`;
   try {

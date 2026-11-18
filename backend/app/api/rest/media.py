@@ -15,13 +15,15 @@ from sqlalchemy import select
 
 from app.api.deps import SessionDep, require_admin
 from app.db.models import Media, Program
-from app.services.media import (
-    MAX_BYTES,
+from app.services.media import (  # MAX_BYTES: the default limit, patched by tests
+    MAX_BYTES,  # noqa: F401
     MediaError,
     file_path,
     get_media_dir,
+    max_bytes,
     parse_multipart,
     store,
+    too_large_message,
     validate,
 )
 
@@ -93,12 +95,12 @@ async def _read_body(request: Request, limit: int) -> bytes:
     """The request body, refused as soon as it grows past the limit."""
     declared = request.headers.get("content-length")
     if declared and declared.isdigit() and int(declared) > limit:
-        raise HTTPException(413, "The file is larger than 50 MB")
+        raise HTTPException(413, too_large_message())
     chunks, size = [], 0
     async for chunk in request.stream():
         size += len(chunk)
         if size > limit:
-            raise HTTPException(413, "The file is larger than 50 MB")
+            raise HTTPException(413, too_large_message())
         chunks.append(chunk)
     return b"".join(chunks)
 
@@ -108,7 +110,7 @@ async def upload(request: Request, session: SessionDep, media_dir: MediaDir) -> 
     """multipart/form-data: `file` (jpg, png, webp, mp4 or webm, at most 50 MB), `source_note`
     (required: where the file came from and the permission), and optional `title`, `alt_ar`,
     `alt_en`, `program_id`. The file is stored as `pending`."""
-    body = await _read_body(request, MAX_BYTES + FORM_OVERHEAD)
+    body = await _read_body(request, max_bytes() + FORM_OVERHEAD)
     try:
         fields, files = parse_multipart(request.headers.get("content-type", ""), body)
         if "file" not in files:

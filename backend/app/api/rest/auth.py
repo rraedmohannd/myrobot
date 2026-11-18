@@ -9,10 +9,11 @@ from pydantic import BaseModel, Field
 from sqlalchemy import func, select
 
 from app import __version__
-from app.api.deps import SessionDep, require_admin
+from app.api.deps import SessionDep, admin_token_accepted, require_admin
 from app.core.config import get_settings
 from app.db.models import AdminUser, Session
 from app.services import auth
+from app.services.access import client_ip
 from app.services.resilience import provider_status
 
 router = APIRouter(prefix="/api/admin", tags=["admin"])
@@ -30,16 +31,22 @@ async def login(
 ) -> dict[str, Any]:
     """Username and password of a user made with `create-admin`. Sets the session cookie."""
     name = body.username.strip().lower()
-    if auth.too_many_failures(name):
+    settings = get_settings()
+    ip = client_ip(request)
+    if auth.too_many_failures(name, ip):
+        minutes = settings.login_lockout_s // 60
         raise HTTPException(
-            status.HTTP_429_TOO_MANY_REQUESTS, "Too many wrong passwords. Wait five minutes."
+            status.HTTP_429_TOO_MANY_REQUESTS,
+            f"Too many wrong passwords. Wait {'five' if minutes == 5 else minutes} minutes.",
         )
-    token = await auth.login(session, name, body.password)
+    token = await auth.login(session, name, body.password, ip)
     if token is None:
         raise HTTPException(status.HTTP_401_UNAUTHORIZED, "Wrong username or password")
+    # In production always Secure: TLS ends at the reverse proxy, so the scheme seen here is http.
+    secure = settings.is_production or request.url.scheme == "https"
     response.set_cookie(
-        auth.COOKIE, token, max_age=get_settings().admin_session_hours * 3600, httponly=True,
-        samesite="strict", secure=request.url.scheme == "https", path="/",
+        auth.COOKIE, token, max_age=settings.admin_session_hours * 3600, httponly=True,
+        samesite="strict", secure=secure, path="/",
     )  # fmt: skip
     return {"user": name}
 
@@ -81,7 +88,10 @@ async def system(request: Request, session: SessionDep) -> dict[str, Any]:
         or f"{request.url.scheme}://{request.headers.get('host', 'localhost:8000')}"
     )
     token = settings.robot_token.get_secret_value() if settings.robot_token else ""
-    query = f"?token={token}" if token else ""
+    # Production: the token is never sent to the browser (the page and its QR are for visitors,
+    # who use the access code); the robot gets it from its own robot.env.
+    token_in_urls = bool(token) and not settings.is_production
+    query = f"?token={token}" if token_in_urls else ""
     ws_base = base.replace("https://", "wss://").replace("http://", "ws://")
     host = base.split("//", 1)[-1].split(":")[0].split("/")[0]
     retention = await auth.purge_conversations(session, dry_run=True)
@@ -96,6 +106,8 @@ async def system(request: Request, session: SessionDep) -> dict[str, Any]:
             "robot_page": f"{base}/robot{query}",
             "robot_ws": f"{ws_base}/ws/robot{query}",
             "token_required": bool(token),
+            "token_in_urls": token_in_urls,
+            "production": settings.is_production,
             "base_is_localhost": host in ("localhost", "127.0.0.1"),
             "public_base_url_set": bool(settings.public_base_url),
             "note": "Other devices need the laptop's network address, not localhost. Set "
@@ -110,4 +122,5 @@ async def system(request: Request, session: SessionDep) -> dict[str, Any]:
         },
         "admin_users": await session.scalar(select(func.count()).select_from(AdminUser)) or 0,
         "admin_token_set": bool(settings.admin_token and settings.admin_token.get_secret_value()),
+        "admin_token_accepted": bool(admin_token_accepted()),
     }

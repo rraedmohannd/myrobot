@@ -277,6 +277,9 @@ class DialogueManager:
     protocol_version: int = 1  # negotiated in `hello` (the backend speaks up to PROTOCOL_VERSION)
     explainer: ExplainerRun | None = None  # paused or running program presentation
     interest: InterestFlow | None = None  # running "what do you like?" questions
+    # Cost guard (server mode): called once per turn that may call STT/LLM/TTS; False = this
+    # caller is over its per-IP rate limit, so the turn gets the polite offline reply instead.
+    turn_allowed: Callable[[], bool] | None = None
     _warm_up: asyncio.Task[None] | None = None
 
     def __post_init__(self) -> None:
@@ -375,6 +378,9 @@ class DialogueManager:
         elif kind == "text.input":
             if self.session_id is None:
                 await self.start_session(detect_lang(msg.get("text") or ""), greet=False)
+            if not self._turn_ok():
+                await self._limited_turn(str(msg.get("text") or ""))
+                return
             await self.handle_text(str(msg.get("text") or ""), time.perf_counter(), None)
         elif kind == "listen.timeout":
             if self.state in ("LISTENING", "FOLLOW_UP"):
@@ -475,6 +481,18 @@ class DialogueManager:
             self.explainer, self.interest = None, None
 
     # ---------- turns ----------
+    def _turn_ok(self) -> bool:
+        return self.turn_allowed is None or self.turn_allowed()
+
+    async def _limited_turn(self, text: str) -> None:
+        """A turn refused by the cost guard (per-IP rate limit): the same polite "weak
+        internet" reply as a provider outage, and the conversation listens again."""
+        await self.send({"type": "error", "code": "rate_limited",
+                         "message": "too many questions; wait a minute"})  # fmt: skip
+        await self._offline()
+        await self._log_turn(text, self.lang, "question", PHRASES["offline"][self.lang],
+                             TurnTimings(), None, "rate limited", None, kind="offline")  # fmt: skip
+
     async def end_of_speech(self, face_track: int | None = None, overlap: bool = False) -> None:
         started = time.perf_counter()
         pcm, self.audio = bytes(self.audio), bytearray()
@@ -487,6 +505,9 @@ class DialogueManager:
             return
         if len(pcm) < self.sample_rate * 2 * 0.3:  # under 0.3 s: nothing to transcribe
             await self.handle_text("", started, None, state_before)
+            return
+        if not self._turn_ok():  # over the rate limit: no speech-to-text, polite reply
+            await self._limited_turn("")
             return
         await self._set_state("ANSWERING")
         await self._display("processing")

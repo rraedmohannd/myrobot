@@ -16,6 +16,7 @@ from app.db.models.knowledge import (
     Source,
 )
 from app.db.models.telemetry import Event, PoseSample, ReturnTrial, RobotRun
+from app.db.models.usage import PaidCallDay
 
 __all__ = [
     "AdminSession",
@@ -30,6 +31,7 @@ __all__ = [
     "Faq",
     "Lab",
     "Media",
+    "PaidCallDay",
     "Pitch",
     "Place",
     "PoseSample",

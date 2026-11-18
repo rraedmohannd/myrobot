@@ -19,12 +19,13 @@ from app.api.rest import (
     health,
     media,
     runs,
+    server,
     voice,
 )
 from app.api.rest import robot as robot_api
 from app.api.rest.voice import STATIC_DIR
 from app.api.ws import robot
-from app.core.config import get_settings
+from app.core.config import check_production, get_settings
 from app.core.logging import setup_logging
 from app.db.session import get_engine
 
@@ -48,8 +49,19 @@ class RevalidatedStaticFiles(StaticFiles):
 def create_app() -> FastAPI:
     settings = get_settings()
     setup_logging(settings.log_level)
+    # APP_ENV=production: refuse to start with weak or missing secrets (names, never values).
+    check_production(settings)
+    if settings.fake_providers:
+        from app.services.providers import warn_fake_providers
 
-    app = FastAPI(title=settings.app_name, version=__version__, lifespan=lifespan)
+        warn_fake_providers()
+
+    # Production: no interactive API docs or schema (/docs, /redoc, /openapi.json).
+    docs = {} if not settings.is_production else {
+        "docs_url": None, "redoc_url": None, "openapi_url": None,
+    }  # fmt: skip
+    app = FastAPI(title=settings.app_name, version=__version__, lifespan=lifespan, **docs)
+    # Production: only PUBLIC_BASE_URL (Settings.cors_origin_list); development: CORS_ORIGINS.
     app.add_middleware(
         CORSMiddleware,
         allow_origins=settings.cors_origin_list,
@@ -68,6 +80,7 @@ def create_app() -> FastAPI:
     app.include_router(explainers.router)
     app.include_router(curated.router)
     app.include_router(auth.router)
+    app.include_router(server.router)
     app.include_router(explainers.public_router)
     app.include_router(chat.router)
     app.include_router(voice.router)

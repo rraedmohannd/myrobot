@@ -212,9 +212,37 @@ class OpenAILLM:
 
 
 # ---------------- FastAPI dependencies (overridden in tests) ----------------
+_warned_fake = False
+
+
+def fake_providers_on() -> bool:
+    """FAKE_PROVIDERS=true: deterministic SIMULATED providers (services/fake_providers.py),
+    wrapped like the real ones, so they are counted and rate limited (rehearsals only)."""
+    global _warned_fake
+    if not get_settings().fake_providers:
+        return False
+    if not _warned_fake:
+        _warned_fake = True
+        warn_fake_providers()
+    return True
+
+
+def warn_fake_providers() -> None:
+    import logging
+
+    logging.getLogger("app.providers").warning(
+        "SIMULATED providers (FAKE_PROVIDERS=true): no OpenAI calls; answers, transcripts and "
+        "speech are fake. Rehearsal only, never results."
+    )
+
+
 def get_embedder() -> Embedder:
     from app.services.resilience import ResilientEmbedder  # time limit, retries, circuit breaker
 
+    if fake_providers_on():
+        from app.services.fake_providers import FakeEmbedder
+
+        return ResilientEmbedder(FakeEmbedder())
     return ResilientEmbedder(OpenAIEmbedder())
 
 
@@ -222,4 +250,8 @@ def get_llm() -> LLM:
     # Only OpenAI is implemented; LLM_PROVIDER=anthropic would need an AnthropicLLM adapter here.
     from app.services.resilience import ResilientLLM
 
+    if fake_providers_on():
+        from app.services.fake_providers import FakeLLM
+
+        return ResilientLLM(FakeLLM())
     return ResilientLLM(OpenAILLM())

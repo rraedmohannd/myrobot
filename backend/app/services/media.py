@@ -28,6 +28,17 @@ ALLOWED: dict[str, tuple[str, str]] = {
 }
 
 
+def max_bytes() -> int:
+    """MEDIA_MAX_MB when set, else MAX_BYTES (50 MB)."""
+    from app.core.config import get_settings
+
+    return get_settings().media_max_bytes or MAX_BYTES
+
+
+def too_large_message() -> str:
+    return f"The file is larger than {max_bytes() / (1024 * 1024):g} MB"
+
+
 class MediaError(ValueError):
     """The upload is not acceptable (wrong type, too large, broken form)."""
 
@@ -59,8 +70,8 @@ def validate(filename: str, data: bytes) -> tuple[str, str, str]:
         raise MediaError("Only jpg, png, webp, mp4 and webm files are allowed")
     if not data:
         raise MediaError("The file is empty")
-    if len(data) > MAX_BYTES:
-        raise MediaError("The file is larger than 50 MB")
+    if len(data) > max_bytes():
+        raise MediaError(too_large_message())
     kind, mime = ALLOWED[ext]
     if sniff(data) != mime:
         raise MediaError(f"The file content is not {mime} (the extension says .{ext})")

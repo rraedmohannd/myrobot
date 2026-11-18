@@ -745,9 +745,21 @@ async def _simulate_robot(url: str, seconds: float, seed: int, token: str | None
         print("errors:", report.errors)
 
 
+async def _usage_today() -> None:
+    """One JSON line: today's real AI provider calls against DAILY_PAID_CALL_LIMIT
+    (deploy/server/status.sh reads it). "limit" is null when the cap is off (development)."""
+    import json
+
+    from app.services.cost_guard import usage_today
+
+    usage = await usage_today()
+    print(json.dumps({k: usage[k] for k in ("date", "paid_calls", "limit")}))
+
+
 async def _main(args: argparse.Namespace) -> None:
     cfg = CrawlConfig()
     simple = {
+        "usage-today": _usage_today,
         "check-openai": _check_openai,
         "embed": _embed,
         "evaluate": _evaluate,
@@ -846,8 +858,14 @@ async def _main(args: argparse.Namespace) -> None:
 
 
 def main() -> None:
+    from app.core.config import ProductionConfigError, check_production
+
     setup_logging(get_settings().log_level)
     logging.getLogger("httpx").setLevel(logging.WARNING)
+    try:  # the same startup check as the server (APP_ENV=production only)
+        check_production(get_settings())
+    except ProductionConfigError as e:
+        raise SystemExit(str(e)) from None
     p = argparse.ArgumentParser(prog="python -m app.ingestion.cli")
     sub = p.add_subparsers(dest="cmd", required=True)
     c = sub.add_parser("crawl", help="crawl MEU Faculty of Engineering pages from the seeds")
@@ -860,6 +878,9 @@ def main() -> None:
     )
     sub.add_parser("recrawl", help="re-fetch known pages and flag changes as stale/pending")
     sub.add_parser("stats", help="count sources and chunks by review status")
+    sub.add_parser(
+        "usage-today", help='one JSON line {"date", "paid_calls", "limit"} (daily paid-call cap)'
+    )
     d = sub.add_parser("debug-page", help="fetch one URL, save raw HTML, show cleaned text")
     d.add_argument("url")
     k = sub.add_parser("import-knowledge", help="import curated files from data/knowledge/*.json")

@@ -26,7 +26,9 @@ from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 from app.api.ws.contract import checked
 from app.core.config import get_settings
 from app.db.session import get_sessionmaker
+from app.services.access import client_ip, paid_caller, robot_token_valid
 from app.services.bringup import handle_calibration_report
+from app.services.cost_guard import Caller, allow_paid_request
 from app.services.dialogue import DialogueManager
 from app.services.providers import LLM, Embedder, get_embedder, get_llm
 from app.services.robot_hub import RobotHub, get_robot_hub
@@ -40,8 +42,9 @@ log = logging.getLogger(__name__)
 
 def is_local_peer(host: str | None) -> bool:
     """True when the connection comes from this machine or from a network listed in
-    ROBOT_LOCAL_NETS. Only the peer address counts: headers such as Host can be forged."""
-    if not host:
+    ROBOT_LOCAL_NETS. Only the peer address counts: headers such as Host can be forged.
+    Always False in production: there every robot needs the token (or a visitor session)."""
+    if not host or get_settings().is_production:
         return False
     try:
         address = ipaddress.ip_address(host)
@@ -58,9 +61,24 @@ def token_ok(ws: WebSocket, token: str | None) -> bool:
     expected = get_settings().robot_token
     if expected is None or not expected.get_secret_value():
         return True
-    if token and compare_digest(token, expected.get_secret_value()):
+    if token and compare_digest(token.encode(), expected.get_secret_value().encode()):
+        return True
+    if robot_token_valid(ws):  # also as `Authorization: Bearer` or `X-Robot-Token`
         return True
     return is_local_peer(ws.client.host if ws.client else None)
+
+
+def ws_caller(ws: WebSocket, token: str | None) -> Caller | None:
+    """Who is connecting: "robot", "visitor" or None (refused with close code 4401).
+
+    Production: the robot token, or a visitor session cookie (sent by the browser with the
+    same-origin WebSocket upgrade of /robot and /voice); ROBOT_LOCAL_NETS is ignored.
+    Development: the old rules (token_ok)."""
+    if get_settings().is_production:
+        return paid_caller(ws)
+    if not token_ok(ws, token):
+        return None
+    return "robot" if robot_token_valid(ws) else "visitor"
 
 
 @router.websocket("/ws/robot")
@@ -75,10 +93,12 @@ async def robot_socket(
     hub: Annotated[RobotHub, Depends(get_robot_hub)],
     token: str | None = None,
 ) -> None:
-    if not token_ok(ws, token):
+    caller = ws_caller(ws, token)
+    if caller is None:
         await ws.close(code=4401)
         return
     await ws.accept()
+    ip = client_ip(ws)
     send_lock = asyncio.Lock()  # the reader and the worker both send
 
     async def raw_send(msg: dict[str, Any]) -> None:
@@ -89,8 +109,9 @@ async def robot_socket(
 
     send = checked(raw_send)
     manager = DialogueManager(
-        send, sessionmaker, embedder, llm, stt, tts, speaker_embedder=speaker_embedder
-    )
+        send, sessionmaker, embedder, llm, stt, tts, speaker_embedder=speaker_embedder,
+        turn_allowed=lambda: allow_paid_request(caller, ip),  # per-IP limit for each turn
+    )  # fmt: skip
     recorder = TelemetryRecorder(send, sessionmaker)  # run.start / telemetry / event / run.end
     link = hub.register(send)
     queue: asyncio.Queue[dict[str, Any]] = asyncio.Queue()

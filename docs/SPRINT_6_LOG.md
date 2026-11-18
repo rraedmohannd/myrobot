@@ -56,3 +56,70 @@ Branch `release`, created from `sprint-5` (commit `6ab1207`) on 2026-11-19. Task
 - `docs/DEPLOY.md` has a new section "Server mode (backend on a rented server)": settings, certificates, safety without the server, why conversation needs the internet anyway, how to check from the Pi.
 - **Latency note:** the round trip Jordan ↔ Germany adds about 60–100 ms per message. This is an estimate, to be measured at the demo site; it is small next to the speech services (seconds).
 - **Not verified:** the robot page over wss in a real Chromium (only the logic in Node). The live run against the rehearsal stack is in P0.6 below.
+
+## P0.2 — Production mode of the backend (`APP_ENV=production`) + P1 admin "Server" card
+Everything below is active only with `APP_ENV=production`; the laptop setup is unchanged (all 268 earlier tests pass unchanged). Backend version **0.6.0**.
+1. **Refuses to start with weak or missing secrets.** The app and the CLI (`create-admin`, `usage-today`, …) both check, and report every problem at once, by setting name only, never the value:
+   - `ADMIN_TOKEN` shorter than 32 characters, or an example value;
+   - `ROBOT_TOKEN` missing;
+   - `POSTGRES_PASSWORD` shorter than 16 characters;
+   - `PUBLIC_BASE_URL` missing or not `https://`;
+   - `SECRET_KEY` shorter than 32 characters (new: it signs the visitor cookie);
+   - `SITE_ACCESS_CODE` missing while `PUBLIC_PAGES=true`.
+2. **Who may use the paid endpoints.** `/robot`, `/voice`, `POST /api/chat`, `/api/tts*` and `/ws/robot` need either:
+   - the **robot token** (`?token=`, `Authorization: Bearer` or `X-Robot-Token`); or
+   - a **visitor session**: `/access` (Arabic first, then English) asks once for `SITE_ACCESS_CODE` and sets a cookie signed with HMAC-SHA256 (HttpOnly, Secure, SameSite=Strict, `VISITOR_SESSION_HOURS`).
+
+   Without access:
+   - pages redirect to `/access?next=…` (local paths only);
+   - the API answers 401; the WebSocket closes with 4401;
+   - wrong codes are rate limited (10 per IP per 10 min).
+
+   Other rules:
+   - `PUBLIC_PAGES=false` turns the code page off, so only the robot token works.
+   - `ROBOT_LOCAL_NETS` is ignored in production: every robot needs the token.
+   - `/static`, `/media/{id}` and `/api/robot/screen` stay public (no paid content).
+   - `/health` shows only `status` and `version`; an admin who is logged in sees the full body.
+3. **Cost guard.**
+   - Per-IP limits per minute (visitors `RATE_LIMIT_PAID_PER_MIN`=12, robot token `RATE_LIMIT_ROBOT_PER_MIN`=60) on `/api/chat`, `/api/tts` and every WebSocket turn (typed question, and spoken question before speech-to-text).
+   - A global **daily cap** `DAILY_PAID_CALL_LIMIT`=500, counted per real provider call (embedding, speech-to-text, LLM, text-to-speech; cache hits do not count; retries do).
+     - Checked in the resilience wrapper that every provider call goes through.
+     - Stored in the database (migration `0013`, table `paid_call_days`), so it survives restarts.
+     - If the counter cannot be read, the call is refused (fail closed).
+   - Over a limit:
+     - the robot says its usual polite offline reply;
+     - HTTP answers 429;
+     - the circuit breaker is not touched;
+     - the admin Server card shows a warning.
+4. **Admin.**
+   - Login only: `X-Admin-Token` is ignored unless `ADMIN_TOKEN_SCRIPTS=true`.
+   - Lockout after `LOGIN_MAX_FAILURES`=5 wrong passwords per user and per IP, for `LOGIN_LOCKOUT_MIN`=15.
+   - Cookies are always Secure, HttpOnly and SameSite=Strict; session length is `ADMIN_SESSION_HOURS`.
+   - The admin "System" page no longer shows the robot token inside the robot URLs in production.
+5. **Locked down.**
+   - CORS allows only `PUBLIC_BASE_URL`.
+   - `/docs`, `/redoc` and `/openapi.json` are off.
+   - Media uploads: size `MEDIA_MAX_MB`=50 and type checks are tested.
+   - The client IP comes only from `request.client.host`, which uvicorn sets from the proxy headers only when the request comes from `FORWARDED_ALLOW_IPS`. A test shows that a forged `X-Forwarded-For` does not reset a rate limit.
+6. **Secrets out of the logs.** A log filter (app, CLI, uvicorn access/error) replaces `token=<value>` with `token=***` and hides the literal values of the tokens, the access code, the secret key, the API keys and the database password. Found by the robot agent: uvicorn logs every WebSocket accept with its query string.
+7. **`FAKE_PROVIDERS=true`.** Deterministic fake speech-to-text, LLM, text-to-speech and embeddings, for rehearsals only.
+   - A loud "SIMULATED providers" warning is logged, and the admin health view and the Server card show it.
+   - Fake calls count against the limits, so the rehearsal can trigger them without OpenAI.
+8. **P1 Server card.** `GET /api/admin/server` and a "Server" card on the admin System tab show:
+   - production mode on/off, and fake providers on/off;
+   - today's paid calls against the cap, and refusals;
+   - the last backup (time, sizes, from `/backups/last-backup.json`);
+   - disk usage;
+   - the earliest certificate expiry found in Caddy's data.
+   
+   New CLI command: `usage-today`.
+9. **`docs/PRIVACY.md`** has a new "Server mode" section:
+   - the server is rented in Germany;
+   - who has access: Mohannd and the friend who runs it. A server admin with root access can technically read the database; this is said plainly;
+   - text only, no audio or face images;
+   - 30-day retention, 14-day backups;
+   - the laptop's conversations are not copied;
+   - OpenAI requests now come from the server.
+10. **Tests:** 28 new in `backend/tests/test_server_mode.py`. Backend suite **296 passed** (throw-away `scr-test` database), ruff format clean, no new ruff findings.
+
+**Not verified here:** behind the real proxy (that is the rehearsal, P0.6). The rate limiters and the login lockout are in-process, which is one reason for `WEB_CONCURRENCY=1`. If a visitor's cookie expires while the robot page is open, the page keeps retrying the WebSocket until it is reloaded. The new WebSocket error code `rate_limited` is a free string and is not yet listed in `docs/PROTOCOL.md`.

@@ -3,7 +3,10 @@
 - Passwords are stored only as argon2id hashes (`admin_users.password_hash`).
 - A login creates a random 256-bit token. The browser gets it in an HttpOnly, SameSite=Strict
   cookie; the database stores only its SHA-256, so a copy of the database cannot be used to log in.
-- `X-Admin-Token` (ADMIN_TOKEN in .env) still works, for scripts.
+- `X-Admin-Token` (ADMIN_TOKEN in .env) still works, for scripts (in production only with
+  ADMIN_TOKEN_SCRIPTS=true, see api/deps.py).
+- Wrong passwords: LOGIN_MAX_FAILURES within LOGIN_LOCKOUT_MIN lock the username (and, in
+  production, the client IP as well) for that time.
 """
 
 import hashlib
@@ -21,7 +24,7 @@ from app.db.models import AdminSession, AdminUser, Session, Turn
 
 COOKIE = "admin_session"
 MIN_PASSWORD = 10
-MAX_FAILURES, WINDOW_S = 5, 300  # per username, in this process
+MAX_FAILURES, WINDOW_S = 5, 300  # defaults of LOGIN_MAX_FAILURES / LOGIN_LOCKOUT_MIN (dev)
 
 _hasher = PasswordHasher()
 _DUMMY = _hasher.hash("not-a-real-password")  # verified when the user does not exist (same timing)
@@ -49,10 +52,28 @@ def _digest(token: str) -> str:
     return hashlib.sha256(token.encode()).hexdigest()
 
 
-def too_many_failures(username: str) -> bool:
-    recent = [t for t in _failures.get(username, []) if time.monotonic() - t < WINDOW_S]
-    _failures[username] = recent
-    return len(recent) >= MAX_FAILURES
+def _keys(username: str, ip: str | None) -> list[str]:
+    """Failure counters to check: the username, and in production also the client IP."""
+    keys = [username]
+    if ip and get_settings().is_production:
+        keys.append(f"ip:{ip}")
+    return keys
+
+
+def too_many_failures(username: str, ip: str | None = None) -> bool:
+    settings = get_settings()
+    window, limit = settings.login_lockout_s, settings.login_max_failures
+    locked = False
+    for key in _keys(username, ip):
+        recent = [t for t in _failures.get(key, []) if time.monotonic() - t < window]
+        _failures[key] = recent
+        locked = locked or len(recent) >= limit
+    return locked
+
+
+def record_failure(username: str, ip: str | None = None) -> None:
+    for key in _keys(username, ip):
+        _failures.setdefault(key, []).append(time.monotonic())
 
 
 def reset_failures() -> None:
@@ -84,13 +105,15 @@ async def create_admin(
     return user, created
 
 
-async def login(session: AsyncSession, username: str, password: str) -> str | None:
+async def login(
+    session: AsyncSession, username: str, password: str, ip: str | None = None
+) -> str | None:
     """The session token for the cookie, or None when the name or the password is wrong."""
     username = username.strip().lower()
     user = await session.scalar(select(AdminUser).where(AdminUser.username == username))
     ok = verify_password(user.password_hash if user else _DUMMY, password) and user is not None
     if not ok:
-        _failures.setdefault(username, []).append(time.monotonic())
+        record_failure(username, ip)
         return None
     _failures.pop(username, None)
     token = secrets.token_urlsafe(32)
