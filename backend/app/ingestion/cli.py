@@ -658,19 +658,20 @@ async def _create_admin(username: str, password_stdin: bool) -> None:
         password = getpass.getpass("Password (at least 10 characters): ")
         if getpass.getpass("Again: ") != password:
             print("The two passwords are different. Nothing was changed.")
-            return
+            raise SystemExit(1)
     else:
         print("No terminal: run this without -T (docker compose exec backend ...), or pipe the "
               "password with --password-stdin.")  # fmt: skip
-        return
+        raise SystemExit(1)
     async with get_sessionmaker()() as session:
         try:
             user, created = await create_admin(session, username, password)
         except AuthError as e:
             print(f"Not created: {e}")
-            return
+            raise SystemExit(1) from e
+    base = get_settings().public_base_url.rstrip("/") or "http://localhost:8000"
     print(f"{'created' if created else 'password changed for'} admin user '{user.username}'. "
-          "Log in at http://localhost:8000/admin")  # fmt: skip
+          f"Log in at {base}/admin")  # fmt: skip
 
 
 async def _check_curated() -> None:

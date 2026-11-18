@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+# shellcheck disable=SC2317  # the step functions are called indirectly, by name
 # Install test of the Raspberry Pi setup WITHOUT a Raspberry Pi.
 #
 # Starts an arm64 Debian container of the same release as Raspberry Pi OS (trixie), emulated by
