@@ -27,3 +27,16 @@ robot/bringup-output/
 robot/robotd.override.json
 robot/.uv-bootstrap/
 robot/calibration-log.jsonl
+
+# sprint 6: server deployment and release
+*.bundle.tar.gz
+smart-campus-bundle-*.tar.gz
+deploy/server/.env*
+!deploy/server/.env.production.example
+*.pem
+*.key
+*.crt
+backend/data/certs/
+tools/video/out/
+# local design-tool cache (absolute paths and session ids of this laptop; not project content)
+.impeccable/
