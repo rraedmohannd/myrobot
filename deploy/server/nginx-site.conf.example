@@ -1,0 +1,74 @@
+# nginx site for the Smart Campus Robot backend, "behind an existing web server" mode.
+#
+# Use this only when the server already runs nginx on ports 80/443 for other sites. Then:
+#   1. In deploy/server/.env set USE_CADDY=false (and keep BACKEND_BIND=127.0.0.1:8000), and
+#      (re)start the stack: the backend listens on 127.0.0.1:8000 only, without Caddy.
+#   2. Copy this file:   sudo cp deploy/server/nginx-site.conf.example /etc/nginx/sites-available/smart-campus
+#      Replace every robot.example.org with the domain (DOMAIN in deploy/server/.env), then
+#                        sudo ln -s /etc/nginx/sites-available/smart-campus /etc/nginx/sites-enabled/
+#                        sudo nginx -t && sudo systemctl reload nginx
+#   3. Certificate (Let's Encrypt, certbot edits this file and adds the 443 server block and the
+#      http -> https redirect itself):
+#                        sudo apt install certbot python3-certbot-nginx
+#                        sudo certbot --nginx -d robot.example.org
+#      Renewal is automatic (certbot's systemd timer); test it with: sudo certbot renew --dry-run
+#   4. Check:            curl -sS https://robot.example.org/health
+#
+# The backend trusts X-Forwarded-For/Proto only from 172.31.240.1 (the Docker bridge gateway, which
+# is where connections to 127.0.0.1:8000 appear to come from) - see FORWARDED_ALLOW_IPS.
+# Do not log query strings: /ws/robot?token=... carries the robot token. The access_log below is
+# off for this site; if you need one, use a log_format without $request / $request_uri.
+
+map $http_upgrade $connection_upgrade {
+    default upgrade;
+    ''      close;
+}
+
+server {
+    listen 80;
+    listen [::]:80;
+    server_name robot.example.org;
+
+    access_log off;
+
+    # Media uploads: the backend allows MEDIA_MAX_MB (50); this is the outer cap.
+    client_max_body_size 60m;
+
+    # Security headers (also sent on the 443 block that certbot adds, because certbot copies
+    # this server block's content).
+    add_header Strict-Transport-Security "max-age=31536000" always;
+    add_header X-Content-Type-Options "nosniff" always;
+    add_header Referrer-Policy "strict-origin-when-cross-origin" always;
+    add_header X-Frame-Options "DENY" always;
+    add_header Permissions-Policy "microphone=(self), camera=(self), geolocation=(), payment=(), usb=()" always;
+    server_tokens off;
+
+    # Robot link (WebSocket): upgrade headers and long timeouts (the robot keeps it open all day;
+    # it sends heartbeats, so an idle hour means the robot is gone).
+    location /ws/ {
+        proxy_pass http://127.0.0.1:8000;
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection $connection_upgrade;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $remote_addr; # overwrite: a client cannot fake its address
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_read_timeout 3600s;
+        proxy_send_timeout 3600s;
+        proxy_buffering off;
+    }
+
+    location / {
+        proxy_pass http://127.0.0.1:8000;
+        proxy_http_version 1.1;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $remote_addr; # overwrite: a client cannot fake its address
+        proxy_set_header X-Forwarded-Proto $scheme;
+        # Answers and speech are streamed: pass them on at once.
+        proxy_buffering off;
+        proxy_read_timeout 120s;
+        proxy_send_timeout 120s;
+    }
+}

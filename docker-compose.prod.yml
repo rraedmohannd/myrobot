@@ -1,0 +1,166 @@
+# Production stack (server in Germany, or a rehearsal on the laptop). Not the laptop dev stack:
+# that is docker-compose.yml (project smart-campus-robot), which this file never touches.
+#
+# Use it through deploy/server/*.sh (they source lib.sh, which runs
+#   docker compose -p smart-campus-prod --env-file deploy/server/.env -f docker-compose.prod.yml
+#                  [-f docker-compose.prod.nginx.yml] [--profile caddy] ...).
+# Settings: deploy/server/.env, made by install.sh from deploy/server/.env.production.example.
+#
+# Modes:
+#   USE_CADDY=true  (default) -> --profile caddy: Caddy on ports 80/443 with automatic HTTPS;
+#                                the backend publishes no port at all.
+#   USE_CADDY=false           -> no Caddy; lib.sh adds docker-compose.prod.nginx.yml, which
+#                                publishes the backend on BACKEND_BIND (127.0.0.1:8000) for a
+#                                web server already on the host (deploy/server/nginx-site.conf.example).
+#
+# Nothing here is needed for the robot to stop safely (CLAUDE.md rule 4).
+
+name: smart-campus-prod
+
+x-logging: &logging
+  driver: json-file
+  options:
+    max-size: "10m"
+    max-file: "3"
+
+services:
+  db:
+    image: pgvector/pgvector:pg16
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:?set POSTGRES_USER in deploy/server/.env}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in deploy/server/.env}
+      POSTGRES_DB: ${POSTGRES_DB:?set POSTGRES_DB in deploy/server/.env}
+    # No published port: only the backend and the backup service reach the database.
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    networks:
+      - scr
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U \"$${POSTGRES_USER}\" -d \"$${POSTGRES_DB}\""]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+    shm_size: 256mb
+    logging: *logging
+
+  backend:
+    image: ${BACKEND_IMAGE:-smart-campus-backend:local}
+    build:
+      context: ./backend
+      additional_contexts:
+        shared: ./shared
+      args:
+        EXTRAS: ""
+    restart: unless-stopped
+    # All production settings (APP_ENV=production, secrets, limits) come from the env file.
+    env_file: ${SCR_ENV_FILE:-./deploy/server/.env}
+    environment:
+      # The password goes into a URL: install.sh generates it from [A-Za-z0-9] only.
+      DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB}
+    # Default command "serve" (backend/docker-entrypoint.sh): alembic upgrade head, then uvicorn
+    # with WEB_CONCURRENCY workers (default 1, see the entrypoint) and --proxy-headers.
+    user: "10001:10001"
+    read_only: true
+    tmpfs:
+      - /tmp:size=64m
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    volumes:
+      - media:/app/data/media
+      - tts_cache:/app/data/tts_cache
+      # Evaluation and latency results (paths fixed in app/services/evaluate.py and latency.py)
+      - golden_results:/app/data/golden/results
+      - latency:/app/data/latency
+      # Read-only views for the admin "Server" card: last-backup.json and the certificate expiry.
+      - backups:/backups:ro
+      - caddy_data:/caddy-data:ro
+    networks:
+      - scr
+    depends_on:
+      db:
+        condition: service_healthy
+    healthcheck:
+      # 200 = ok; 503 (database unreachable / not migrated) or no answer = unhealthy.
+      test:
+        - CMD
+        - python
+        - -c
+        - "import sys, urllib.request; sys.exit(0 if urllib.request.urlopen('http://127.0.0.1:8000/health', timeout=4).status == 200 else 1)"
+      interval: 15s
+      timeout: 6s
+      retries: 4
+      start_period: 60s
+    logging: *logging
+
+  caddy:
+    image: caddy:2.10
+    profiles: ["caddy"]
+    restart: unless-stopped
+    environment:
+      SITE_ADDRESS: ${DOMAIN:?set DOMAIN in deploy/server/.env (install.sh fills it)}
+      CADDY_TLS: ${CADDY_TLS:-}
+      ACME_EMAIL: ${ACME_EMAIL:-}
+      ACME_EMAIL_SET: ${ACME_EMAIL:+yes}
+    ports:
+      - "${HTTP_PORT:-80}:80"
+      - "${HTTPS_PORT:-443}:443"
+      - "${HTTPS_PORT:-443}:443/udp" # HTTP/3
+    volumes:
+      - ./deploy/server/Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    networks:
+      scr:
+        # The backend trusts X-Forwarded-* only from this address (FORWARDED_ALLOW_IPS).
+        ipv4_address: 172.31.240.10
+    depends_on:
+      - backend
+    logging: *logging
+
+  backup:
+    # Same PostgreSQL major version as the database, so pg_dump always matches the server.
+    image: pgvector/pgvector:pg16
+    restart: unless-stopped
+    command: ["sh", "/scr/backup.sh", "daemon"]
+    environment:
+      PGHOST: db
+      PGPORT: "5432"
+      PGUSER: ${POSTGRES_USER}
+      PGPASSWORD: ${POSTGRES_PASSWORD}
+      PGDATABASE: ${POSTGRES_DB}
+      BACKUP_HOUR: ${BACKUP_HOUR:-3}
+      BACKUP_KEEP_DAYS: ${BACKUP_KEEP_DAYS:-14}
+      TZ: UTC
+    volumes:
+      - ./deploy/backup/backup.sh:/scr/backup.sh:ro
+      - media:/data/media:ro
+      - tts_cache:/data/tts_cache:ro
+      - backups:/backups
+    networks:
+      - scr
+    depends_on:
+      db:
+        condition: service_healthy
+    logging: *logging
+
+networks:
+  scr:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.31.240.0/24
+          gateway: 172.31.240.1
+
+# Named volumes of this project only (smart-campus-prod_*), never the dev volume smart-campus-robot_pgdata.
+volumes:
+  pgdata:
+  media:
+  tts_cache:
+  golden_results:
+  latency:
+  backups:
+  caddy_data:
+  caddy_config:

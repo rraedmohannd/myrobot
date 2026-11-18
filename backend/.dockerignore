@@ -4,3 +4,14 @@ __pycache__
 .pytest_cache
 .ruff_cache
 .env
+.env.*
+# Not part of the image: tests (the laptop bind-mounts ./backend, CI installs from source),
+# runtime data that lives in volumes on the server (media, speech cache) and CLI scratch output.
+tests
+data/media
+data/tts_cache
+data/voice_samples
+data/soak
+debug_page.html
+Dockerfile
+.dockerignore

@@ -1,0 +1,70 @@
+# Caddy in front of the backend (docker-compose.prod.yml, profile "caddy").
+#
+# Settings come from the container environment, which docker-compose.prod.yml fills from
+# deploy/server/.env:
+#   SITE_ADDRESS   = DOMAIN (a real domain, or <ip-with-dashes>.sslip.io set by install.sh)
+#   CADDY_TLS      = ""         -> automatic HTTPS (Let's Encrypt, ZeroSSL as fallback)
+#                    "internal" -> Caddy's own CA (laptop rehearsal only; browsers warn)
+#                    anything else stops Caddy with "File to import not found: tls_<value>"
+#   ACME_EMAIL     = optional contact address for the certificate authority (expiry notices)
+#   ACME_EMAIL_SET = "yes" when ACME_EMAIL is not empty (compose sets it; Caddy cannot test for an
+#                    empty variable itself, so the snippet name carries it)
+#
+# Logging: there is deliberately NO `log` directive. Caddy then writes no access log at all, so
+# the robot token in `/ws/robot?token=...` and the visitors' addresses never reach a log file.
+# Do not add `log` without a filter that drops the query string.
+#
+# Ports: Caddy listens on 80 and 443 inside the container; compose maps HTTP_PORT/HTTPS_PORT.
+# With a non-standard HTTPS_PORT (rehearsal, e.g. 8443) the automatic http -> https redirect
+# still points at port 443, so open https://<host>:<HTTPS_PORT>/ directly. On a server keep
+# 80/443: Let's Encrypt needs port 80 (HTTP challenge) or 443 (TLS-ALPN challenge) reachable.
+
+{
+	# In a container there is no system trust store to install the internal CA into.
+	skip_install_trust
+}
+
+# --- TLS mode, chosen by CADDY_TLS ---
+(tls_) {
+	import acme_email_{$ACME_EMAIL_SET}
+}
+
+(acme_email_) {
+	# automatic HTTPS without a contact address
+}
+
+(acme_email_yes) {
+	tls {$ACME_EMAIL}
+}
+
+(tls_internal) {
+	tls internal
+}
+
+{$SITE_ADDRESS} {
+	import tls_{$CADDY_TLS}
+
+	# Uploads: media files are limited to MEDIA_MAX_MB (50) by the backend; this is the outer cap.
+	request_body {
+		max_size 60MB
+	}
+
+	header {
+		Strict-Transport-Security "max-age=31536000"
+		X-Content-Type-Options "nosniff"
+		Referrer-Policy "strict-origin-when-cross-origin"
+		X-Frame-Options "DENY"
+		# /voice and /robot pages use the microphone and the camera of this site only.
+		Permissions-Policy "microphone=(self), camera=(self), geolocation=(), payment=(), usb=()"
+		-Server
+	}
+
+	# WebSockets (/ws/robot) are proxied by default in Caddy 2, without a read timeout.
+	# flush_interval -1: streamed answers and audio go out immediately, not buffered.
+	# Caddy sets X-Forwarded-For/-Proto/-Host; uvicorn trusts them only from Caddy's fixed address.
+	reverse_proxy backend:8000 {
+		flush_interval -1
+		# Keep open robot WebSockets for a while when Caddy reloads its configuration.
+		stream_close_delay 5m
+	}
+}

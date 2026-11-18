@@ -1,0 +1,76 @@
+# Production backend image -> GitHub Container Registry (docs/SPRINT_6.md P1).
+# Built on version tags (v*) or by hand; amd64 + arm64; without the dev/test/report extras.
+# The package inherits the repository's visibility (keep it private). A server then uses
+#   BACKEND_IMAGE=ghcr.io/<owner>/smart-campus-backend:<tag>   (deploy/server/update.sh --image)
+# after `docker login ghcr.io` with a read-only (read:packages) token.
+# No secret besides the automatic GITHUB_TOKEN; nothing is deployed from here.
+name: image
+
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  packages: write
+
+concurrency:
+  group: image-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  backend:
+    name: backend image (linux/amd64 + linux/arm64)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: docker/setup-qemu-action@v3
+        with:
+          platforms: arm64
+
+      - uses: docker/setup-buildx-action@v3
+
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      # ghcr.io names must be lower case; the tag is the git tag (v0.6.0) or the branch name.
+      # :latest only for version tags (a manual run on a branch does not move it).
+      - name: Image name and tags
+        id: meta
+        env:
+          OWNER: ${{ github.repository_owner }}
+          REF_NAME: ${{ github.ref_name }}
+          REF_TYPE: ${{ github.ref_type }}
+        run: |
+          owner="$(printf '%s' "$OWNER" | tr '[:upper:]' '[:lower:]')"
+          tag="$(printf '%s' "$REF_NAME" | tr -c 'A-Za-z0-9_.-' '-')"
+          image="ghcr.io/${owner}/smart-campus-backend"
+          {
+            echo "tags<<EOF"
+            echo "${image}:${tag}"
+            if [ "$REF_TYPE" = tag ]; then echo "${image}:latest"; fi
+            echo "EOF"
+          } >> "$GITHUB_OUTPUT"
+
+      - uses: docker/build-push-action@v6
+        with:
+          context: ./backend
+          build-contexts: |
+            shared=./shared
+          build-args: |
+            EXTRAS=
+          platforms: linux/amd64,linux/arm64
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: |
+            org.opencontainers.image.source=${{ github.server_url }}/${{ github.repository }}
+            org.opencontainers.image.revision=${{ github.sha }}
+            org.opencontainers.image.description=Smart Campus Robot backend (production, no dev extras)
+          cache-from: type=gha
+          cache-to: type=gha,mode=max

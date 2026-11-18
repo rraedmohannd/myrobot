@@ -1,0 +1,13 @@
+# "Behind an existing web server" mode (USE_CADDY=false): added by deploy/server/lib.sh after
+# docker-compose.prod.yml, without --profile caddy:
+#   docker compose -p smart-campus-prod --env-file deploy/server/.env \
+#       -f docker-compose.prod.yml -f docker-compose.prod.nginx.yml ...
+# The backend is published on BACKEND_BIND (default 127.0.0.1:8000: this machine only) for the host
+# nginx (deploy/server/nginx-site.conf.example). The connections then arrive from the bridge
+# gateway 172.31.240.1, which FORWARDED_ALLOW_IPS trusts by default. Never bind 0.0.0.0 here:
+# it would bypass HTTPS and the web server.
+
+services:
+  backend:
+    ports:
+      - "${BACKEND_BIND:-127.0.0.1:8000}:8000"
