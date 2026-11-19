@@ -267,3 +267,53 @@ All 8 scripts are bash with `set -euo pipefail` and have `--help`. **shellcheck 
   - the PC backup.
   
   Placeholders only. `PROXY_REQUEST.md` was not written (route 1 cancelled; one line under "Later").
+
+### T1 — `docker-compose.guest.yml`, T2 — HTTPS end to end, T4 — rehearsal on this PC (the backup for tomorrow)
+- **Compose:**
+  - `name: guest`; `db`, `backend`, `backup`, and `cloudflared` (profile `tunnel`, `cloudflare/cloudflared:2026.10.7`).
+  - Limits: backend 512m/1.0, db 320m/0.5 (Postgres `shared_buffers=64MB`, `max_connections=20`, small `work_mem`), backup 96m/0.25, cloudflared 64m/0.25. **Total 992 MiB.**
+  - The backend keeps the production hardening and is published only on `127.0.0.1:8100` (for checks over SSH).
+  - Network `guest` 10.213.47.0/24 with `cloudflared` fixed at .10. It is the **only** address trusted for `X-Forwarded-For`.
+  - A plain `up -d` after a backend change re-creates only the backend: cloudflared's start time and the public address stayed the same (checked).
+- **`deploy/server/guest/tunnel-url.sh`:** reads the newest trycloudflare address from the `cloudflared` logs, writes `PUBLIC_BASE_URL`, re-creates **only** the backend, waits for health, prints the links. A second run changes nothing. Tested live.
+- **`scripts/guest-rehearsal.ps1`** (project `guest-rehearsal`, env `deploy/server/.env.guest-rehearsal`, git-ignored):
+  - Commands: `setup`, `up`, `url`, `status`, `down`, `admin NAME`, `logs`.
+  - `setup` builds `guest-backend:0.6.0` (linux/amd64) and generates the secrets. It copies the OpenAI key from `.env` without printing it, and restores the real bundle: 353 SHA-256 OK, 22/22 tables OK.
+- **Backups:** `BACKUP_FILES_EVERY_DAYS` (guest 7, production default 1, so production is unchanged). The database is backed up daily, media + speech cache weekly, and the newest files tarball is never deleted by retention (all cases tested).
+- **T2, over the real public `https://….trycloudflare.com` address** (fake providers):
+  - **Scripted checks, 19/19:**
+    - `/health` shows only status and version;
+    - `/robot` and `/voice` redirect to `/access`; a wrong code gets 401; the right code sets a Secure, HttpOnly, SameSite=Strict cookie;
+    - with the cookie, the pages and `/api/chat` answer 200; without it, 401;
+    - **WSS** `/ws/robot` answers hello with hello.ack using the cookie and using the robot token; with nothing it is refused (403);
+    - `X-Admin-Token` is refused; admin login works; the Server card answers;
+    - the rate limit trips at request 12.
+  - **Real client address:** the backend's log showed the **real public client address**, so the per-IP limit works behind the tunnel.
+  - **Media:** the three program videos (about 17–18 MB each) answer 200 in about 1.1 s, and range requests answer 206.
+  - **Server-Sent Events:** not used anywhere (quick tunnels do not support them).
+  - **SSH-tunnel path** `http://localhost:8100`: 20/20, including the admin lockout (5 × 401, then 429). No backend change and no `EXTRA_ALLOWED_ORIGINS` were needed (everything is same-origin).
+  - **Headless Chromium on the public address** (Playwright, fake microphone):
+    - the access code page worked;
+    - `isSecureContext` true, getUserMedia returned a live microphone;
+    - "متصل · online";
+    - a typed question and a spoken question (WAV fed as the microphone) on `/robot`, a spoken question on `/voice`, and an explainer started from a program button all worked;
+    - admin login worked; 0 console errors.
+    
+    Not observed: a video playing inside an explainer scene; `/media` itself was checked with curl.
+- **T4 memory** (fake providers; the 49 golden questions in sequence plus bursts of 20 and 50 in parallel): nothing OOM-killed, 0 restarts.
+
+  | Service | Peak | Limit |
+  |---|---|---|
+  | backend | 178.5 MiB | 512 MiB |
+  | db | 141 MiB | 320 MiB |
+  | cloudflared | 29 MiB | 64 MiB |
+  | backup | < 4 MiB | 96 MiB |
+
+  Golden questions: 49/49 answered (fake providers, median 2.0 s).
+- **Found, not fixed (follow-up):** 20 or more chats **at the same moment** exhaust the database connection pool (5 + 10 overflow): some answer 500, and some 429 because the paid-call counter fails closed. 5–8 at once are fine (about 2.2 s). One robot and one supervisor are far below that.
+- **Disk estimate for the server (G5/L3): about 2.2 GB of the 4 GB budget.**
+  - Images: about 1.3 GB on disk.
+  - Volumes: about 165 MB.
+  - Backups: 14 daily dumps of 1.7 MB, plus 2–3 weekly files tarballs of 91 MB. Daily file backups would have been 1.3 GB.
+  - The image archive and the bundle in `/srv/guest`, and logs (at most 4 × 30 MB).
+- **State:** `guest-rehearsal` is **stopped but intact** (volumes and images kept), with production settings and real providers. The test conversations, the test admin and today's fake paid-call count were removed from it. 16 silent fake-speech files remain in its speech-cache volume, under fake-only keys that real speech never reads.

@@ -1,0 +1,193 @@
+# "Guest" stack: the backend beside another live project on a shared server (docs/SPRINT_6_GUEST.md),
+# or the same stack on Mohannd's PC (scripts/guest-rehearsal.ps1, project guest-rehearsal) as the backup route.
+# A standalone file, not an override of docker-compose.prod.yml: no Caddy, no fixed subnet, no
+# ports 80/443, a memory limit on every container (all together under 1 GB).
+#
+# Always run it with an explicit project name and env file, never bare:
+#   server:  docker compose -p guest --env-file /srv/guest/.env -f /srv/guest/app/docker-compose.guest.yml ...
+#            (GUEST_ENV_FILE=/srv/guest/.env in the environment of the scripts)
+#   PC:      docker compose -p guest-rehearsal --env-file deploy/server/.env.guest-rehearsal -f docker-compose.guest.yml ...
+#            (scripts/guest-rehearsal.ps1 does this for you)
+#
+# Profiles:
+#   (none)    db, backend, backup. The backend is published on ${GUEST_BIND}:${GUEST_PORT} (default
+#             127.0.0.1:8100 = reachable through an SSH tunnel only).
+#   tunnel    + cloudflared, a Cloudflare quick tunnel: a random public https://<words>.trycloudflare.com
+#             address, new whenever the cloudflared container is re-created. deploy/server/guest/tunnel-url.sh
+#             reads it, writes it to PUBLIC_BASE_URL and re-creates only the backend.
+#
+# The backend image is built on the PC and loaded, never built here (pull_policy: never):
+#   docker build --platform linux/amd64 --build-context shared=shared --build-arg EXTRAS= -t guest-backend:0.6.0 backend
+#
+# Nothing here is needed for the robot to stop safely (CLAUDE.md rule 4).
+
+name: guest
+
+x-logging: &logging
+  driver: json-file
+  options:
+    max-size: "10m"
+    max-file: "3"
+
+services:
+  db:
+    image: pgvector/pgvector:pg16
+    restart: unless-stopped
+    mem_limit: 320m
+    cpus: 0.5
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:?set POSTGRES_USER in the guest env file}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in the guest env file}
+      POSTGRES_DB: ${POSTGRES_DB:?set POSTGRES_DB in the guest env file}
+    # Small-memory settings (320 MB container): few connections, small buffers.
+    command:
+      - postgres
+      - -c
+      - shared_buffers=64MB
+      - -c
+      - max_connections=20
+      - -c
+      - work_mem=2MB
+      - -c
+      - maintenance_work_mem=32MB
+      - -c
+      - effective_cache_size=192MB
+    # No published port: only the backend and the backup service reach the database.
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    networks:
+      - guest
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U \"$${POSTGRES_USER}\" -d \"$${POSTGRES_DB}\""]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+    shm_size: 128mb
+    logging: *logging
+
+  backend:
+    image: ${GUEST_IMAGE:-guest-backend:0.6.0}
+    pull_policy: never
+    restart: unless-stopped
+    mem_limit: 512m
+    cpus: 1.0
+    # All settings (APP_ENV=production, secrets, limits, FORWARDED_ALLOW_IPS) come from the env file.
+    # Server: /srv/guest/.env (this file is /srv/guest/app/docker-compose.guest.yml).
+    env_file: ${GUEST_ENV_FILE:-../.env}
+    environment:
+      # The password goes into a URL: the install scripts generate it from [A-Za-z0-9] only.
+      DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB}
+    # Default command "serve" (backend/docker-entrypoint.sh): alembic upgrade head, then uvicorn
+    # with --proxy-headers, trusting X-Forwarded-For only from FORWARDED_ALLOW_IPS.
+    # Guest mode: FORWARDED_ALLOW_IPS = the cloudflared address (GUEST_TUNNEL_IP, 10.213.47.10) only;
+    # the published port (SSH tunnel, Docker gateway) is NOT trusted.
+    user: "10001:10001"
+    read_only: true
+    tmpfs:
+      - /tmp:size=64m
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    ports:
+      - "${GUEST_BIND:-127.0.0.1}:${GUEST_PORT:-8100}:8000"
+    volumes:
+      - media:/app/data/media
+      - tts_cache:/app/data/tts_cache
+      - golden_results:/app/data/golden/results
+      - latency:/app/data/latency
+      # Read-only view for the admin "Server" card (last-backup.json).
+      - backups:/backups:ro
+    networks:
+      - guest
+    depends_on:
+      db:
+        condition: service_healthy
+    healthcheck:
+      test:
+        - CMD
+        - python
+        - -c
+        - "import sys, urllib.request; sys.exit(0 if urllib.request.urlopen('http://127.0.0.1:8000/health', timeout=4).status == 200 else 1)"
+      interval: 15s
+      timeout: 6s
+      retries: 4
+      start_period: 60s
+    logging: *logging
+
+  backup:
+    # Same PostgreSQL major version as the database, so pg_dump always matches the server.
+    image: pgvector/pgvector:pg16
+    restart: unless-stopped
+    mem_limit: 96m
+    cpus: 0.25
+    command: ["sh", "/scr/backup.sh", "daemon"]
+    environment:
+      PGHOST: db
+      PGPORT: "5432"
+      PGUSER: ${POSTGRES_USER}
+      PGPASSWORD: ${POSTGRES_PASSWORD}
+      PGDATABASE: ${POSTGRES_DB}
+      BACKUP_HOUR: ${BACKUP_HOUR:-3}
+      BACKUP_KEEP_DAYS: ${BACKUP_KEEP_DAYS:-14}
+      # Disk budget (G5): the database every day, media + speech cache only every 7 days.
+      BACKUP_FILES_EVERY_DAYS: ${BACKUP_FILES_EVERY_DAYS:-7}
+      TZ: UTC
+    volumes:
+      - ./deploy/backup/backup.sh:/scr/backup.sh:ro
+      - media:/data/media:ro
+      - tts_cache:/data/tts_cache:ro
+      - backups:/backups
+    networks:
+      - guest
+    depends_on:
+      db:
+        condition: service_healthy
+    logging: *logging
+
+  cloudflared:
+    # Cloudflare quick tunnel (no account, no open port): an outbound connection that gives a random
+    # https://<words>.trycloudflare.com address, NEW every time this container is re-created.
+    # deploy/server/guest/tunnel-url.sh reads it from the log, writes PUBLIC_BASE_URL and re-creates
+    # only the backend; nothing else should re-create this container.
+    # loglevel info: cloudflared does not log request URLs (the robot's WebSocket URL holds its token).
+    # Quick tunnels: no Server-Sent Events, at most 200 requests in flight; WebSockets work.
+    image: cloudflare/cloudflared:2026.10.7
+    profiles: ["tunnel"]
+    restart: unless-stopped
+    mem_limit: 64m
+    cpus: 0.25
+    command:
+      - tunnel
+      - --no-autoupdate
+      - --loglevel
+      - info
+      - --metrics
+      - 127.0.0.1:20241
+      - --management-diagnostics=false
+      - --url
+      - http://backend:8000
+    networks:
+      guest:
+        # The backend trusts X-Forwarded-For only from this address (FORWARDED_ALLOW_IPS).
+        ipv4_address: ${GUEST_TUNNEL_IP:-10.213.47.10}
+    logging: *logging
+
+networks:
+  guest:
+    driver: bridge
+    ipam:
+      config:
+        # An unusual private /24, so it does not meet other projects' networks. If Compose reports an
+        # overlap (it then changes nothing), set GUEST_SUBNET, GUEST_TUNNEL_IP and FORWARDED_ALLOW_IPS
+        # in the env file to another 10.x.y.0/24 and its .10 address.
+        - subnet: ${GUEST_SUBNET:-10.213.47.0/24}
+
+# Named volumes of this project only (<project>_*), never the dev volume smart-campus-robot_pgdata.
+volumes:
+  pgdata:
+  media:
+  tts_cache:
+  golden_results:
+  latency:
+  backups:
