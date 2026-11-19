@@ -332,3 +332,132 @@ The PC backup was started with its one command (`powershell -ExecutionPolicy Byp
 - **Paid calls counted by the cost guard:** 0 before → 4 → 10 at the end, out of 500 for the day.
 - **Afterwards:** the stack was stopped with `guest-rehearsal.ps1 down`. Its 6 volumes and the images are kept, so the same one command starts it tomorrow. The three test conversations above remain in the rehearsal database (visible in its admin).
 - **Developer database after everything:** all 22 table counts **identical** to the start (compared automatically).
+
+## P0.6 — Rehearsal: where each check ran
+The rehearsal ran in parts, each under its own compose project, never the developer one: `scr-b`, the scr-c and scr-f2 containers, `scr-test` and `guest-rehearsal`.
+
+| Check | Where | Result |
+|---|---|---|
+| `/health` over HTTPS (Caddy internal CA) | `scr-b` | 200 `{"status":"ok","version":"0.6.0"}`, security headers |
+| `/health` over the public quick tunnel | `guest-rehearsal` | 200, only status and version |
+| Access-code page, `/robot` and `/voice` behind the code | `guest-rehearsal` (public tunnel, curl + headless Chromium) | 303 → `/access`, 401 on a wrong code, Secure cookie, then 200 |
+| Admin login, `X-Admin-Token` refused, lockout | `guest-rehearsal` | login 200, token 401, 5 × 401 then 429 |
+| `/ws/robot` with the robot token through the proxy | `scr-b` (Caddy), `guest-rehearsal` (tunnel) | 101 / hello.ack; 403 without a token |
+| Rate limit with fake providers | `guest-rehearsal` | 429 at request 12, keyed on the real client address |
+| `update.sh` forced health failure → rollback | Ubuntu 24.04 container with Docker-in-Docker (scr-c); `update-guest.sh` in scr-f2 | rolled back, healthy, exit 1 |
+| Backup made and restored | `scr-b`, scr-c, `guest-rehearsal` | restored to revision 0013, counts OK |
+| Bundle restored, counts compared | scr-c, scr-f2, `guest-rehearsal` | 22/22 tables OK |
+| `install.sh` in a fresh Ubuntu 24.04 (and Debian 12) | scr-c | full install to a healthy stack (Docker-in-Docker, internal CA) |
+| 3 real questions | `guest-rehearsal` over the public tunnel | see "The real OpenAI checks" above |
+| robotd over `wss://` | robot tests with a throw-away CA | trusted CA connects, untrusted and wrong host refused |
+
+- **Removed afterwards:** `scr-b`, scr-c, scr-d and scr-f2. The `scr-test` project is removed at the very end.
+- **Kept on purpose:** `guest-rehearsal` (stopped), because it is the backup for tomorrow.
+- **Not done:** a separate Caddy-stack rehearsal with the 3 real questions, because the guest stack is the real target and the budget is 3. Also not done: robotd against the live rehearsal (no hardware; the TLS tests cover the client side).
+
+## P0.9 — Publish: what was done and what was not
+- **All suites, run locally at the end:**
+  - backend **296 passed** (throw-away `scr-test` database);
+  - robot **340 passed**;
+  - pin checker (`firmware/tools/tests`) **29 passed**;
+  - JS speaker logic passed;
+  - shellcheck over all **39** tracked `*.sh`: 0 findings;
+  - guest forbidden-command check: 43/43.
+  
+  The firmware (native tests, sim-check, 3 compile checks) was not changed in this sprint and runs in CI.
+- **CI on `release`:** green on `c388e0a` (all jobs). The run on the final commit is recorded at the end of this log.
+- **Not done, because the repository is public** (rule of P0.9 and of the addendum): no pull request `release` → `main`, no merge, no tag `v0.6.0`, no GitHub release. There is also no `main` branch on GitHub (question 2). Steps once the repository is private and the branch question is decided:
+  1. GitHub → Settings → General → Change visibility → **Private**.
+  2. Create `main`: either from `demo-sprint` (the current default branch), or as a new branch from `release`.
+  3. Open a PR `release` → `main` with the summary of sprints 1–6 (`docs/SPRINT_*_LOG.md`), wait for green CI, merge.
+  4. Tag `v0.6.0` on the merge commit and push the tag. This also starts `.github/workflows/image.yml`, which pushes the image to GHCR. Check that the package is **private**: Packages → smart-campus-backend → Package settings.
+  5. Make a GitHub release from the tag with notes. Never attach the bundle or any key.
+- **Access for the friend, prepared and not done:**
+  - **Option A (recommended), deploy key:** on the server, `ssh-keygen -t ed25519 -N '' -f ~/.ssh/smart-campus-deploy`; Mohannd adds the `.pub` in GitHub → Settings → Deploy keys, **read-only**.
+  - **Option B:** add him as a collaborator with read access.
+  
+  In guest mode neither is needed: the image is built on the PC and copied (`load-image.sh`), and only `docker-compose.guest.yml` + `deploy/` go to `/srv/guest/app` (`git archive`, see `docs/DEPLOY_GUEST.md`).
+
+## Summary: what is done
+- **P0.1:**
+  - secret scan clean, nothing to revoke;
+  - repository **public** (blocks the merge);
+  - no file over 20 MB;
+  - `.gitignore`;
+  - root `README.md`.
+- **P0.2:** production mode of the backend (secret checks, access code or robot token on paid endpoints, per-IP limits and a daily cap, admin login only, lockdown, log redaction, fake providers) + the P1 Server card. Version 0.6.0.
+- **P0.3:** the production stack with Caddy, nginx mode, backups, and an image for amd64 + arm64 (577 MB) + the P1 GHCR workflow.
+- **P0.4:** the server scripts; install, restore, update with rollback, backups, all tested in containers.
+- **P0.5:** the data bundle (PowerShell + bash), 88.4 MB, without conversations or admin logins.
+- **P0.7:** robotd over `wss://` (certificate checked; a token leak into journald fixed; the robot page and the page requests adapted to server mode).
+- **P0.8:** `docs/DEPLOY_SERVER.md` (dedicated server).
+- **Guest mode T1–T5 (for tomorrow):**
+  - the guest compose with a Cloudflare quick tunnel;
+  - HTTPS end to end over a real public address: microphone, WebSocket, explainer, media, admin;
+  - guest scripts without sudo;
+  - the PC backup ready with one command;
+  - `docs/DEPLOY_GUEST.md`;
+  - L1 and L2 also done (update/uninstall, forbidden-command check in CI).
+- **3 real questions** (typed FAQ, spoken, "I don't know"); paid calls 10 of 500.
+- **Developer database untouched** (22/22 counts identical).
+- **Not done:** the PR, merge, tag and release, because the repository is public.
+
+## Questions for Mohannd
+1. **The repository is public.** Make it private (GitHub → Settings → General → Change visibility)? Until then, no merge, no tag and no release, and the guest and quick-tunnel files sit in a public repo. They hold placeholders only (checked); still, the official PDFs and your work are public.
+2. **There is no `main` branch on GitHub** (default `demo-sprint`; a local `master` from before). Create `main` from `release`, or from `demo-sprint` and then merge `release` into it by PR? Should `main` become the default branch?
+3. **The addendum's update (~02:00) only reached the disk at 02:20.** I worked from your message and the G-items in between, then switched to v3. Is anything in v3 still missing (L-items aside)?
+4. **OpenAI budget:** T4 asked for real providers, and your instruction capped it at 3 real questions. I kept 3; the memory and load runs used fake providers. Do you want a short real run (for example the 49 golden questions, about 100–150 paid calls) on the server after the deployment?
+5. **The supervisor's admin access:** give him his own account (`create-admin.sh supervisor`, you type the password), or only `/robot` and `/voice`? The admin pages show the conversations' text.
+6. **Database pool:** 20 or more chats at the same moment get errors (500/429). It is fine for one robot and a supervisor. Fix it next sprint (pool size and the counter on the same session)?
+7. **The GHCR image:** a package published from a public repository is public by default. Make it private after the first tag, or keep building on the PC (`load-image.sh`)?
+8. **The rehearsal database** keeps the 3 real test conversations and 16 silent fake-speech files in its speech cache (harmless; fake-only keys). Delete them or keep them?
+
+## What Mohannd does
+1. **The PC backup** (works now):
+   - Docker Desktop on;
+   - once, for your own admin account: `powershell -ExecutionPolicy Bypass -File scripts\guest-rehearsal.ps1 admin <name>` (you type the password);
+   - then `powershell -ExecutionPolicy Bypass -File scripts\guest-rehearsal.ps1 up`. It prints the `https://….trycloudflare.com` address, the links and the access code.
+   
+   The PC must stay on, awake and online while the supervisor uses it.
+2. **The server** (a separate session with its own prompt; no connection was made in this sprint): follow `docs/DEPLOY_GUEST.md` from the top:
+   - preflight;
+   - snapshot;
+   - build and copy the image;
+   - `install-guest.sh` (type the **separate server OpenAI key with a monthly spending limit**, created in the OpenAI dashboard);
+   - copy and restore the bundle;
+   - `create-admin.sh`;
+   - `tunnel-url.sh`;
+   - `compare-others.sh`, which must say that nothing of the other project changed.
+3. **Send the supervisor** the public address + `/robot` and `/voice`, and the **access code in a separate private message**. Tell him to allow the microphone when the browser asks.
+4. **On this PC's dev stack**, once: `docker compose exec backend alembic upgrade head`. It adds the empty table `paid_call_days` (migration 0013). I did not run it, because the developer database was not to be touched.
+5. **GitHub:** decide questions 1 and 2. Then the PR, CI, merge, tag `v0.6.0` and the release, following the P0.9 steps above.
+6. **Before showing it:**
+   - In the admin, check that the two placeholder images are rejected (the 2026-11-19 morning checklist in `docs/DEMO.md`). The bundle carries the approvals as they were on the PC.
+   - Play one explainer video over the public address. It was not observed in the browser test.
+
+## Message for the friend
+> Hi! Thanks for letting me use your server. Here is exactly what I will run and what I will never do.
+>
+> **What runs:** one Docker Compose project called `guest`, only in `/srv/guest`, as my own user (no sudo). Four containers: a database, the backend, a backup job and a Cloudflare tunnel. They are limited to 1 GB of memory in total and about 2–3 GB of disk, with log rotation. The backend listens only on `127.0.0.1:8100`. The public HTTPS address comes from the Cloudflare tunnel, which only connects outward, so **no port is opened and your proxy is not touched**.
+>
+> **What I will never do on the server:** apt or Docker upgrades, firewall/SSH/cron/user changes, reboots, any `prune`, or anything on containers, images, volumes or folders that are not `guest`. Before and after every change I compare the start times of your containers (`docker inspect --format` with only name, status and start time, never the full inspect) and stop at once if anything changed.
+>
+> **What you need to do:** nothing. If you ever see the `guest` project using too much memory or disk, or anything looks wrong, you can stop it with `docker compose -p guest down` (only that project) and tell me.
+>
+> **Please never, even when helping:** share the keys or the `/srv/guest/.env` file, publish the database port, or turn off the access code. The OpenAI key there is a separate key with a monthly spending limit, and the backend also caps itself at 500 paid calls a day.
+
+## What is not verified
+- **Nothing ran on the real server:** no connection was made in this sprint. Server installs ran only in containers (Ubuntu 24.04 / Debian 12 with Docker-in-Docker).
+- **Not tested at all:**
+  - real systemd;
+  - a real Let's Encrypt certificate (Caddy path);
+  - nginx mode on a real host;
+  - the interactive prompts of `install.sh` and `install-guest.sh` (hidden key, domain, YES).
+- **Quick tunnel:** Cloudflare gives no uptime guarantee and changes the address whenever `cloudflared` is re-created. It was tested for minutes, not hours. The supervisor's device and network (a different country, a phone browser) were not tried; the browser test was headless Chromium with a fake microphone on this PC.
+- **Explainer video:** not seen playing inside an explainer scene through the tunnel. The video files were fetched with curl (200, range 206).
+- **Memory:** measured with fake providers. The 3 real questions did not change the picture, but no long real run was made.
+- **The 60–100 ms Jordan ↔ Germany round trip:** an estimate, not measured.
+- **The database pool limit** under 20+ simultaneous chats (found, not fixed).
+- **The bash bundle export:** only in Git Bash on Windows, not on real Linux or macOS.
+- **The robot over `wss://`:** tested only against a local test server with a throw-away CA, not against the real address, and not in Chromium on the Pi.
+- **The firmware suite** was not re-run locally in this sprint (unchanged; CI runs it).
