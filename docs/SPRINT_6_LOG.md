@@ -317,3 +317,18 @@ All 8 scripts are bash with `set -euo pipefail` and have `--help`. **shellcheck 
   - Backups: 14 daily dumps of 1.7 MB, plus 2–3 weekly files tarballs of 91 MB. Daily file backups would have been 1.3 GB.
   - The image archive and the bundle in `/srv/guest`, and logs (at most 4 × 30 MB).
 - **State:** `guest-rehearsal` is **stopped but intact** (volumes and images kept), with production settings and real providers. The test conversations, the test admin and today's fake paid-call count were removed from it. 16 silent fake-speech files remain in its speech-cache volume, under fake-only keys that real speech never reads.
+
+### The real OpenAI checks (P0.6 / T4), over the public quick-tunnel address
+The PC backup was started with its one command (`powershell -ExecutionPolicy Bypass -File scripts\guest-rehearsal.ps1 up`, ready in **15 s**, public `https://…trycloudflare.com` address printed), with production settings and the real key.
+1. **FAQ, typed** (`/api/chat`, "قديش مدة دراسة هندسة العمارة؟"): HTTP 200 in 0.1 s, `kind=faq`, 1 source. The approved FAQ matched the exact wording, so no paid call was made.
+2. **Spoken question** over WSS with the visitor cookie (7 s of real Arabic speech, the robot's own cached voice, fed as audio chunks):
+   - transcript after **2.2 s**, word for word right ("وفيها كمان مواد اختيارية بتشمل الطاقة الكهرومائية…");
+   - the first audio after 2.2 s was the short cached "one moment" phrase;
+   - `answer.text` after **5.6 s**, `kind=rag`, `found=true`, answered from the sources (elective courses of Renewable Energy Engineering).
+   
+   The first attempt used a test WAV with no clear speech: speech-to-text returned an empty transcript, and no question reached the model. It counts toward the budget anyway.
+3. **"I don't know", typed** (fees of the Faculty of Pharmacy, outside our scope): HTTP 200 in 9.9 s, `kind=rag`, `found=false`, 0 sources, 0 invented numbers. Answer: "ما عندي معلومات عن سعر الساعة المعتمدة بكلية الصيدلة؛ بتقدر تتواصل مع دائرة القبول والتسجيل للاستفسار."
+
+- **Paid calls counted by the cost guard:** 0 before → 4 → 10 at the end, out of 500 for the day.
+- **Afterwards:** the stack was stopped with `guest-rehearsal.ps1 down`. Its 6 volumes and the images are kept, so the same one command starts it tomorrow. The three test conversations above remain in the rehearsal database (visible in its admin).
+- **Developer database after everything:** all 22 table counts **identical** to the start (compared automatically).
