@@ -461,3 +461,12 @@ The rehearsal ran in parts, each under its own compose project, never the develo
 - **The bash bundle export:** only in Git Bash on Windows, not on real Linux or macOS.
 - **The robot over `wss://`:** tested only against a local test server with a throw-away CA, not against the real address, and not in Chromium on the Pi.
 - **The firmware suite** was not re-run locally in this sprint (unchanged; CI runs it).
+
+## Final CI
+GitHub Actions on `release` at `4bc8caa`: **success**, all 5 jobs:
+- backend (pytest + Postgres/pgvector);
+- robot + firmware tools, Python 3.12 and 3.13;
+- firmware (native tests, sim-check, compile checks);
+- shellcheck (with the guest forbidden-command check).
+
+Run: https://github.com/rraedmohannd/myrobot/actions/runs/44427034888
